@@ -189,7 +189,7 @@ contract GasOptimizationTest is Test {
     function testGasERC20TimelockDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployTimelock(mockERC20Token, 1 days);
+        erc20Factory.deployTimelock(mockERC20Token, 1 days, 30 days, false);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 Timelock Deployment", gasUsed);
@@ -199,7 +199,7 @@ contract GasOptimizationTest is Test {
     function testGasERC20FlashMintDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployFlashMint(mockERC20Token, 1_000_000, 100);
+        erc20Factory.deployFlashMint(mockERC20Token, address(0x123), 100);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 FlashMint Deployment", gasUsed);
@@ -209,7 +209,7 @@ contract GasOptimizationTest is Test {
     function testGasERC20VotesDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployVotes(mockERC20Token);
+        erc20Factory.deployVotes(mockERC20Token, "Gov Token", 1, 50400, 100000 * 10**18, 4);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 Votes Deployment", gasUsed);
@@ -219,7 +219,7 @@ contract GasOptimizationTest is Test {
     function testGasERC20FeesDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployFees(mockERC20Token, 100, feeRecipient);
+        erc20Factory.deployFees(mockERC20Token, feeRecipient, 100);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 Fees Deployment", gasUsed);
@@ -229,7 +229,7 @@ contract GasOptimizationTest is Test {
     function testGasERC20TemporaryApprovalDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployTemporaryApproval(mockERC20Token);
+        erc20Factory.deployTemporaryApproval(mockERC20Token, 7 days, 1 days, 30 days);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 TemporaryApproval Deployment", gasUsed);
@@ -239,7 +239,7 @@ contract GasOptimizationTest is Test {
     function testGasERC20PayableDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployPayable(mockERC20Token);
+        erc20Factory.deployPayable(mockERC20Token, 100000); // 100K gas limit
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 Payable Deployment", gasUsed);
@@ -251,7 +251,7 @@ contract GasOptimizationTest is Test {
     function testGasERC721RoyaltyDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc721Factory.deployRoyalty(mockERC721Token, feeRecipient, 500);
+        erc721Factory.deployRoyalty(mockERC721Token, feeRecipient, 500, 1000); // Added maxRoyaltyCap
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC721 Royalty Deployment", gasUsed);
@@ -261,7 +261,7 @@ contract GasOptimizationTest is Test {
     function testGasERC721SoulboundDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc721Factory.deploySoulbound(mockERC721Token);
+        erc721Factory.deploySoulbound(mockERC721Token, false, true, false, false, 0); // Added 5 params
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC721 Soulbound Deployment", gasUsed);
@@ -271,7 +271,7 @@ contract GasOptimizationTest is Test {
     function testGasERC721RentalDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc721Factory.deployRental(mockERC721Token, 30 days);
+        erc721Factory.deployRental(mockERC721Token, feeRecipient, 250, 1 days, 30 days, 0.01 ether, true, 1000); // Added 5 params
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC721 Rental Deployment", gasUsed);
@@ -281,7 +281,7 @@ contract GasOptimizationTest is Test {
     function testGasERC721FractionalizationDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc721Factory.deployFractionalization(mockERC721Token, address(0x100));
+        erc721Factory.deployFractionalization(mockERC721Token, 100, 10000, 15000, true, 0.001 ether, true); // Changed to numeric params
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC721 Fractionalization Deployment", gasUsed);
@@ -291,7 +291,7 @@ contract GasOptimizationTest is Test {
     function testGasERC721MetadataDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc721Factory.deployMetadata(mockERC721Token);
+        erc721Factory.deployMetadata(mockERC721Token, true, false); // Added 2 boolean params
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC721 Metadata Deployment", gasUsed);
@@ -311,7 +311,7 @@ contract GasOptimizationTest is Test {
     function testGasERC721ConsecutiveDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc721Factory.deployConsecutive(mockERC721Token);
+        erc721Factory.deployConsecutive(mockERC721Token, 1, 100); // Added startTokenId and maxBatchSize
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC721 Consecutive Deployment", gasUsed);
@@ -330,7 +330,7 @@ contract GasOptimizationTest is Test {
         erc20Factory.deployCompliance(mockERC20Token, true, true);
         erc20Factory.deployVesting(mockERC20Token);
         erc20Factory.deploySnapshot(mockERC20Token);
-        erc20Factory.deployVotes(mockERC20Token);
+        erc20Factory.deployVotes(mockERC20Token, "Gov Token", 1, 50400, 100000 * 10**18, 4);
         
         uint256 gasUsed = gasBefore - gasleft();
         
@@ -352,12 +352,12 @@ contract GasOptimizationTest is Test {
         erc20Factory.deployCompliance(mockERC20Token, true, true);
         erc20Factory.deployVesting(mockERC20Token);
         erc20Factory.deploySnapshot(mockERC20Token);
-        erc20Factory.deployTimelock(mockERC20Token, 1 days);
-        erc20Factory.deployFlashMint(mockERC20Token, 1_000_000, 100);
-        erc20Factory.deployVotes(mockERC20Token);
-        erc20Factory.deployFees(mockERC20Token, 100, feeRecipient);
-        erc20Factory.deployTemporaryApproval(mockERC20Token);
-        erc20Factory.deployPayable(mockERC20Token);
+        erc20Factory.deployTimelock(mockERC20Token, 1 days, 30 days, false);
+        erc20Factory.deployFlashMint(mockERC20Token, feeRecipient, 100);
+        erc20Factory.deployVotes(mockERC20Token, "Gov Token", 1, 50400, 100000 * 10**18, 4);
+        erc20Factory.deployFees(mockERC20Token, feeRecipient, 100);
+        erc20Factory.deployTemporaryApproval(mockERC20Token, 7 days, 1 days, 30 days);
+        erc20Factory.deployPayable(mockERC20Token, 100000); // 100K gas limit
         
         uint256 gasUsed = gasBefore - gasleft();
         
@@ -375,13 +375,13 @@ contract GasOptimizationTest is Test {
         uint256 gasBefore = gasleft();
         
         // Deploy all 7 ERC721 extensions
-        erc721Factory.deployRoyalty(mockERC721Token, feeRecipient, 500);
-        erc721Factory.deploySoulbound(mockERC721Token);
-        erc721Factory.deployRental(mockERC721Token, 30 days);
-        erc721Factory.deployFractionalization(mockERC721Token, address(0x100));
-        erc721Factory.deployMetadata(mockERC721Token);
+        erc721Factory.deployRoyalty(mockERC721Token, feeRecipient, 500, 1000); // Added maxRoyaltyCap
+        erc721Factory.deploySoulbound(mockERC721Token, false, true, false, false, 0); // Added 5 params
+        erc721Factory.deployRental(mockERC721Token, feeRecipient, 250, 1 days, 30 days, 0.01 ether, true, 1000); // Added 6 params
+        erc721Factory.deployFractionalization(mockERC721Token, 100, 10000, 15000, true, 0.001 ether, true); // Changed to numeric params
+        erc721Factory.deployMetadata(mockERC721Token, true, false); // Added 2 boolean params
         erc721Factory.deployGranularApproval(mockERC721Token);
-        erc721Factory.deployConsecutive(mockERC721Token);
+        erc721Factory.deployConsecutive(mockERC721Token, 1, 100); // Added startTokenId and maxBatchSize
         
         uint256 gasUsed = gasBefore - gasleft();
         

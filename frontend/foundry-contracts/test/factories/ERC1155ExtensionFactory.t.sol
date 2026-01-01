@@ -108,7 +108,8 @@ contract ERC1155ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address uriExtension = factory.deployURIManagement(
             mockToken,
-            "https://new.test.com/{id}.json"
+            "https://new.test.com/{id}.json",
+            "https://ipfs.io/ipfs/"
         );
         
         assertTrue(uriExtension != address(0), "Extension should be deployed");
@@ -127,7 +128,7 @@ contract ERC1155ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address supplyCapExtension = factory.deploySupplyCap(mockToken);
+        address supplyCapExtension = factory.deploySupplyCap(mockToken, 1000000); // 1M global cap
         
         assertTrue(supplyCapExtension != address(0));
         
@@ -169,8 +170,8 @@ contract ERC1155ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy all 3 extensions
-        address uriExt = factory.deployURIManagement(mockToken, "https://new.test.com/{id}.json");
-        address capExt = factory.deploySupplyCap(mockToken);
+        address uriExt = factory.deployURIManagement(mockToken, "https://new.test.com/{id}.json", "https://ipfs.io/ipfs/");
+        address capExt = factory.deploySupplyCap(mockToken, 1000000);
         address royaltyExt = factory.deployRoyalty(mockToken, royaltyReceiver, 500);
         
         vm.stopPrank();
@@ -192,11 +193,11 @@ contract ERC1155ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy first URI management extension
-        factory.deployURIManagement(mockToken, "https://test.com/{id}.json");
+        factory.deployURIManagement(mockToken, "https://test.com/{id}.json", "https://ipfs.io/ipfs/");
         
         // Try to deploy second - should revert
         vm.expectRevert();
-        factory.deployURIManagement(mockToken, "https://test.com/{id}.json");
+        factory.deployURIManagement(mockToken, "https://test.com/{id}.json", "https://ipfs.io/ipfs/");
         
         vm.stopPrank();
     }
@@ -206,7 +207,7 @@ contract ERC1155ExtensionFactoryTest is Test {
     function testCannotDeployWithoutRegistrarRole() public {
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deployURIManagement(mockToken, "https://test.com/{id}.json");
+        factory.deployURIManagement(mockToken, "https://test.com/{id}.json", "https://ipfs.io/ipfs/");
     }
     
     function testCannotDeployToZeroAddress() public {
@@ -215,7 +216,7 @@ contract ERC1155ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deployURIManagement(address(0), "https://test.com/{id}.json");
+        factory.deployURIManagement(address(0), "https://test.com/{id}.json", "https://ipfs.io/ipfs/");
     }
     
     // ============ Gas Optimization Tests ============
@@ -226,7 +227,7 @@ contract ERC1155ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        factory.deploySupplyCap(mockToken);
+        factory.deploySupplyCap(mockToken, 1000000);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas used for SupplyCap deployment", gasUsed);
@@ -242,8 +243,8 @@ contract ERC1155ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy all extensions
-        factory.deployURIManagement(mockToken, "https://new.com/{id}.json");
-        factory.deploySupplyCap(mockToken);
+        factory.deployURIManagement(mockToken, "https://new.com/{id}.json", "https://ipfs.io/ipfs/");
+        factory.deploySupplyCap(mockToken, 1000000);
         factory.deployRoyalty(mockToken, royaltyReceiver, 500);
         
         vm.stopPrank();

@@ -207,7 +207,9 @@ contract ERC20ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address timelockExtension = factory.deployTimelock(
             mockToken,
-            1 days  // minDelay
+            1 days,  // minDuration
+            30 days, // maxDuration
+            false    // allowExtension
         );
         
         assertTrue(timelockExtension != address(0));
@@ -228,8 +230,8 @@ contract ERC20ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address flashMintExtension = factory.deployFlashMint(
             mockToken,
-            1000000 * 10**18,  // maxFlashLoan
-            100                 // flashFee (1%)
+            address(0x123), // feeRecipient
+            100             // flashFeeBasisPoints (1%)
         );
         
         assertTrue(flashMintExtension != address(0));
@@ -248,7 +250,14 @@ contract ERC20ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address votesExtension = factory.deployVotes(mockToken);
+        address votesExtension = factory.deployVotes(
+            mockToken,
+            "Governance Token", // tokenName
+            1,                  // votingDelay
+            50400,              // votingPeriod
+            100000 * 10**18,    // proposalThreshold
+            4                   // quorumPercentage
+        );
         
         assertTrue(votesExtension != address(0));
         
@@ -268,8 +277,8 @@ contract ERC20ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address feesExtension = factory.deployFees(
             mockToken,
-            100,           // feeBasisPoints (1%)
-            feeRecipient
+            feeRecipient,  // feeRecipient (swapped)
+            100            // feeBasisPoints (1%)
         );
         
         assertTrue(feesExtension != address(0));
@@ -288,7 +297,12 @@ contract ERC20ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address tempApprovalExtension = factory.deployTemporaryApproval(mockToken);
+        address tempApprovalExtension = factory.deployTemporaryApproval(
+            mockToken,
+            1 hours, // defaultDuration
+            5 minutes, // minDuration
+            7 days   // maxDuration
+        );
         
         assertTrue(tempApprovalExtension != address(0));
         
@@ -306,7 +320,7 @@ contract ERC20ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address payableExtension = factory.deployPayable(mockToken);
+        address payableExtension = factory.deployPayable(mockToken, 100000); // 100K gas limit
         
         assertTrue(payableExtension != address(0));
         
@@ -504,7 +518,14 @@ contract ERC20ExtensionFactoryTest is Test {
         address permit = factory.deployPermit(mockToken, "Test Token", "1");
         address compliance = factory.deployCompliance(mockToken, true, true);
         address vesting = factory.deployVesting(mockToken);
-        address votes = factory.deployVotes(mockToken);
+        address votes = factory.deployVotes(
+            mockToken,
+            "Test Governance", // tokenName
+            1,                 // votingDelay
+            50400,             // votingPeriod
+            100000 * 10**18,   // proposalThreshold
+            4                  // quorumPercentage
+        );
         
         vm.stopPrank();
         

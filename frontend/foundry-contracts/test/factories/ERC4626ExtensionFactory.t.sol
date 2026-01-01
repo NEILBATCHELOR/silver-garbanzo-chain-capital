@@ -112,13 +112,11 @@ contract ERC4626ExtensionFactoryTest is Test {
         vm.prank(admin);
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
-        bytes memory params = abi.encode(uint256(10_000)); // Mock params
-        
         vm.prank(deployer);
         address yieldExtension = factory.deployYieldStrategy(
             mockVault,
-            1, // strategyType
-            params
+            86400,    // harvestFrequency (24 hours)
+            500       // rebalanceThreshold (5%)
         );
         
         assertTrue(yieldExtension != address(0), "Extension should be deployed");
@@ -137,7 +135,15 @@ contract ERC4626ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address queueExtension = factory.deployWithdrawalQueue(mockVault);
+        address queueExtension = factory.deployWithdrawalQueue(
+            mockVault,
+            1000 ether,  // liquidityBuffer
+            1000,        // maxQueueSize
+            3600,        // minWithdrawalDelay (1 hour)
+            0,           // minWithdrawalAmount
+            0,           // maxWithdrawalAmount
+            100          // priorityFeeBps (1%)
+        );
         
         assertTrue(queueExtension != address(0));
         
@@ -157,9 +163,9 @@ contract ERC4626ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address feeExtension = factory.deployFeeStrategy(
             mockVault,
-            50,            // depositFee (0.5%)
-            100,           // withdrawalFee (1%)
-            1000,          // performanceFee (10%)
+            100,           // managementFeeBps (1%)
+            2000,          // performanceFeeBps (20%)
+            50,            // withdrawalFeeBps (0.5%)
             feeRecipient
         );
         
@@ -179,7 +185,14 @@ contract ERC4626ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address asyncExtension = factory.deployAsyncVault(mockVault);
+        address asyncExtension = factory.deployAsyncVault(
+            mockVault,
+            86400,     // minimumFulfillmentDelay (24 hours)
+            10,        // maxPendingRequestsPerUser
+            2592000,   // requestExpiry (30 days)
+            0,         // minimumRequestAmount
+            true       // partialFulfillmentEnabled
+        );
         
         assertTrue(asyncExtension != address(0));
         
@@ -197,7 +210,12 @@ contract ERC4626ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address nativeExtension = factory.deployNativeVault(mockVault);
+        address nativeExtension = factory.deployNativeVault(
+            mockVault,
+            address(0x1),  // weth address (mock)
+            true,          // acceptNativeToken
+            true           // unwrapOnWithdrawal
+        );
         
         assertTrue(nativeExtension != address(0));
         
@@ -215,7 +233,12 @@ contract ERC4626ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address routerExtension = factory.deployRouter(mockVault);
+        address routerExtension = factory.deployRouter(
+            mockVault,
+            true,   // allowMultiHop
+            3,      // maxHops
+            100     // slippageTolerance (1%)
+        );
         
         assertTrue(routerExtension != address(0));
         
@@ -232,14 +255,11 @@ contract ERC4626ExtensionFactoryTest is Test {
         vm.prank(admin);
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
-        address[] memory supportedAssets = new address[](2);
-        supportedAssets[0] = address(0x100);
-        supportedAssets[1] = address(0x200);
-        
         vm.prank(deployer);
         address multiAssetExtension = factory.deployMultiAssetVault(
             mockVault,
-            supportedAssets
+            address(0x300),  // priceOracle
+            address(0x400)   // baseAsset
         );
         
         assertTrue(multiAssetExtension != address(0));
@@ -259,12 +279,11 @@ contract ERC4626ExtensionFactoryTest is Test {
         
         vm.startPrank(deployer);
         
-        // Deploy multiple extensions
-        bytes memory params = abi.encode(uint256(10_000));
-        address yieldExt = factory.deployYieldStrategy(mockVault, 1, params);
-        address queueExt = factory.deployWithdrawalQueue(mockVault);
-        address feeExt = factory.deployFeeStrategy(mockVault, 50, 100, 1000, feeRecipient);
-        address asyncExt = factory.deployAsyncVault(mockVault);
+        // Deploy multiple extensions with correct parameters
+        address yieldExt = factory.deployYieldStrategy(mockVault, 86400, 500);
+        address queueExt = factory.deployWithdrawalQueue(mockVault, 1000 ether, 1000, 3600, 0, 0, 100);
+        address feeExt = factory.deployFeeStrategy(mockVault, 100, 2000, 50, feeRecipient);
+        address asyncExt = factory.deployAsyncVault(mockVault, 86400, 10, 2592000, 0, true);
         
         vm.stopPrank();
         
@@ -280,11 +299,11 @@ contract ERC4626ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy first withdrawal queue
-        factory.deployWithdrawalQueue(mockVault);
+        factory.deployWithdrawalQueue(mockVault, 1000 ether, 1000, 3600, 0, 0, 100);
         
         // Try to deploy second - should revert
         vm.expectRevert();
-        factory.deployWithdrawalQueue(mockVault);
+        factory.deployWithdrawalQueue(mockVault, 1000 ether, 1000, 3600, 0, 0, 100);
         
         vm.stopPrank();
     }
@@ -294,7 +313,7 @@ contract ERC4626ExtensionFactoryTest is Test {
     function testCannotDeployWithoutRegistrarRole() public {
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deployWithdrawalQueue(mockVault);
+        factory.deployWithdrawalQueue(mockVault, 1000 ether, 1000, 3600, 0, 0, 100);
     }
     
     function testCannotDeployToZeroAddress() public {
@@ -303,7 +322,7 @@ contract ERC4626ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deployWithdrawalQueue(address(0));
+        factory.deployWithdrawalQueue(address(0), 1000 ether, 1000, 3600, 0, 0, 100);
     }
     
     // ============ Gas Optimization Tests ============
@@ -314,7 +333,7 @@ contract ERC4626ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        factory.deployWithdrawalQueue(mockVault);
+        factory.deployWithdrawalQueue(mockVault, 1000 ether, 1000, 3600, 0, 0, 100);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas used for WithdrawalQueue deployment", gasUsed);
@@ -329,11 +348,10 @@ contract ERC4626ExtensionFactoryTest is Test {
         
         vm.startPrank(deployer);
         
-        // Deploy vault with multiple extensions
-        bytes memory params = abi.encode(uint256(10_000));
-        factory.deployYieldStrategy(mockVault, 1, params);
-        factory.deployWithdrawalQueue(mockVault);
-        factory.deployFeeStrategy(mockVault, 50, 100, 1000, feeRecipient);
+        // Deploy vault with multiple extensions with correct parameters
+        factory.deployYieldStrategy(mockVault, 86400, 500);
+        factory.deployWithdrawalQueue(mockVault, 1000 ether, 1000, 3600, 0, 0, 100);
+        factory.deployFeeStrategy(mockVault, 100, 2000, 50, feeRecipient);
         
         vm.stopPrank();
         

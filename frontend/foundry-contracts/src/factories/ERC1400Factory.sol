@@ -321,14 +321,14 @@ contract ERC1400Factory is FactoryBase {
     /**
      * @notice Attach Controller extension for centralized regulatory control
      * @param token Token address to attach extension to
-     * @param controllers Array of authorized controller addresses
+     * @param controllable Whether token is controllable by authorized controllers
      * @return extension Deployed extension address
      */
     function attachController(
         address token,
-        address[] memory controllers
+        bool controllable
     ) external returns (address extension) {
-        return extensionFactory.deployController(token, controllers);
+        return extensionFactory.deployController(token, controllable);
     }
     
     /**
@@ -343,13 +343,11 @@ contract ERC1400Factory is FactoryBase {
     /**
      * @notice Attach TransferRestrictions extension for partition-based transfer control
      * @param token Token address to attach extension to
-     * @param defaultPartitions Array of default partition names
      * @return extension Deployed extension address
      */
     function attachTransferRestrictions(
-        address token,
-        bytes32[] memory defaultPartitions
+        address token
     ) external returns (address extension) {
-        return extensionFactory.deployTransferRestrictions(token, defaultPartitions);
+        return extensionFactory.deployTransferRestrictions(token);
     }
 }

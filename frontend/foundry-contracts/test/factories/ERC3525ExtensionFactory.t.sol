@@ -107,7 +107,12 @@ contract ERC3525ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address slotManagerExtension = factory.deploySlotManager(mockToken);
+        address slotManagerExtension = factory.deploySlotManager(
+            mockToken,
+            true,  // allowDynamicSlotCreation
+            false, // restrictCrossSlot
+            true   // allowSlotMerging
+        );
         
         assertTrue(slotManagerExtension != address(0), "Extension should be deployed");
         
@@ -144,8 +149,7 @@ contract ERC3525ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         address valueExchangeExtension = factory.deployValueExchange(
-            mockToken,
-            100 // exchangeFee (1%)
+            mockToken
         );
         
         assertTrue(valueExchangeExtension != address(0));
@@ -166,9 +170,9 @@ contract ERC3525ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy all 3 extensions
-        address slotMgrExt = factory.deploySlotManager(mockToken);
+        address slotMgrExt = factory.deploySlotManager(mockToken, true, false, true);
         address slotAppExt = factory.deploySlotApprovable(mockToken);
-        address valueExExt = factory.deployValueExchange(mockToken, 100);
+        address valueExExt = factory.deployValueExchange(mockToken);
         
         vm.stopPrank();
         
@@ -189,11 +193,11 @@ contract ERC3525ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy first slot manager extension
-        factory.deploySlotManager(mockToken);
+        factory.deploySlotManager(mockToken, true, false, true);
         
         // Try to deploy second - should revert
         vm.expectRevert();
-        factory.deploySlotManager(mockToken);
+        factory.deploySlotManager(mockToken, true, false, true);
         
         vm.stopPrank();
     }
@@ -203,7 +207,7 @@ contract ERC3525ExtensionFactoryTest is Test {
     function testCannotDeployWithoutRegistrarRole() public {
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deploySlotManager(mockToken);
+        factory.deploySlotManager(mockToken, true, false, true);
     }
     
     function testCannotDeployToZeroAddress() public {
@@ -212,7 +216,7 @@ contract ERC3525ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deploySlotManager(address(0));
+        factory.deploySlotManager(address(0), true, false, true);
     }
     
     // ============ Gas Optimization Tests ============
@@ -223,7 +227,7 @@ contract ERC3525ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        factory.deploySlotManager(mockToken);
+        factory.deploySlotManager(mockToken, true, false, true);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas used for SlotManager deployment", gasUsed);
@@ -239,9 +243,9 @@ contract ERC3525ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy all extensions
-        factory.deploySlotManager(mockToken);
+        factory.deploySlotManager(mockToken, true, false, true);
         factory.deploySlotApprovable(mockToken);
-        factory.deployValueExchange(mockToken, 100);
+        factory.deployValueExchange(mockToken);
         
         vm.stopPrank();
         

@@ -288,48 +288,70 @@ contract ERC4626Factory is FactoryBase {
     /**
      * @notice Attach YieldStrategy extension for vault yield generation
      * @param vault Vault address to attach extension to
-     * @param strategyType Type of yield strategy
-     * @param strategyParams Strategy-specific parameters
+     * @param harvestFrequency How often yields are harvested (seconds)
+     * @param rebalanceThreshold Threshold to trigger rebalancing (basis points)
      * @return extension Deployed extension address
      */
     function attachYieldStrategy(
         address vault,
-        uint8 strategyType,
-        bytes memory strategyParams
+        uint256 harvestFrequency,
+        uint256 rebalanceThreshold
     ) external returns (address extension) {
-        return extensionFactory.deployYieldStrategy(vault, strategyType, strategyParams);
+        return extensionFactory.deployYieldStrategy(vault, harvestFrequency, rebalanceThreshold);
     }
     
     /**
      * @notice Attach WithdrawalQueue extension for ordered withdrawal management
      * @param vault Vault address to attach extension to
+     * @param liquidityBuffer Reserve liquidity buffer
+     * @param maxQueueSize Maximum pending withdrawals
+     * @param minWithdrawalDelay Minimum delay before processing
+     * @param minWithdrawalAmount Minimum withdrawal amount
+     * @param maxWithdrawalAmount Maximum withdrawal amount
+     * @param priorityFeeBps Priority processing fee in basis points
      * @return extension Deployed extension address
      */
-    function attachWithdrawalQueue(address vault) external returns (address extension) {
-        return extensionFactory.deployWithdrawalQueue(vault);
+    function attachWithdrawalQueue(
+        address vault,
+        uint256 liquidityBuffer,
+        uint256 maxQueueSize,
+        uint256 minWithdrawalDelay,
+        uint256 minWithdrawalAmount,
+        uint256 maxWithdrawalAmount,
+        uint256 priorityFeeBps
+    ) external returns (address extension) {
+        return extensionFactory.deployWithdrawalQueue(
+            vault,
+            liquidityBuffer,
+            maxQueueSize,
+            minWithdrawalDelay,
+            minWithdrawalAmount,
+            maxWithdrawalAmount,
+            priorityFeeBps
+        );
     }
     
     /**
      * @notice Attach FeeStrategy extension for vault fee management
      * @param vault Vault address to attach extension to
-     * @param depositFee Deposit fee (in basis points)
-     * @param withdrawalFee Withdrawal fee (in basis points)
-     * @param performanceFee Performance fee (in basis points)
+     * @param managementFeeBps Annual management fee in basis points
+     * @param performanceFeeBps Performance fee in basis points
+     * @param withdrawalFeeBps Withdrawal fee in basis points
      * @param feeRecipient Address to receive fees
      * @return extension Deployed extension address
      */
     function attachFeeStrategy(
         address vault,
-        uint256 depositFee,
-        uint256 withdrawalFee,
-        uint256 performanceFee,
+        uint256 managementFeeBps,
+        uint256 performanceFeeBps,
+        uint256 withdrawalFeeBps,
         address feeRecipient
     ) external returns (address extension) {
         return extensionFactory.deployFeeStrategy(
             vault,
-            depositFee,
-            withdrawalFee,
-            performanceFee,
+            managementFeeBps,
+            performanceFeeBps,
+            withdrawalFeeBps,
             feeRecipient
         );
     }
@@ -337,40 +359,77 @@ contract ERC4626Factory is FactoryBase {
     /**
      * @notice Attach AsyncVault extension for EIP-7540 async deposits/withdrawals
      * @param vault Vault address to attach extension to
+     * @param minimumFulfillmentDelay Minimum time before fulfillment
+     * @param maxPendingRequestsPerUser Maximum pending requests per user
+     * @param requestExpiry Request expiration time
+     * @param minimumRequestAmount Minimum request amount
+     * @param partialFulfillmentEnabled Allow partial fulfillment
      * @return extension Deployed extension address
      */
-    function attachAsyncVault(address vault) external returns (address extension) {
-        return extensionFactory.deployAsyncVault(vault);
+    function attachAsyncVault(
+        address vault,
+        uint256 minimumFulfillmentDelay,
+        uint256 maxPendingRequestsPerUser,
+        uint256 requestExpiry,
+        uint256 minimumRequestAmount,
+        bool partialFulfillmentEnabled
+    ) external returns (address extension) {
+        return extensionFactory.deployAsyncVault(
+            vault,
+            minimumFulfillmentDelay,
+            maxPendingRequestsPerUser,
+            requestExpiry,
+            minimumRequestAmount,
+            partialFulfillmentEnabled
+        );
     }
     
     /**
      * @notice Attach NativeVault extension for EIP-7535 native token wrapping
      * @param vault Vault address to attach extension to
+     * @param weth WETH contract address
+     * @param acceptNativeToken Enable native ETH deposits
+     * @param unwrapOnWithdrawal Auto-unwrap to ETH on withdrawal
      * @return extension Deployed extension address
      */
-    function attachNativeVault(address vault) external returns (address extension) {
-        return extensionFactory.deployNativeVault(vault);
+    function attachNativeVault(
+        address vault,
+        address weth,
+        bool acceptNativeToken,
+        bool unwrapOnWithdrawal
+    ) external returns (address extension) {
+        return extensionFactory.deployNativeVault(vault, weth, acceptNativeToken, unwrapOnWithdrawal);
     }
     
     /**
      * @notice Attach Router extension for vault routing functionality
      * @param vault Vault address to attach extension to
+     * @param allowMultiHop Enable multi-hop routing
+     * @param maxHops Maximum routing hops
+     * @param slippageTolerance Maximum slippage tolerance
      * @return extension Deployed extension address
      */
-    function attachRouter(address vault) external returns (address extension) {
-        return extensionFactory.deployRouter(vault);
+    function attachRouter(
+        address vault,
+        bool allowMultiHop,
+        uint256 maxHops,
+        uint256 slippageTolerance
+    ) external returns (address extension) {
+        return extensionFactory.deployRouter(vault, allowMultiHop, maxHops, slippageTolerance);
     }
     
     /**
      * @notice Attach MultiAssetVault extension for EIP-7575 multi-asset support
      * @param vault Vault address to attach extension to
-     * @param supportedAssets Array of supported asset addresses
+     * @param priceOracle Oracle contract for asset pricing
+     * @param baseAsset Base asset for value calculations
      * @return extension Deployed extension address
      */
     function attachMultiAssetVault(
         address vault,
-        address[] memory supportedAssets
+        address priceOracle,
+        address baseAsset
     ) external returns (address extension) {
-        return extensionFactory.deployMultiAssetVault(vault, supportedAssets);
+        return extensionFactory.deployMultiAssetVault(vault, priceOracle, baseAsset);
     }
 }

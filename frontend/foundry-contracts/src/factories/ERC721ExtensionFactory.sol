@@ -107,12 +107,14 @@ contract ERC721ExtensionFactory is ExtensionBase {
      * @param token Token address to attach extension to
      * @param defaultRoyaltyReceiver Default royalty recipient address
      * @param defaultRoyaltyPercentage Default royalty percentage in basis points (e.g., 500 = 5%)
+     * @param maxRoyaltyCap Maximum royalty cap in basis points
      * @return extension Deployed extension address
      */
     function deployRoyalty(
         address token,
         address defaultRoyaltyReceiver,
-        uint96 defaultRoyaltyPercentage
+        uint96 defaultRoyaltyPercentage,
+        uint96 maxRoyaltyCap
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(royaltyBeacon != address(0), "Beacon not initialized");
@@ -120,10 +122,10 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC721RoyaltyModule.initialize.selector,
-            msg.sender,  // admin
-            token,
-            defaultRoyaltyReceiver,
-            defaultRoyaltyPercentage
+            msg.sender,                 // admin
+            defaultRoyaltyReceiver,     // defaultReceiver (FIXED: correct order)
+            defaultRoyaltyPercentage,   // defaultFeeNumerator (FIXED: correct order)
+            maxRoyaltyCap              // maxRoyaltyCap (ADDED)
         );
         
         // Deploy via beacon
@@ -147,10 +149,20 @@ contract ERC721ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Soulbound extension for non-transferable tokens
      * @param token Token address to attach extension to
+     * @param allowOneTimeTransfer Allow one-time transfer after minting
+     * @param burnableByOwner Allow token owner to burn
+     * @param burnableByIssuer Allow issuer to burn
+     * @param expirationEnabled Enable token expiration
+     * @param expirationPeriod Expiration period in seconds
      * @return extension Deployed extension address
      */
     function deploySoulbound(
-        address token
+        address token,
+        bool allowOneTimeTransfer,
+        bool burnableByOwner,
+        bool burnableByIssuer,
+        bool expirationEnabled,
+        uint256 expirationPeriod
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(soulboundBeacon != address(0), "Beacon not initialized");
@@ -158,8 +170,12 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC721SoulboundModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            msg.sender,            // admin
+            allowOneTimeTransfer,  // allowOneTimeTransfer (ADDED)
+            burnableByOwner,       // burnableByOwner (ADDED)
+            burnableByIssuer,      // burnableByIssuer (ADDED)
+            expirationEnabled,     // expirationEnabled (ADDED)
+            expirationPeriod       // expirationPeriod (ADDED)
         );
         
         // Deploy via beacon
@@ -183,12 +199,24 @@ contract ERC721ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Rental extension for NFT rentals
      * @param token Token address to attach extension to
+     * @param feeRecipient Platform fee recipient address
+     * @param platformFeeBps Platform fee in basis points
+     * @param minRentalDuration Minimum rental duration in seconds
      * @param maxRentalDuration Maximum rental duration in seconds
+     * @param minRentalPrice Minimum rental price in wei
+     * @param depositRequired Whether deposit is required
+     * @param minDepositBps Minimum deposit in basis points
      * @return extension Deployed extension address
      */
     function deployRental(
         address token,
-        uint256 maxRentalDuration
+        address feeRecipient,
+        uint256 platformFeeBps,
+        uint256 minRentalDuration,
+        uint256 maxRentalDuration,
+        uint256 minRentalPrice,
+        bool depositRequired,
+        uint256 minDepositBps
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(rentalBeacon != address(0), "Beacon not initialized");
@@ -196,9 +224,14 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC721RentalModule.initialize.selector,
-            msg.sender,  // admin
-            token,
-            maxRentalDuration
+            msg.sender,            // admin
+            feeRecipient,          // recipient (ADDED)
+            platformFeeBps,        // feeBps (ADDED)
+            minRentalDuration,     // minDuration (ADDED)
+            maxRentalDuration,     // maxDuration (FIXED: correct position)
+            minRentalPrice,        // minPrice (ADDED)
+            depositRequired,       // requireDeposit (ADDED)
+            minDepositBps          // depositBps (ADDED)
         );
         
         // Deploy via beacon
@@ -222,12 +255,22 @@ contract ERC721ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Fractionalization extension for fractional ownership
      * @param token Token address to attach extension to
-     * @param fractionToken Address of ERC20 token for fractions
+     * @param minFractions Minimum number of fractions
+     * @param maxFractions Maximum number of fractions
+     * @param buyoutMultiplierBps Buyout price multiplier in basis points
+     * @param redemptionEnabled Enable fraction redemption
+     * @param fractionPrice Price per fraction in wei
+     * @param tradingEnabled Enable fraction trading
      * @return extension Deployed extension address
      */
     function deployFractionalization(
         address token,
-        address fractionToken
+        uint256 minFractions,
+        uint256 maxFractions,
+        uint256 buyoutMultiplierBps,
+        bool redemptionEnabled,
+        uint256 fractionPrice,
+        bool tradingEnabled
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(fractionBeacon != address(0), "Beacon not initialized");
@@ -235,9 +278,14 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC721FractionModule.initialize.selector,
-            msg.sender,  // admin
-            token,
-            fractionToken
+            msg.sender,             // admin
+            token,                  // _nftContract
+            minFractions,           // minFractions (FIXED: changed from address to uint256)
+            maxFractions,           // maxFractions (ADDED)
+            buyoutMultiplierBps,    // buyoutMultiplierBps (ADDED)
+            redemptionEnabled,      // redemptionEnabled (ADDED)
+            fractionPrice,          // fractionPrice (ADDED)
+            tradingEnabled          // tradingEnabled (ADDED)
         );
         
         // Deploy via beacon
@@ -261,10 +309,14 @@ contract ERC721ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Metadata extension for EIP-4906 metadata update events
      * @param token Token address to attach extension to
+     * @param batchUpdatesEnabled Enable batch metadata updates
+     * @param emitOnTransfer Emit metadata update events on transfer
      * @return extension Deployed extension address
      */
     function deployMetadata(
-        address token
+        address token,
+        bool batchUpdatesEnabled,
+        bool emitOnTransfer
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(metadataBeacon != address(0), "Beacon not initialized");
@@ -272,8 +324,10 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC4906MetadataModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            token,                // tokenContract (FIXED: swapped order)
+            msg.sender,           // admin (FIXED: swapped order)
+            batchUpdatesEnabled,  // batchUpdatesEnabled (ADDED)
+            emitOnTransfer        // emitOnTransfer (ADDED)
         );
         
         // Deploy via beacon
@@ -308,8 +362,8 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC5216GranularApprovalModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            token,       // tokenContract (FIXED: swapped order)
+            msg.sender   // admin (FIXED: swapped order)
         );
         
         // Deploy via beacon
@@ -333,10 +387,14 @@ contract ERC721ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Consecutive extension for EIP-2309 batch minting
      * @param token Token address to attach extension to
+     * @param startTokenId Starting token ID for consecutive minting
+     * @param maxBatchSize Maximum batch size for consecutive minting
      * @return extension Deployed extension address
      */
     function deployConsecutive(
-        address token
+        address token,
+        uint256 startTokenId,
+        uint256 maxBatchSize
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(consecutiveBeacon != address(0), "Beacon not initialized");
@@ -344,8 +402,10 @@ contract ERC721ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC721ConsecutiveModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            msg.sender,     // admin
+            token,          // _nftContract
+            startTokenId,   // startTokenId (ADDED)
+            maxBatchSize    // maxBatchSize (ADDED)
         );
         
         // Deploy via beacon

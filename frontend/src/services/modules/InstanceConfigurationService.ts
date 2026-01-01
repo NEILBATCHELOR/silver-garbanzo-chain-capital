@@ -382,12 +382,17 @@ export class InstanceConfigurationService {
       
       if (config.supply_cap_enabled) {
         selection.supplyCap = true;
-        selection.supplyCapConfig = { defaultCap: config.max_supply_per_type || 0 };
+        selection.supplyCapConfig = { 
+          globalCap: config.global_cap || config.max_supply_per_type || 0,
+          defaultCap: config.max_supply_per_type || 0 // Deprecated, keeping for backward compatibility
+        };
       }
       
       if (config.uri_management || config.uri_management_enabled) {
         selection.uriManagement = true;
-        selection.uriManagementConfig = { baseURI: config.base_uri || '' };
+        selection.uriManagementConfig = { 
+          baseURI: config.base_uri || ''
+        };
       }
     }
 
@@ -396,13 +401,17 @@ export class InstanceConfigurationService {
       if (config.slot_approvable) selection.slotApprovable = true;
       if (config.slot_manager) {
         selection.slotManager = true;
-        selection.slotManagerConfig = config.slot_manager_config || {};
+        selection.slotManagerConfig = {
+          allowDynamicSlotCreation: config.allow_dynamic_slot_creation ?? true,
+          restrictCrossSlot: config.restrict_cross_slot ?? false,
+          allowSlotMerging: config.allow_slot_merging ?? false,
+          ...(config.slot_manager_config || {})
+        };
       }
       if (config.value_exchange || config.partial_value_trading) {
         selection.valueExchange = true;
-        selection.valueExchangeConfig = {
-          exchangeFeeBps: Math.round((parseFloat(config.trading_fee_percentage) || 0) * 100)
-        };
+        // Note: Exchange rates configured post-deployment via setExchangeRate(fromSlot, toSlot, rate)
+        selection.valueExchangeConfig = config.value_exchange_config || {};
       }
     }
 

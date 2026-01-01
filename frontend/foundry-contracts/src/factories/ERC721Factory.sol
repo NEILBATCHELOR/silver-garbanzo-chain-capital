@@ -287,58 +287,124 @@ contract ERC721Factory is FactoryBase {
      * @param token Token address to attach extension to
      * @param defaultRoyaltyReceiver Default royalty recipient address
      * @param defaultRoyaltyPercentage Default royalty percentage in basis points (e.g., 500 = 5%)
+     * @param maxRoyaltyCap Maximum royalty cap in basis points
      * @return extension Deployed extension address
      */
     function attachRoyalty(
         address token,
         address defaultRoyaltyReceiver,
-        uint96 defaultRoyaltyPercentage
+        uint96 defaultRoyaltyPercentage,
+        uint96 maxRoyaltyCap
     ) external returns (address extension) {
-        return extensionFactory.deployRoyalty(token, defaultRoyaltyReceiver, defaultRoyaltyPercentage);
+        return extensionFactory.deployRoyalty(token, defaultRoyaltyReceiver, defaultRoyaltyPercentage, maxRoyaltyCap);
     }
     
     /**
      * @notice Attach Soulbound extension for non-transferable tokens
      * @param token Token address to attach extension to
+     * @param allowOneTimeTransfer Allow one-time transfer after minting
+     * @param burnableByOwner Allow token owner to burn
+     * @param burnableByIssuer Allow issuer to burn
+     * @param expirationEnabled Enable token expiration
+     * @param expirationPeriod Expiration period in seconds
      * @return extension Deployed extension address
      */
-    function attachSoulbound(address token) external returns (address extension) {
-        return extensionFactory.deploySoulbound(token);
+    function attachSoulbound(
+        address token,
+        bool allowOneTimeTransfer,
+        bool burnableByOwner,
+        bool burnableByIssuer,
+        bool expirationEnabled,
+        uint256 expirationPeriod
+    ) external returns (address extension) {
+        return extensionFactory.deploySoulbound(
+            token,
+            allowOneTimeTransfer,
+            burnableByOwner,
+            burnableByIssuer,
+            expirationEnabled,
+            expirationPeriod
+        );
     }
     
     /**
      * @notice Attach Rental extension for NFT rentals
      * @param token Token address to attach extension to
+     * @param feeRecipient Platform fee recipient address
+     * @param platformFeeBps Platform fee in basis points
+     * @param minRentalDuration Minimum rental duration in seconds
      * @param maxRentalDuration Maximum rental duration in seconds
+     * @param minRentalPrice Minimum rental price in wei
+     * @param depositRequired Whether deposit is required
+     * @param minDepositBps Minimum deposit in basis points
      * @return extension Deployed extension address
      */
     function attachRental(
         address token,
-        uint256 maxRentalDuration
+        address feeRecipient,
+        uint256 platformFeeBps,
+        uint256 minRentalDuration,
+        uint256 maxRentalDuration,
+        uint256 minRentalPrice,
+        bool depositRequired,
+        uint256 minDepositBps
     ) external returns (address extension) {
-        return extensionFactory.deployRental(token, maxRentalDuration);
+        return extensionFactory.deployRental(
+            token,
+            feeRecipient,
+            platformFeeBps,
+            minRentalDuration,
+            maxRentalDuration,
+            minRentalPrice,
+            depositRequired,
+            minDepositBps
+        );
     }
     
     /**
      * @notice Attach Fractionalization extension for fractional ownership
      * @param token Token address to attach extension to
-     * @param fractionToken Address of ERC20 token for fractions
+     * @param minFractions Minimum number of fractions
+     * @param maxFractions Maximum number of fractions
+     * @param buyoutMultiplierBps Buyout price multiplier in basis points
+     * @param redemptionEnabled Enable fraction redemption
+     * @param fractionPrice Price per fraction in wei
+     * @param tradingEnabled Enable fraction trading
      * @return extension Deployed extension address
      */
     function attachFractionalization(
         address token,
-        address fractionToken
+        uint256 minFractions,
+        uint256 maxFractions,
+        uint256 buyoutMultiplierBps,
+        bool redemptionEnabled,
+        uint256 fractionPrice,
+        bool tradingEnabled
     ) external returns (address extension) {
-        return extensionFactory.deployFractionalization(token, fractionToken);
+        return extensionFactory.deployFractionalization(
+            token,
+            minFractions,
+            maxFractions,
+            buyoutMultiplierBps,
+            redemptionEnabled,
+            fractionPrice,
+            tradingEnabled
+        );
     }
     
     /**
      * @notice Attach Metadata extension for EIP-4906 metadata update events
      * @param token Token address to attach extension to
+     * @param batchUpdatesEnabled Enable batch metadata updates
+     * @param emitOnTransfer Emit metadata update events on transfer
      * @return extension Deployed extension address
      */
-    function attachMetadata(address token) external returns (address extension) {
-        return extensionFactory.deployMetadata(token);
+    function attachMetadata(
+        address token,
+        bool batchUpdatesEnabled,
+        bool emitOnTransfer
+    ) external returns (address extension) {
+        return extensionFactory.deployMetadata(token, batchUpdatesEnabled, emitOnTransfer);
     }
     
     /**
@@ -353,9 +419,15 @@ contract ERC721Factory is FactoryBase {
     /**
      * @notice Attach Consecutive extension for EIP-2309 batch minting
      * @param token Token address to attach extension to
+     * @param startTokenId Starting token ID for consecutive minting
+     * @param maxBatchSize Maximum batch size for consecutive minting
      * @return extension Deployed extension address
      */
-    function attachConsecutive(address token) external returns (address extension) {
-        return extensionFactory.deployConsecutive(token);
+    function attachConsecutive(
+        address token,
+        uint256 startTokenId,
+        uint256 maxBatchSize
+    ) external returns (address extension) {
+        return extensionFactory.deployConsecutive(token, startTokenId, maxBatchSize);
     }
 }

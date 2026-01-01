@@ -78,11 +78,13 @@ contract ERC1155ExtensionFactory is ExtensionBase {
      * @notice Deploy URI Management extension for dynamic URIs
      * @param token Token address to attach extension to
      * @param baseURI Base URI for token metadata
+     * @param ipfsGateway IPFS gateway URL for decentralized storage
      * @return extension Deployed extension address
      */
     function deployURIManagement(
         address token,
-        string memory baseURI
+        string memory baseURI,
+        string memory ipfsGateway
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(uriManagementBeacon != address(0), "Beacon not initialized");
@@ -90,9 +92,9 @@ contract ERC1155ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC1155URIModule.initialize.selector,
-            msg.sender,  // admin
-            token,
-            baseURI
+            msg.sender,   // admin
+            baseURI,      // baseURI_
+            ipfsGateway   // ipfsGateway_
         );
         
         // Deploy via beacon
@@ -116,10 +118,12 @@ contract ERC1155ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Supply Cap extension for per-ID supply limits
      * @param token Token address to attach extension to
+     * @param globalCap Global supply cap for all token IDs
      * @return extension Deployed extension address
      */
     function deploySupplyCap(
-        address token
+        address token,
+        uint256 globalCap
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(supplyCapBeacon != address(0), "Beacon not initialized");
@@ -128,7 +132,7 @@ contract ERC1155ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC1155SupplyCapModule.initialize.selector,
             msg.sender,  // admin
-            token
+            globalCap    // globalCap_
         );
         
         // Deploy via beacon
@@ -167,10 +171,9 @@ contract ERC1155ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC1155RoyaltyModule.initialize.selector,
-            msg.sender,  // admin
-            token,
-            defaultReceiver,
-            defaultFeeNumerator
+            msg.sender,          // admin
+            defaultReceiver,     // defaultReceiver
+            defaultFeeNumerator  // defaultFeeNumerator
         );
         
         // Deploy via beacon

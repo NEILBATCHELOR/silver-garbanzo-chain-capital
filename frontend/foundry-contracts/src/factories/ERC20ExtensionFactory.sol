@@ -184,7 +184,6 @@ contract ERC20ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC20ComplianceModule.initialize.selector,
             msg.sender,  // admin
-            token,
             requireKYC,
             whitelistEnabled
         );
@@ -282,12 +281,16 @@ contract ERC20ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Timelock extension for delayed transfers
      * @param token Token address to attach extension to
-     * @param minDelay Minimum timelock delay in seconds
+     * @param minDuration Minimum timelock duration in seconds
+     * @param maxDuration Maximum timelock duration in seconds
+     * @param allowExtension Whether to allow duration extension
      * @return extension Deployed extension address
      */
     function deployTimelock(
         address token,
-        uint256 minDelay
+        uint256 minDuration,
+        uint256 maxDuration,
+        bool allowExtension
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(timelockBeacon != address(0), "Beacon not initialized");
@@ -297,7 +300,9 @@ contract ERC20ExtensionFactory is ExtensionBase {
             ERC20TimelockModule.initialize.selector,
             msg.sender,  // admin
             token,
-            minDelay
+            minDuration,
+            maxDuration,
+            allowExtension
         );
         
         // Deploy via beacon
@@ -321,14 +326,14 @@ contract ERC20ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy FlashMint extension for flash loans
      * @param token Token address to attach extension to
-     * @param maxFlashLoan Maximum flash loan amount
-     * @param flashFee Flash loan fee (in basis points)
+     * @param feeRecipient Address to receive flash loan fees
+     * @param flashFeeBasisPoints Flash loan fee in basis points
      * @return extension Deployed extension address
      */
     function deployFlashMint(
         address token,
-        uint256 maxFlashLoan,
-        uint256 flashFee
+        address feeRecipient,
+        uint256 flashFeeBasisPoints
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(flashMintBeacon != address(0), "Beacon not initialized");
@@ -338,8 +343,8 @@ contract ERC20ExtensionFactory is ExtensionBase {
             ERC20FlashMintModule.initialize.selector,
             msg.sender,  // admin
             token,
-            maxFlashLoan,
-            flashFee
+            feeRecipient,
+            flashFeeBasisPoints
         );
         
         // Deploy via beacon
@@ -363,10 +368,20 @@ contract ERC20ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Votes extension for governance
      * @param token Token address to attach extension to
+     * @param tokenName Name for the governance token
+     * @param votingDelay Delay before voting starts (in blocks)
+     * @param votingPeriod Duration of voting period (in blocks)
+     * @param proposalThreshold Minimum tokens required to create proposal
+     * @param quorumPercentage Percentage of votes required for quorum
      * @return extension Deployed extension address
      */
     function deployVotes(
-        address token
+        address token,
+        string memory tokenName,
+        uint256 votingDelay,
+        uint256 votingPeriod,
+        uint256 proposalThreshold,
+        uint256 quorumPercentage
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(votesBeacon != address(0), "Beacon not initialized");
@@ -375,7 +390,11 @@ contract ERC20ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC20VotesModule.initialize.selector,
             msg.sender,  // admin
-            token
+            tokenName,
+            votingDelay,
+            votingPeriod,
+            proposalThreshold,
+            quorumPercentage
         );
         
         // Deploy via beacon
@@ -399,14 +418,14 @@ contract ERC20ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Fees extension for transfer fees
      * @param token Token address to attach extension to
-     * @param feePercent Fee percentage (in basis points)
      * @param feeRecipient Address to receive fees
+     * @param feePercent Fee percentage (in basis points)
      * @return extension Deployed extension address
      */
     function deployFees(
         address token,
-        uint256 feePercent,
-        address feeRecipient
+        address feeRecipient,
+        uint256 feePercent
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(feesBeacon != address(0), "Beacon not initialized");
@@ -416,8 +435,8 @@ contract ERC20ExtensionFactory is ExtensionBase {
             ERC20FeeModule.initialize.selector,
             msg.sender,  // admin
             token,
-            feePercent,
-            feeRecipient
+            feeRecipient,
+            feePercent
         );
         
         // Deploy via beacon
@@ -441,10 +460,16 @@ contract ERC20ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy TemporaryApproval extension for time-limited approvals
      * @param token Token address to attach extension to
+     * @param defaultDuration Default approval duration in seconds
+     * @param minDuration Minimum approval duration in seconds
+     * @param maxDuration Maximum approval duration in seconds
      * @return extension Deployed extension address
      */
     function deployTemporaryApproval(
-        address token
+        address token,
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(temporaryApprovalBeacon != address(0), "Beacon not initialized");
@@ -453,7 +478,9 @@ contract ERC20ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC20TemporaryApprovalModule.initialize.selector,
             msg.sender,  // admin
-            token
+            defaultDuration,
+            minDuration,
+            maxDuration
         );
         
         // Deploy via beacon
@@ -477,10 +504,12 @@ contract ERC20ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Payable extension for ERC-1363 payable token
      * @param token Token address to attach extension to
+     * @param callbackGasLimit Gas limit for callback executions (0 = default 100K)
      * @return extension Deployed extension address
      */
     function deployPayable(
-        address token
+        address token,
+        uint256 callbackGasLimit
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(payableBeacon != address(0), "Beacon not initialized");
@@ -488,8 +517,9 @@ contract ERC20ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC1363PayableToken.initialize.selector,
-            msg.sender,  // admin
-            token
+            msg.sender,         // admin
+            token,              // tokenContract
+            callbackGasLimit    // callbackGasLimit
         );
         
         // Deploy via beacon

@@ -287,7 +287,7 @@ contract SecurityTest is Test {
         // This should fail compatibility check
         vm.prank(deployer);
         vm.expectRevert();
-        erc721Factory.deployRoyalty(mockToken, address(5), 500);
+        erc721Factory.deployRoyalty(mockToken, address(5), 500, 1000); // Added maxRoyaltyCap
     }
     
     // ============ Reentrancy Protection Tests ============
@@ -375,12 +375,12 @@ contract SecurityTest is Test {
         erc20Factory.deployCompliance(mockToken, true, true);
         erc20Factory.deployVesting(mockToken);
         erc20Factory.deploySnapshot(mockToken);
-        erc20Factory.deployTimelock(mockToken, 1 days);
-        erc20Factory.deployFlashMint(mockToken, 1_000_000, 100);
-        erc20Factory.deployVotes(mockToken);
-        erc20Factory.deployFees(mockToken, 100, address(5));
-        erc20Factory.deployTemporaryApproval(mockToken);
-        erc20Factory.deployPayable(mockToken);
+        erc20Factory.deployTimelock(mockToken, 1 days, 30 days, false);
+        erc20Factory.deployFlashMint(mockToken, address(5), 100);
+        erc20Factory.deployVotes(mockToken, "Gov Token", 1, 50400, 100000 * 10**18, 4);
+        erc20Factory.deployFees(mockToken, address(5), 100);
+        erc20Factory.deployTemporaryApproval(mockToken, 7 days, 1 days, 30 days);
+        erc20Factory.deployPayable(mockToken, 100000); // 100K gas limit
         
         // Verify all 10 deployed
         address[] memory extensions = registry.getTokenExtensions(mockToken);

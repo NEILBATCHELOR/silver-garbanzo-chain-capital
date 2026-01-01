@@ -113,14 +113,13 @@ contract ERC1400ExtensionFactoryTest is Test {
         vm.prank(admin);
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
-        address[] memory controllers = new address[](2);
-        controllers[0] = controller1;
-        controllers[1] = controller2;
+        // Deploy controller extension with controllable flag
+        bool controllable = true;
         
         vm.prank(deployer);
         address controllerExtension = factory.deployController(
             mockToken,
-            controllers
+            controllable
         );
         
         assertTrue(controllerExtension != address(0), "Extension should be deployed");
@@ -156,15 +155,9 @@ contract ERC1400ExtensionFactoryTest is Test {
         vm.prank(admin);
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
-        bytes32[] memory partitions = new bytes32[](3);
-        partitions[0] = bytes32("LOCKED");
-        partitions[1] = bytes32("UNLOCKED");
-        partitions[2] = bytes32("VESTING");
-        
         vm.prank(deployer);
         address restrictionsExtension = factory.deployTransferRestrictions(
-            mockToken,
-            partitions
+            mockToken
         );
         
         assertTrue(restrictionsExtension != address(0));
@@ -185,16 +178,12 @@ contract ERC1400ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy all 3 extensions
-        address[] memory controllers = new address[](1);
-        controllers[0] = controller1;
-        address controllerExt = factory.deployController(mockToken, controllers);
+        bool controllable = true;
+        address controllerExt = factory.deployController(mockToken, controllable);
         
         address documentExt = factory.deployDocument(mockToken);
         
-        bytes32[] memory partitions = new bytes32[](2);
-        partitions[0] = bytes32("LOCKED");
-        partitions[1] = bytes32("UNLOCKED");
-        address restrictionsExt = factory.deployTransferRestrictions(mockToken, partitions);
+        address restrictionsExt = factory.deployTransferRestrictions(mockToken);
         
         vm.stopPrank();
         
@@ -265,16 +254,12 @@ contract ERC1400ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy all extensions
-        address[] memory controllers = new address[](1);
-        controllers[0] = controller1;
-        factory.deployController(mockToken, controllers);
+        bool controllable = true;
+        factory.deployController(mockToken, controllable);
         
         factory.deployDocument(mockToken);
         
-        bytes32[] memory partitions = new bytes32[](2);
-        partitions[0] = bytes32("LOCKED");
-        partitions[1] = bytes32("UNLOCKED");
-        factory.deployTransferRestrictions(mockToken, partitions);
+        factory.deployTransferRestrictions(mockToken);
         
         vm.stopPrank();
         

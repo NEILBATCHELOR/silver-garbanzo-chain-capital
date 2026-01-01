@@ -113,7 +113,7 @@ export class InstanceDeploymentService {
 
       if (selection.flashMint) {
         const result = await this.deployFlashMintModule(
-          factory, token, tokenAddress, tokenId, {}, network, environment
+          factory, token, tokenAddress, tokenId, selection.flashMintConfig || {}, network, environment, deployer
         );
         deployedModules.push(result);
       }
@@ -205,6 +205,13 @@ export class InstanceDeploymentService {
 
       if (selection.metadataEvents) {
         const result = await this.deployMetadataEventsModule(
+          factory, token, tokenAddress, tokenId, {}, network, environment
+        );
+        deployedModules.push(result);
+      }
+
+      if (selection.granularApproval) {
+        const result = await this.deployGranularApprovalModule(
           factory, token, tokenAddress, tokenId, {}, network, environment
         );
         deployedModules.push(result);
@@ -547,10 +554,11 @@ export class InstanceDeploymentService {
     const feeBps = config.transferFeeBps || config.feePercent || 0;
     console.log(`Fee module config: {transferFeeBps: ${feeBps}, feeRecipient: ${feeRecipient}}`);
     
+    // UPDATED: New parameter order (feeRecipient, feeBps)
     const tx = await factory.deployFees(
       tokenAddress,
-      feeBps,
-      feeRecipient
+      feeRecipient,
+      feeBps
     );
     const receipt = await tx.wait();
 
@@ -585,7 +593,8 @@ export class InstanceDeploymentService {
     tokenId: string,
     config: any,
     network: string,
-    environment: string
+    environment: string,
+    deployer: ethers.Wallet
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata(
       'flash_mint_module',
@@ -598,10 +607,15 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW flash mint module instance for token ${tokenAddress}`);
+    
+    // UPDATED: New parameters (feeRecipient, flashFeeBasisPoints)
+    const feeRecipient = config.feeRecipient || deployer.address;
+    const flashFeeBasisPoints = config.flashFeeBasisPoints || config.flashFee || 100; // Default 1%
+    
     const tx = await factory.deployFlashMint(
       tokenAddress,
-      config.maxFlashLoan || 0,
-      config.flashFee || 0
+      feeRecipient,
+      flashFeeBasisPoints
     );
     const receipt = await tx.wait();
 
@@ -747,9 +761,17 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW timelock module instance for token ${tokenAddress}`);
+    
+    // UPDATED: New parameters (minDuration, maxDuration, allowExtension)
+    const minDuration = config.minDuration || config.minDelay || 86400; // Default 1 day
+    const maxDuration = config.maxDuration || 2592000; // Default 30 days
+    const allowExtension = config.allowExtension ?? false; // Default false
+    
     const tx = await factory.deployTimelock(
       tokenAddress,
-      config.minDelay || 0
+      minDuration,
+      maxDuration,
+      allowExtension
     );
     const receipt = await tx.wait();
 
@@ -797,7 +819,22 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW votes module instance for token ${tokenAddress}`);
-    const tx = await factory.deployVotes(tokenAddress);
+    
+    // UPDATED: New governance parameters
+    const tokenName = config.tokenName || 'Governance Token';
+    const votingDelay = config.votingDelay || 1; // Default 1 block
+    const votingPeriod = config.votingPeriod || 50400; // Default ~1 week
+    const proposalThreshold = config.proposalThreshold || ethers.parseEther('100000'); // Default 100k tokens
+    const quorumPercentage = config.quorumPercentage || 4; // Default 4%
+    
+    const tx = await factory.deployVotes(
+      tokenAddress,
+      tokenName,
+      votingDelay,
+      votingPeriod,
+      proposalThreshold,
+      quorumPercentage
+    );
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -844,7 +881,14 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW payable token module instance for token ${tokenAddress}`);
-    const tx = await factory.deployPayable(tokenAddress);
+    
+    // UPDATED: Add callbackGasLimit parameter (verified 2025-12-31)
+    const callbackGasLimit = config.callbackGasLimit || 100000; // Default 100K gas
+    
+    const tx = await factory.deployPayable(
+      tokenAddress,
+      callbackGasLimit
+    );
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -891,7 +935,18 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW temporary approval module instance for token ${tokenAddress}`);
-    const tx = await factory.deployTemporaryApproval(tokenAddress);
+    
+    // UPDATED: New duration parameters
+    const defaultDuration = config.defaultDuration || 3600; // Default 1 hour
+    const minDuration = config.minDuration || 300; // Default 5 minutes
+    const maxDuration = config.maxDuration || 604800; // Default 7 days
+    
+    const tx = await factory.deployTemporaryApproval(
+      tokenAddress,
+      defaultDuration,
+      minDuration,
+      maxDuration
+    );
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -940,10 +995,17 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW royalty module instance for token ${tokenAddress}`);
-    const tx = await factory.deployRoyaltyModule(
+    
+    // Extract parameters - UPDATED for ERC721 fix
+    const defaultRoyaltyReceiver = config.royaltyRecipient || config.defaultRoyaltyReceiver || tokenAddress;
+    const defaultRoyaltyPercentage = config.defaultRoyaltyBps || config.defaultRoyaltyPercentage || 250; // Default 2.5%
+    const maxRoyaltyCap = config.maxRoyaltyCap || 1000; // Default 10% max cap
+    
+    const tx = await factory.deployRoyalty(
       tokenAddress,
-      config.defaultRoyaltyBps || 250,
-      config.royaltyRecipient || tokenAddress
+      defaultRoyaltyReceiver,
+      defaultRoyaltyPercentage,
+      maxRoyaltyCap
     );
     const receipt = await tx.wait();
 
@@ -991,9 +1053,25 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW rental module instance for token ${tokenAddress}`);
-    const tx = await factory.deployRentalModule(
+    
+    // Extract parameters - UPDATED for ERC721 fix
+    const feeRecipient = config.feeRecipient || tokenAddress;
+    const platformFeeBps = config.platformFeeBps || config.feeBps || 250; // Default 2.5%
+    const minRentalDuration = config.minRentalDuration || 3600; // Default 1 hour
+    const maxRentalDuration = config.maxRentalDuration || 2592000; // Default 30 days
+    const minRentalPrice = config.minRentalPrice || 0; // Default 0 (free rentals allowed)
+    const depositRequired = config.depositRequired ?? false; // Default false
+    const minDepositBps = config.minDepositBps || 1000; // Default 10%
+    
+    const tx = await factory.deployRental(
       tokenAddress,
-      config.maxRentalDuration || 86400
+      feeRecipient,
+      platformFeeBps,
+      minRentalDuration,
+      maxRentalDuration,
+      minRentalPrice,
+      depositRequired,
+      minDepositBps
     );
     const receipt = await tx.wait();
 
@@ -1041,7 +1119,22 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW soulbound module instance for token ${tokenAddress}`);
-    const tx = await factory.deploySoulboundModule(tokenAddress);
+    
+    // Extract parameters - UPDATED for ERC721 fix
+    const allowOneTimeTransfer = config.allowOneTimeTransfer ?? false;
+    const burnableByOwner = config.burnableByOwner ?? true; // Default true
+    const burnableByIssuer = config.burnableByIssuer ?? false;
+    const expirationEnabled = config.expirationEnabled ?? false;
+    const expirationPeriod = config.expirationPeriod || 0; // Default no expiration
+    
+    const tx = await factory.deploySoulbound(
+      tokenAddress,
+      allowOneTimeTransfer,
+      burnableByOwner,
+      burnableByIssuer,
+      expirationEnabled,
+      expirationPeriod
+    );
     const receipt = await tx.wait();
 
     const event = receipt.logs.find(
@@ -1066,54 +1159,231 @@ export class InstanceDeploymentService {
   }
 
   /**
-   * Deploy fraction module instance (ERC721)
+   * Deploy fractionalization module instance (ERC721)
    */
   private static async deployFractionModule(
-    factory: ethers.Contract, token: ethers.Contract, tokenAddress: string,
-    tokenId: string, config: any, network: string, environment: string
+    factory: ethers.Contract,
+    token: ethers.Contract,
+    tokenAddress: string,
+    tokenId: string,
+    config: any,
+    network: string,
+    environment: string
   ): Promise<ModuleDeploymentResult> {
-    const masterModule = await ModuleRegistryService.getModuleMetadata('fraction_module', network, environment);
-    if (!masterModule) throw new Error('Fraction module master not found');
+    const masterModule = await ModuleRegistryService.getModuleMetadata(
+      'fraction_module',
+      network,
+      environment
+    );
+
+    if (!masterModule) {
+      throw new Error('Fraction module master not found');
+    }
+
+    console.log(`Deploying NEW fractionalization module instance for token ${tokenAddress}`);
     
-    const tx = await factory.deployFractionModule(tokenAddress, config.minFractions || 100);
+    // UPDATED: New numeric parameters (not address!)
+    const minFractions = config.minFractions || 100; // Default 100 fractions min
+    const maxFractions = config.maxFractions || 10000; // Default 10k fractions max
+    const buyoutMultiplierBps = config.buyoutMultiplierBps || 11000; // Default 110% (10% premium)
+    const redemptionEnabled = config.redemptionEnabled ?? true; // Default true
+    const fractionPrice = config.fractionPrice || ethers.parseEther('0.01'); // Default 0.01 ETH
+    const tradingEnabled = config.tradingEnabled ?? true; // Default true
+    
+    const tx = await factory.deployFractionalization(
+      tokenAddress,
+      minFractions,
+      maxFractions,
+      buyoutMultiplierBps,
+      redemptionEnabled,
+      fractionPrice,
+      tradingEnabled
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'FractionModuleDeployed')?.args?.moduleAddress;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
-    
+
+    const event = receipt.logs.find(
+      (log: any) => log.eventName === 'FractionalizationModuleDeployed'
+    );
+    const newModuleAddress = event?.args?.moduleAddress;
+
+    if (!newModuleAddress) {
+      throw new Error('Failed to get deployed module address');
+    }
+
+    console.log(`NEW fractionalization module deployed at: ${newModuleAddress}`);
     await token.setFractionModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'fraction', configuration: config };
+
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'fraction',
+      configuration: config
+    };
   }
 
+  /**
+   * Deploy consecutive module instance (ERC721)
+   */
   private static async deployConsecutiveModule(
-    factory: ethers.Contract, token: ethers.Contract, tokenAddress: string,
-    tokenId: string, config: any, network: string, environment: string
+    factory: ethers.Contract,
+    token: ethers.Contract,
+    tokenAddress: string,
+    tokenId: string,
+    config: any,
+    network: string,
+    environment: string
   ): Promise<ModuleDeploymentResult> {
-    const masterModule = await ModuleRegistryService.getModuleMetadata('consecutive_module', network, environment);
-    if (!masterModule) throw new Error('Consecutive module master not found');
+    const masterModule = await ModuleRegistryService.getModuleMetadata(
+      'consecutive_module',
+      network,
+      environment
+    );
+
+    if (!masterModule) {
+      throw new Error('Consecutive module master not found');
+    }
+
+    console.log(`Deploying NEW consecutive module instance for token ${tokenAddress}`);
     
-    const tx = await factory.deployConsecutiveModule(tokenAddress);
+    // UPDATED: Add startTokenId and maxBatchSize parameters
+    const startTokenId = config.startTokenId || 0; // Default start at 0
+    const maxBatchSize = config.maxBatchSize || 100; // Default 100 tokens per batch
+    
+    const tx = await factory.deployConsecutive(
+      tokenAddress,
+      startTokenId,
+      maxBatchSize
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ConsecutiveModuleDeployed')?.args?.moduleAddress;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
-    
+
+    const event = receipt.logs.find(
+      (log: any) => log.eventName === 'ConsecutiveModuleDeployed'
+    );
+    const newModuleAddress = event?.args?.moduleAddress;
+
+    if (!newModuleAddress) {
+      throw new Error('Failed to get deployed module address');
+    }
+
+    console.log(`NEW consecutive module deployed at: ${newModuleAddress}`);
     await token.setConsecutiveModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'consecutive', configuration: config };
+
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'consecutive',
+      configuration: config
+    };
   }
 
+  /**
+   * Deploy metadata events module instance (ERC721)
+   */
   private static async deployMetadataEventsModule(
-    factory: ethers.Contract, token: ethers.Contract, tokenAddress: string,
-    tokenId: string, config: any, network: string, environment: string
+    factory: ethers.Contract,
+    token: ethers.Contract,
+    tokenAddress: string,
+    tokenId: string,
+    config: any,
+    network: string,
+    environment: string
   ): Promise<ModuleDeploymentResult> {
-    const masterModule = await ModuleRegistryService.getModuleMetadata('metadata_events_module', network, environment);
-    if (!masterModule) throw new Error('Metadata events module master not found');
+    const masterModule = await ModuleRegistryService.getModuleMetadata(
+      'metadata_events_module',
+      network,
+      environment
+    );
+
+    if (!masterModule) {
+      throw new Error('Metadata events module master not found');
+    }
+
+    console.log(`Deploying NEW metadata events module instance for token ${tokenAddress}`);
     
-    const tx = await factory.deployMetadataEventsModule(tokenAddress);
+    // UPDATED: Add batchUpdatesEnabled and emitOnTransfer parameters
+    const batchUpdatesEnabled = config.batchUpdatesEnabled ?? true; // Default true
+    const emitOnTransfer = config.emitOnTransfer ?? false; // Default false
+    
+    const tx = await factory.deployMetadata(
+      tokenAddress,
+      batchUpdatesEnabled,
+      emitOnTransfer
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'MetadataEventsModuleDeployed')?.args?.moduleAddress;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
-    
+
+    const event = receipt.logs.find(
+      (log: any) => log.eventName === 'MetadataModuleDeployed'
+    );
+    const newModuleAddress = event?.args?.moduleAddress;
+
+    if (!newModuleAddress) {
+      throw new Error('Failed to get deployed module address');
+    }
+
+    console.log(`NEW metadata events module deployed at: ${newModuleAddress}`);
     await token.setMetadataEventsModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'metadata_events', configuration: config };
+
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'metadata_events',
+      configuration: config
+    };
+  }
+
+  /**
+   * Deploy granular approval module instance (ERC721)
+   */
+  private static async deployGranularApprovalModule(
+    factory: ethers.Contract,
+    token: ethers.Contract,
+    tokenAddress: string,
+    tokenId: string,
+    config: any,
+    network: string,
+    environment: string
+  ): Promise<ModuleDeploymentResult> {
+    const masterModule = await ModuleRegistryService.getModuleMetadata(
+      'granular_approval_module',
+      network,
+      environment
+    );
+
+    if (!masterModule) {
+      throw new Error('Granular approval module master not found');
+    }
+
+    console.log(`Deploying NEW granular approval module instance for token ${tokenAddress}`);
+    
+    // Factory signature: deployGranularApproval(address token)
+    // Module expects: initialize(address tokenContract, address admin)
+    // NOTE: Factory handles parameter order correctly (no config needed)
+    
+    const tx = await factory.deployGranularApproval(tokenAddress);
+    const receipt = await tx.wait();
+
+    const event = receipt.logs.find(
+      (log: any) => log.eventName === 'GranularApprovalModuleDeployed'
+    );
+    const newModuleAddress = event?.args?.moduleAddress;
+
+    if (!newModuleAddress) {
+      throw new Error('Failed to get deployed module address');
+    }
+
+    console.log(`NEW granular approval module deployed at: ${newModuleAddress}`);
+    await token.setGranularApprovalModule(newModuleAddress);
+
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'granular_approval',
+      configuration: config
+    };
   }
 
   // ============ ERC1155 MODULES ============
@@ -1125,9 +1395,12 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('supply_cap_module', network, environment);
     if (!masterModule) throw new Error('Supply cap module master not found');
     
-    const tx = await factory.deploySupplyCapModule(tokenAddress, config.defaultCap || 0);
+    // UPDATED: Use globalCap instead of defaultCap to match factory signature
+    const globalCap = config.globalCap || config.defaultCap || 0;
+    
+    const tx = await factory.deploySupplyCap(tokenAddress, globalCap);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'SupplyCapModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'SupplyCapExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setSupplyCapModule(newModuleAddress);
@@ -1141,9 +1414,13 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('uri_management_module', network, environment);
     if (!masterModule) throw new Error('URI management module master not found');
     
-    const tx = await factory.deployUriManagementModule(tokenAddress, config.baseURI || '');
+    // UPDATED: Add ipfsGateway parameter to match factory signature
+    const baseURI = config.baseURI || '';
+    const ipfsGateway = config.ipfsGateway || 'https://ipfs.io/ipfs/';
+    
+    const tx = await factory.attachURIManagement(tokenAddress, baseURI, ipfsGateway);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'UriManagementModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'URIManagementExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setUriManagementModule(newModuleAddress);
@@ -1175,7 +1452,17 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('slot_manager_module', network, environment);
     if (!masterModule) throw new Error('Slot manager module master not found');
     
-    const tx = await factory.deploySlotManagerModule(tokenAddress);
+    // Extract slot configuration from config (with defaults)
+    const allowDynamicSlotCreation = config.allowDynamicSlotCreation ?? true;
+    const restrictCrossSlot = config.restrictCrossSlot ?? false;
+    const allowSlotMerging = config.allowSlotMerging ?? false;
+    
+    const tx = await factory.deploySlotManagerModule(
+      tokenAddress,
+      allowDynamicSlotCreation,
+      restrictCrossSlot,
+      allowSlotMerging
+    );
     const receipt = await tx.wait();
     const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'SlotManagerModuleDeployed')?.args?.moduleAddress;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
@@ -1191,7 +1478,8 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('value_exchange_module', network, environment);
     if (!masterModule) throw new Error('Value exchange module master not found');
     
-    const tx = await factory.deployValueExchangeModule(tokenAddress, config.exchangeFeeBps || 0);
+    // Exchange rates configured post-deployment via setExchangeRate(fromSlot, toSlot, rate)
+    const tx = await factory.deployValueExchangeModule(tokenAddress);
     const receipt = await tx.wait();
     const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ValueExchangeModuleDeployed')?.args?.moduleAddress;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
@@ -1209,9 +1497,21 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('fee_strategy_module', network, environment);
     if (!masterModule) throw new Error('Fee strategy module master not found');
     
-    const tx = await factory.deployFeeStrategyModule(tokenAddress, config.managementFeeBps || 0, config.performanceFeeBps || 0);
+    // UPDATED: Match new factory signature (managementFeeBps, performanceFeeBps, withdrawalFeeBps, feeRecipient)
+    const managementFeeBps = config.managementFeeBps || config.managementFee || 100; // Default 1% annual
+    const performanceFeeBps = config.performanceFeeBps || config.performanceFee || 2000; // Default 20%
+    const withdrawalFeeBps = config.withdrawalFeeBps || config.withdrawalFee || 50; // Default 0.5%
+    const feeRecipient = config.feeRecipient || config.recipient || ethers.ZeroAddress; // Will be set later
+    
+    const tx = await factory.deployFeeStrategy(
+      tokenAddress, 
+      managementFeeBps, 
+      performanceFeeBps,
+      withdrawalFeeBps,
+      feeRecipient
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'FeeStrategyModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'FeeStrategyExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setFeeStrategyModule(newModuleAddress);
@@ -1225,9 +1525,25 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('withdrawal_queue_module', network, environment);
     if (!masterModule) throw new Error('Withdrawal queue module master not found');
     
-    const tx = await factory.deployWithdrawalQueueModule(tokenAddress, config.maxQueueSize || 1000);
+    // UPDATED: Add 6 missing parameters
+    const liquidityBuffer = config.liquidityBuffer || ethers.parseEther('1000'); // Default 1000 asset units
+    const maxQueueSize = config.maxQueueSize || 1000; // Default 1000 requests
+    const minWithdrawalDelay = config.minWithdrawalDelay || 3600; // Default 1 hour
+    const minWithdrawalAmount = config.minWithdrawalAmount || 0; // Default no minimum
+    const maxWithdrawalAmount = config.maxWithdrawalAmount || 0; // Default no maximum
+    const priorityFeeBps = config.priorityFeeBps || 100; // Default 1% priority fee
+    
+    const tx = await factory.deployWithdrawalQueue(
+      tokenAddress,
+      liquidityBuffer,
+      maxQueueSize,
+      minWithdrawalDelay,
+      minWithdrawalAmount,
+      maxWithdrawalAmount,
+      priorityFeeBps
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'WithdrawalQueueModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'WithdrawalQueueExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setWithdrawalQueueModule(newModuleAddress);
@@ -1241,9 +1557,17 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('yield_strategy_module', network, environment);
     if (!masterModule) throw new Error('Yield strategy module master not found');
     
-    const tx = await factory.deployYieldStrategyModule(tokenAddress, config.targetYieldBps || 500);
+    // UPDATED: Change from (strategyType, strategyParams) to (harvestFrequency, rebalanceThreshold)
+    const harvestFrequency = config.harvestFrequency || 86400; // Default 24 hours
+    const rebalanceThreshold = config.rebalanceThreshold || 500; // Default 5% drift threshold
+    
+    const tx = await factory.deployYieldStrategy(
+      tokenAddress,
+      harvestFrequency,
+      rebalanceThreshold
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'YieldStrategyModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'YieldStrategyExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setYieldStrategyModule(newModuleAddress);
@@ -1257,9 +1581,23 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('async_vault_module', network, environment);
     if (!masterModule) throw new Error('Async vault module master not found');
     
-    const tx = await factory.deployAsyncVaultModule(tokenAddress, config.settlementDelay || 86400);
+    // UPDATED: Add 5 missing async operation parameters
+    const minimumFulfillmentDelay = config.minimumFulfillmentDelay || config.settlementDelay || 86400; // Default 24 hours
+    const maxPendingRequestsPerUser = config.maxPendingRequestsPerUser || 10; // Default 10 requests
+    const requestExpiry = config.requestExpiry || 2592000; // Default 30 days (0 = no expiry)
+    const minimumRequestAmount = config.minimumRequestAmount || 0; // Default no minimum
+    const partialFulfillmentEnabled = config.partialFulfillmentEnabled ?? true; // Default true
+    
+    const tx = await factory.deployAsyncVault(
+      tokenAddress,
+      minimumFulfillmentDelay,
+      maxPendingRequestsPerUser,
+      requestExpiry,
+      minimumRequestAmount,
+      partialFulfillmentEnabled
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'AsyncVaultModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'AsyncVaultExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setAsyncVaultModule(newModuleAddress);
@@ -1273,9 +1611,20 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('native_vault_module', network, environment);
     if (!masterModule) throw new Error('Native vault module master not found');
     
-    const tx = await factory.deployNativeVaultModule(tokenAddress);
+    // UPDATED: Add 3 missing ETH wrapping parameters
+    // Get WETH address for current network (must be configured in config or use standard addresses)
+    const weth = config.weth || ethers.ZeroAddress; // Must be provided for network
+    const acceptNativeToken = config.acceptNativeToken ?? true; // Default enable native ETH deposits
+    const unwrapOnWithdrawal = config.unwrapOnWithdrawal ?? true; // Default auto-unwrap to ETH
+    
+    const tx = await factory.deployNativeVault(
+      tokenAddress,
+      weth,
+      acceptNativeToken,
+      unwrapOnWithdrawal
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'NativeVaultModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'NativeVaultExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setNativeVaultModule(newModuleAddress);
@@ -1289,9 +1638,19 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('router_module', network, environment);
     if (!masterModule) throw new Error('Router module master not found');
     
-    const tx = await factory.deployRouterModule(tokenAddress);
+    // UPDATED: Change from (vault) to (vault, allowMultiHop, maxHops, slippageTolerance)
+    const allowMultiHop = config.allowMultiHop ?? true; // Default enable multi-hop routing
+    const maxHops = config.maxHops || 3; // Default 3 hops (0 = unlimited)
+    const slippageTolerance = config.slippageTolerance || 100; // Default 1% slippage (basis points)
+    
+    const tx = await factory.deployRouter(
+      tokenAddress,
+      allowMultiHop,
+      maxHops,
+      slippageTolerance
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'RouterModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'RouterExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setRouterModule(newModuleAddress);
@@ -1305,9 +1664,18 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('multi_asset_vault_module', network, environment);
     if (!masterModule) throw new Error('Multi-asset vault module master not found');
     
-    const tx = await factory.deployMultiAssetVaultModule(tokenAddress, config.maxAssets || 10);
+    // UPDATED: Change from (vault, supportedAssets[]) to (vault, priceOracle, baseAsset)
+    // Assets are added post-deployment via addAsset() function
+    const priceOracle = config.priceOracle || ethers.ZeroAddress; // Must be provided
+    const baseAsset = config.baseAsset || ethers.ZeroAddress; // Must be provided (e.g., USDC, WETH)
+    
+    const tx = await factory.deployMultiAssetVault(
+      tokenAddress,
+      priceOracle,
+      baseAsset
+    );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'MultiAssetVaultModuleDeployed')?.args?.moduleAddress;
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'MultiAssetVaultExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setMultiAssetVaultModule(newModuleAddress);
@@ -1323,9 +1691,11 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('transfer_restrictions_module', network, environment);
     if (!masterModule) throw new Error('Transfer restrictions module master not found');
     
-    const tx = await factory.deployTransferRestrictionsModule(tokenAddress);
+    // Fixed: deployTransferRestrictions now only takes tokenAddress (no defaultPartitions)
+    const tx = await factory.deployTransferRestrictions(tokenAddress);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'TransferRestrictionsModuleDeployed')?.args?.moduleAddress;
+    // Fixed: Updated event name to match factory
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'TransferRestrictionsExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setTransferRestrictionsModule(newModuleAddress);
@@ -1339,9 +1709,12 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('controller_module', network, environment);
     if (!masterModule) throw new Error('Controller module master not found');
     
-    const tx = await factory.deployControllerModule(tokenAddress, config.controllers || []);
+    // Fixed: deployController now takes (tokenAddress, controllable) instead of (tokenAddress, controllers[])
+    const controllable = config.controllable !== undefined ? config.controllable : true; // Default to controllable
+    const tx = await factory.deployController(tokenAddress, controllable);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ControllerModuleDeployed')?.args?.moduleAddress;
+    // Fixed: Updated event name to match factory
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ControllerExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setControllerModule(newModuleAddress);
@@ -1355,9 +1728,11 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('erc1400_document_module', network, environment);
     if (!masterModule) throw new Error('ERC1400 document module master not found');
     
-    const tx = await factory.deployERC1400DocumentModule(tokenAddress);
+    // Fixed: deployDocument now only takes tokenAddress (no extra params)
+    const tx = await factory.deployDocument(tokenAddress);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ERC1400DocumentModuleDeployed')?.args?.moduleAddress;
+    // Fixed: Updated event name to match factory
+    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'DocumentExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');
     
     await token.setERC1400DocumentModule(newModuleAddress);

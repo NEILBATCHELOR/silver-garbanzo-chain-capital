@@ -105,14 +105,14 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy YieldStrategy extension for vault yield generation
      * @param vault Vault address to attach extension to
-     * @param strategyType Type of yield strategy
-     * @param strategyParams Strategy-specific parameters
+     * @param harvestFrequency Frequency of harvest operations (in seconds)
+     * @param rebalanceThreshold Threshold for triggering rebalance (basis points)
      * @return extension Deployed extension address
      */
     function deployYieldStrategy(
         address vault,
-        uint8 strategyType,
-        bytes memory strategyParams
+        uint256 harvestFrequency,
+        uint256 rebalanceThreshold
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
         require(yieldStrategyBeacon != address(0), "Beacon not initialized");
@@ -122,8 +122,8 @@ contract ERC4626ExtensionFactory is ExtensionBase {
             ERC4626YieldStrategyModule.initialize.selector,
             msg.sender,  // admin
             vault,
-            strategyType,
-            strategyParams
+            harvestFrequency,
+            rebalanceThreshold
         );
         
         // Deploy via beacon
@@ -147,10 +147,22 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy WithdrawalQueue extension for ordered withdrawal management
      * @param vault Vault address to attach extension to
+     * @param liquidityBuffer Amount of assets to keep liquid for instant withdrawals
+     * @param maxQueueSize Maximum number of pending withdrawal requests
+     * @param minWithdrawalDelay Minimum delay before processing withdrawal (seconds)
+     * @param minWithdrawalAmount Minimum withdrawal amount (0 = no minimum)
+     * @param maxWithdrawalAmount Maximum withdrawal amount (0 = no maximum)
+     * @param priorityFeeBps Priority fee for expedited withdrawals (basis points)
      * @return extension Deployed extension address
      */
     function deployWithdrawalQueue(
-        address vault
+        address vault,
+        uint256 liquidityBuffer,
+        uint256 maxQueueSize,
+        uint256 minWithdrawalDelay,
+        uint256 minWithdrawalAmount,
+        uint256 maxWithdrawalAmount,
+        uint256 priorityFeeBps
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
         require(withdrawalQueueBeacon != address(0), "Beacon not initialized");
@@ -159,7 +171,13 @@ contract ERC4626ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC4626WithdrawalQueueModule.initialize.selector,
             msg.sender,  // admin
-            vault
+            vault,
+            liquidityBuffer,
+            maxQueueSize,
+            minWithdrawalDelay,
+            minWithdrawalAmount,
+            maxWithdrawalAmount,
+            priorityFeeBps
         );
         
         // Deploy via beacon
@@ -183,17 +201,17 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy FeeStrategy extension for vault fee management
      * @param vault Vault address to attach extension to
-     * @param depositFee Deposit fee (in basis points)
-     * @param withdrawalFee Withdrawal fee (in basis points)
-     * @param performanceFee Performance fee (in basis points)
+     * @param managementFeeBps Management fee (annual, in basis points)
+     * @param performanceFeeBps Performance fee (in basis points)
+     * @param withdrawalFeeBps Withdrawal fee (in basis points)
      * @param feeRecipient Address to receive fees
      * @return extension Deployed extension address
      */
     function deployFeeStrategy(
         address vault,
-        uint256 depositFee,
-        uint256 withdrawalFee,
-        uint256 performanceFee,
+        uint256 managementFeeBps,
+        uint256 performanceFeeBps,
+        uint256 withdrawalFeeBps,
         address feeRecipient
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
@@ -204,9 +222,9 @@ contract ERC4626ExtensionFactory is ExtensionBase {
             ERC4626FeeStrategyModule.initialize.selector,
             msg.sender,  // admin
             vault,
-            depositFee,
-            withdrawalFee,
-            performanceFee,
+            managementFeeBps,
+            performanceFeeBps,
+            withdrawalFeeBps,
             feeRecipient
         );
         
@@ -231,10 +249,20 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy AsyncVault extension for EIP-7540 async deposits/withdrawals
      * @param vault Vault address to attach extension to
+     * @param minimumFulfillmentDelay Minimum time before request can be fulfilled (seconds)
+     * @param maxPendingRequestsPerUser Maximum pending requests per user (0 = unlimited)
+     * @param requestExpiry Request expiration time (seconds, 0 = no expiry)
+     * @param minimumRequestAmount Minimum deposit/redeem amount (0 = no minimum)
+     * @param partialFulfillmentEnabled Allow partial fulfillment when liquidity limited
      * @return extension Deployed extension address
      */
     function deployAsyncVault(
-        address vault
+        address vault,
+        uint256 minimumFulfillmentDelay,
+        uint256 maxPendingRequestsPerUser,
+        uint256 requestExpiry,
+        uint256 minimumRequestAmount,
+        bool partialFulfillmentEnabled
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
         require(asyncVaultBeacon != address(0), "Beacon not initialized");
@@ -243,7 +271,12 @@ contract ERC4626ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC7540AsyncVaultModule.initialize.selector,
             msg.sender,  // admin
-            vault
+            vault,
+            minimumFulfillmentDelay,
+            maxPendingRequestsPerUser,
+            requestExpiry,
+            minimumRequestAmount,
+            partialFulfillmentEnabled
         );
         
         // Deploy via beacon
@@ -266,11 +299,17 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     
     /**
      * @notice Deploy NativeVault extension for EIP-7535 native token wrapping
-     * @param vault Vault address to attach extension to
+     * @param vault Vault address to attach extension to (must use WETH as asset)
+     * @param weth WETH contract address for wrapping/unwrapping ETH
+     * @param acceptNativeToken Enable direct ETH deposits (wraps automatically)
+     * @param unwrapOnWithdrawal Automatically unwrap WETH to ETH on withdrawal
      * @return extension Deployed extension address
      */
     function deployNativeVault(
-        address vault
+        address vault,
+        address weth,
+        bool acceptNativeToken,
+        bool unwrapOnWithdrawal
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
         require(nativeVaultBeacon != address(0), "Beacon not initialized");
@@ -279,7 +318,10 @@ contract ERC4626ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC7535NativeVaultModule.initialize.selector,
             msg.sender,  // admin
-            vault
+            vault,
+            weth,
+            acceptNativeToken,
+            unwrapOnWithdrawal
         );
         
         // Deploy via beacon
@@ -302,11 +344,17 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     
     /**
      * @notice Deploy Router extension for vault routing functionality
-     * @param vault Vault address to attach extension to
+     * @param vault Vault address (used for validation, router is multi-vault)
+     * @param allowMultiHop Enable multi-hop routing across vaults
+     * @param maxHops Maximum routing hops (0 = unlimited)
+     * @param slippageTolerance Maximum slippage tolerance (basis points)
      * @return extension Deployed extension address
      */
     function deployRouter(
-        address vault
+        address vault,
+        bool allowMultiHop,
+        uint256 maxHops,
+        uint256 slippageTolerance
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
         require(routerBeacon != address(0), "Beacon not initialized");
@@ -315,7 +363,9 @@ contract ERC4626ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC4626Router.initialize.selector,
             msg.sender,  // admin
-            vault
+            allowMultiHop,
+            maxHops,
+            slippageTolerance
         );
         
         // Deploy via beacon
@@ -338,13 +388,16 @@ contract ERC4626ExtensionFactory is ExtensionBase {
     
     /**
      * @notice Deploy MultiAssetVault extension for EIP-7575 multi-asset support
-     * @param vault Vault address to attach extension to
-     * @param supportedAssets Array of supported asset addresses
+     * @param vault Vault address (used as vaultContract in module)
+     * @param priceOracle Oracle contract for multi-asset pricing
+     * @param baseAsset Base asset for value calculations (e.g., USDC, WETH)
      * @return extension Deployed extension address
+     * @dev Assets are added post-deployment via addAsset() function
      */
     function deployMultiAssetVault(
         address vault,
-        address[] memory supportedAssets
+        address priceOracle,
+        address baseAsset
     ) external returns (address extension) {
         if (vault == address(0)) revert InvalidToken();
         require(multiAssetVaultBeacon != address(0), "Beacon not initialized");
@@ -352,9 +405,10 @@ contract ERC4626ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC7575MultiAssetVaultModule.initialize.selector,
-            msg.sender,  // admin
-            vault,
-            supportedAssets
+            vault,         // vaultContract (1st param)
+            priceOracle,   // priceOracle (2nd param)
+            baseAsset,     // baseAsset (3rd param)
+            msg.sender     // admin (4th param)
         );
         
         // Deploy via beacon

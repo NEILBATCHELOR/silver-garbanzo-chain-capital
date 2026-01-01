@@ -258,10 +258,18 @@ contract ERC3525Factory is FactoryBase {
     /**
      * @notice Attach Slot Manager extension for advanced slot management
      * @param token Token address to attach extension to
+     * @param allowDynamicSlotCreation Whether new slots can be created dynamically
+     * @param restrictCrossSlot Whether transfers between slots are restricted
+     * @param allowSlotMerging Whether values from different slots can be merged
      * @return extension Deployed extension address
      */
-    function attachSlotManager(address token) external returns (address extension) {
-        return extensionFactory.deploySlotManager(token);
+    function attachSlotManager(
+        address token,
+        bool allowDynamicSlotCreation,
+        bool restrictCrossSlot,
+        bool allowSlotMerging
+    ) external returns (address extension) {
+        return extensionFactory.deploySlotManager(token, allowDynamicSlotCreation, restrictCrossSlot, allowSlotMerging);
     }
     
     /**
@@ -276,13 +284,12 @@ contract ERC3525Factory is FactoryBase {
     /**
      * @notice Attach Value Exchange extension for value trading
      * @param token Token address to attach extension to
-     * @param exchangeFee Fee for value exchanges (in basis points)
      * @return extension Deployed extension address
+     * @dev Exchange rates should be configured post-deployment via setExchangeRate()
      */
     function attachValueExchange(
-        address token,
-        uint256 exchangeFee
+        address token
     ) external returns (address extension) {
-        return extensionFactory.deployValueExchange(token, exchangeFee);
+        return extensionFactory.deployValueExchange(token);
     }
 }

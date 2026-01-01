@@ -77,10 +77,16 @@ contract ERC3525ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Slot Manager extension for advanced slot management
      * @param token Token address to attach extension to
+     * @param allowDynamicSlotCreation Whether users can create new slots dynamically
+     * @param restrictCrossSlot Whether transfers between slots are restricted
+     * @param allowSlotMerging Whether values from different slots can be merged
      * @return extension Deployed extension address
      */
     function deploySlotManager(
-        address token
+        address token,
+        bool allowDynamicSlotCreation,
+        bool restrictCrossSlot,
+        bool allowSlotMerging
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(slotManagerBeacon != address(0), "Beacon not initialized");
@@ -88,8 +94,10 @@ contract ERC3525ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC3525SlotManagerModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            msg.sender,                 // admin
+            allowDynamicSlotCreation,   // Whether dynamic slot creation is allowed
+            restrictCrossSlot,          // Whether cross-slot transfers are restricted
+            allowSlotMerging            // Whether slot merging is allowed
         );
         
         // Deploy via beacon
@@ -124,8 +132,7 @@ contract ERC3525ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC3525SlotApprovableModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            msg.sender  // admin (token parameter removed - not needed by module)
         );
         
         // Deploy via beacon
@@ -149,12 +156,11 @@ contract ERC3525ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Value Exchange extension for value trading
      * @param token Token address to attach extension to
-     * @param exchangeFee Fee for value exchanges (in basis points)
      * @return extension Deployed extension address
+     * @dev Exchange rates configured post-deployment via setExchangeRate(fromSlot, toSlot, rate)
      */
     function deployValueExchange(
-        address token,
-        uint256 exchangeFee
+        address token
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(valueExchangeBeacon != address(0), "Beacon not initialized");
@@ -163,8 +169,7 @@ contract ERC3525ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC3525ValueExchangeModule.initialize.selector,
             msg.sender,  // admin
-            token,
-            exchangeFee
+            token        // token (exchangeFee parameter removed - configured post-deployment)
         );
         
         // Deploy via beacon

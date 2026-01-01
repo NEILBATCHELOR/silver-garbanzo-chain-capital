@@ -437,70 +437,95 @@ contract ERC20Factory is FactoryBase {
     /**
      * @notice Attach Timelock extension for delayed transfers
      * @param token Token address to attach extension to
-     * @param minDelay Minimum timelock delay in seconds
+     * @param minDuration Minimum timelock duration in seconds
+     * @param maxDuration Maximum timelock duration in seconds
+     * @param allowExtension Whether to allow duration extension
      * @return extension Deployed extension address
      */
     function attachTimelock(
         address token,
-        uint256 minDelay
+        uint256 minDuration,
+        uint256 maxDuration,
+        bool allowExtension
     ) external returns (address extension) {
-        return extensionFactory.deployTimelock(token, minDelay);
+        return extensionFactory.deployTimelock(token, minDuration, maxDuration, allowExtension);
     }
     
     /**
      * @notice Attach FlashMint extension for flash loan capabilities
      * @param token Token address to attach extension to
-     * @param maxFlashLoan Maximum flash loan amount
-     * @param flashFee Flash loan fee in basis points
+     * @param feeRecipient Address to receive flash loan fees
+     * @param flashFeeBasisPoints Flash loan fee in basis points
      * @return extension Deployed extension address
      */
     function attachFlashMint(
         address token,
-        uint256 maxFlashLoan,
-        uint256 flashFee
+        address feeRecipient,
+        uint256 flashFeeBasisPoints
     ) external returns (address extension) {
-        return extensionFactory.deployFlashMint(token, maxFlashLoan, flashFee);
+        return extensionFactory.deployFlashMint(token, feeRecipient, flashFeeBasisPoints);
     }
     
     /**
      * @notice Attach Votes extension for governance voting power
      * @param token Token address to attach extension to
+     * @param tokenName Name for the governance token
+     * @param votingDelay Delay before voting starts (in blocks)
+     * @param votingPeriod Duration of voting period (in blocks)
+     * @param proposalThreshold Minimum tokens required to create proposal
+     * @param quorumPercentage Percentage of votes required for quorum
      * @return extension Deployed extension address
      */
-    function attachVotes(address token) external returns (address extension) {
-        return extensionFactory.deployVotes(token);
+    function attachVotes(
+        address token,
+        string memory tokenName,
+        uint256 votingDelay,
+        uint256 votingPeriod,
+        uint256 proposalThreshold,
+        uint256 quorumPercentage
+    ) external returns (address extension) {
+        return extensionFactory.deployVotes(token, tokenName, votingDelay, votingPeriod, proposalThreshold, quorumPercentage);
     }
     
     /**
      * @notice Attach Fees extension for configurable transfer fees
      * @param token Token address to attach extension to
-     * @param feeBasisPoints Fee in basis points (e.g., 100 = 1%)
      * @param feeRecipient Address to receive fees
+     * @param feeBasisPoints Fee in basis points (e.g., 100 = 1%)
      * @return extension Deployed extension address
      */
     function attachFees(
         address token,
-        uint256 feeBasisPoints,
-        address feeRecipient
+        address feeRecipient,
+        uint256 feeBasisPoints
     ) external returns (address extension) {
-        return extensionFactory.deployFees(token, feeBasisPoints, feeRecipient);
+        return extensionFactory.deployFees(token, feeRecipient, feeBasisPoints);
     }
     
     /**
      * @notice Attach TemporaryApproval extension for time-limited approvals
      * @param token Token address to attach extension to
+     * @param defaultDuration Default approval duration in seconds
+     * @param minDuration Minimum approval duration in seconds
+     * @param maxDuration Maximum approval duration in seconds
      * @return extension Deployed extension address
      */
-    function attachTemporaryApproval(address token) external returns (address extension) {
-        return extensionFactory.deployTemporaryApproval(token);
+    function attachTemporaryApproval(
+        address token,
+        uint256 defaultDuration,
+        uint256 minDuration,
+        uint256 maxDuration
+    ) external returns (address extension) {
+        return extensionFactory.deployTemporaryApproval(token, defaultDuration, minDuration, maxDuration);
     }
     
     /**
      * @notice Attach Payable extension for ERC-1363 payable token functionality
      * @param token Token address to attach extension to
+     * @param callbackGasLimit Gas limit for callback executions (0 = default 100K)
      * @return extension Deployed extension address
      */
-    function attachPayable(address token) external returns (address extension) {
-        return extensionFactory.deployPayable(token);
+    function attachPayable(address token, uint256 callbackGasLimit) external returns (address extension) {
+        return extensionFactory.deployPayable(token, callbackGasLimit);
     }
 }

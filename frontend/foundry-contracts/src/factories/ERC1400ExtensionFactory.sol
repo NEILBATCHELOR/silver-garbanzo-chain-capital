@@ -77,12 +77,12 @@ contract ERC1400ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy Controller extension for centralized regulatory control
      * @param token Token address to attach extension to
-     * @param controllers Array of authorized controller addresses
+     * @param controllable Whether token is controllable
      * @return extension Deployed extension address
      */
     function deployController(
         address token,
-        address[] memory controllers
+        bool controllable
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(controllerBeacon != address(0), "Beacon not initialized");
@@ -91,8 +91,7 @@ contract ERC1400ExtensionFactory is ExtensionBase {
         bytes memory initData = abi.encodeWithSelector(
             ERC1400ControllerModule.initialize.selector,
             msg.sender,  // admin
-            token,
-            controllers
+            controllable
         );
         
         // Deploy via beacon
@@ -127,8 +126,7 @@ contract ERC1400ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC1400DocumentModule.initialize.selector,
-            msg.sender,  // admin
-            token
+            msg.sender  // admin
         );
         
         // Deploy via beacon
@@ -152,12 +150,10 @@ contract ERC1400ExtensionFactory is ExtensionBase {
     /**
      * @notice Deploy TransferRestrictions extension for partition-based transfer control
      * @param token Token address to attach extension to
-     * @param defaultPartitions Array of default partition names
      * @return extension Deployed extension address
      */
     function deployTransferRestrictions(
-        address token,
-        bytes32[] memory defaultPartitions
+        address token
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(transferRestrictionsBeacon != address(0), "Beacon not initialized");
@@ -165,9 +161,7 @@ contract ERC1400ExtensionFactory is ExtensionBase {
         // Prepare initialization data
         bytes memory initData = abi.encodeWithSelector(
             ERC1400TransferRestrictionsModule.initialize.selector,
-            msg.sender,  // admin
-            token,
-            defaultPartitions
+            msg.sender  // admin
         );
         
         // Deploy via beacon

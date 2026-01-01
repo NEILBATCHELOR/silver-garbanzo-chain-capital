@@ -249,22 +249,28 @@ contract ERC1155Factory is FactoryBase {
      * @notice Attach URI Management extension for dynamic URIs
      * @param token Token address to attach extension to
      * @param baseURI Base URI for token metadata
+     * @param ipfsGateway IPFS gateway URL for decentralized storage
      * @return extension Deployed extension address
      */
     function attachURIManagement(
         address token,
-        string memory baseURI
+        string memory baseURI,
+        string memory ipfsGateway
     ) external returns (address extension) {
-        return extensionFactory.deployURIManagement(token, baseURI);
+        return extensionFactory.deployURIManagement(token, baseURI, ipfsGateway);
     }
     
     /**
      * @notice Attach Supply Cap extension for per-ID supply limits
      * @param token Token address to attach extension to
+     * @param globalCap Global supply cap for all token IDs
      * @return extension Deployed extension address
      */
-    function attachSupplyCap(address token) external returns (address extension) {
-        return extensionFactory.deploySupplyCap(token);
+    function attachSupplyCap(
+        address token,
+        uint256 globalCap
+    ) external returns (address extension) {
+        return extensionFactory.deploySupplyCap(token, globalCap);
     }
     
     /**

@@ -116,7 +116,8 @@ contract ERC721ExtensionFactoryTest is Test {
         address royaltyExtension = factory.deployRoyalty(
             mockToken,
             royaltyReceiver,
-            500 // 5%
+            500, // 5%
+            1000 // 10% max cap
         );
         
         assertTrue(royaltyExtension != address(0), "Extension should be deployed");
@@ -135,7 +136,14 @@ contract ERC721ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address soulboundExtension = factory.deploySoulbound(mockToken);
+        address soulboundExtension = factory.deploySoulbound(
+            mockToken,
+            false, // allowOneTimeTransfer
+            true,  // burnableByOwner
+            false, // burnableByIssuer
+            false, // expirationEnabled
+            0      // expirationPeriod
+        );
         
         assertTrue(soulboundExtension != address(0));
         
@@ -155,7 +163,13 @@ contract ERC721ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address rentalExtension = factory.deployRental(
             mockToken,
-            30 days // maxRentalDuration
+            royaltyReceiver, // feeRecipient
+            250,             // platformFeeBps (2.5%)
+            1 days,          // minRentalDuration
+            30 days,         // maxRentalDuration
+            0.01 ether,      // minRentalPrice
+            true,            // depositRequired
+            1000             // minDepositBps (10%)
         );
         
         assertTrue(rentalExtension != address(0));
@@ -176,7 +190,12 @@ contract ERC721ExtensionFactoryTest is Test {
         vm.prank(deployer);
         address fractionExtension = factory.deployFractionalization(
             mockToken,
-            fractionToken
+            100,    // minFractions
+            10000,  // maxFractions
+            15000,  // buyoutMultiplierBps (150%)
+            true,   // redemptionEnabled
+            0.001 ether, // fractionPrice
+            true    // tradingEnabled
         );
         
         assertTrue(fractionExtension != address(0));
@@ -195,7 +214,11 @@ contract ERC721ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address metadataExtension = factory.deployMetadata(mockToken);
+        address metadataExtension = factory.deployMetadata(
+            mockToken,
+            true,  // batchUpdatesEnabled
+            false  // emitOnTransfer
+        );
         
         assertTrue(metadataExtension != address(0));
         
@@ -231,7 +254,11 @@ contract ERC721ExtensionFactoryTest is Test {
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
         vm.prank(deployer);
-        address consecutiveExtension = factory.deployConsecutive(mockToken);
+        address consecutiveExtension = factory.deployConsecutive(
+            mockToken,
+            1,   // startTokenId
+            100  // maxBatchSize
+        );
         
         assertTrue(consecutiveExtension != address(0));
         
@@ -251,9 +278,9 @@ contract ERC721ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy multiple extensions
-        address royaltyExt = factory.deployRoyalty(mockToken, royaltyReceiver, 500);
-        address soulboundExt = factory.deploySoulbound(mockToken);
-        address metadataExt = factory.deployMetadata(mockToken);
+        address royaltyExt = factory.deployRoyalty(mockToken, royaltyReceiver, 500, 1000);
+        address soulboundExt = factory.deploySoulbound(mockToken, false, true, false, false, 0);
+        address metadataExt = factory.deployMetadata(mockToken, true, false);
         
         vm.stopPrank();
         
@@ -274,11 +301,11 @@ contract ERC721ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy first royalty extension
-        factory.deployRoyalty(mockToken, royaltyReceiver, 500);
+        factory.deployRoyalty(mockToken, royaltyReceiver, 500, 1000);
         
         // Try to deploy second royalty extension - should revert
         vm.expectRevert();
-        factory.deployRoyalty(mockToken, royaltyReceiver, 500);
+        factory.deployRoyalty(mockToken, royaltyReceiver, 500, 1000);
         
         vm.stopPrank();
     }
@@ -288,7 +315,7 @@ contract ERC721ExtensionFactoryTest is Test {
     function testCannotDeployWithoutRegistrarRole() public {
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deployRoyalty(mockToken, royaltyReceiver, 500);
+        factory.deployRoyalty(mockToken, royaltyReceiver, 500, 1000);
     }
     
     function testCannotDeployToZeroAddress() public {
@@ -297,7 +324,7 @@ contract ERC721ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         vm.expectRevert();
-        factory.deployRoyalty(address(0), royaltyReceiver, 500);
+        factory.deployRoyalty(address(0), royaltyReceiver, 500, 1000);
     }
     
     // ============ Gas Optimization Tests ============
@@ -308,7 +335,7 @@ contract ERC721ExtensionFactoryTest is Test {
         
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        factory.deployRoyalty(mockToken, royaltyReceiver, 500);
+        factory.deployRoyalty(mockToken, royaltyReceiver, 500, 1000);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas used for Royalty deployment", gasUsed);
@@ -324,9 +351,9 @@ contract ERC721ExtensionFactoryTest is Test {
         vm.startPrank(deployer);
         
         // Deploy token with multiple extensions
-        address royalty = factory.deployRoyalty(mockToken, royaltyReceiver, 500);
-        address metadata = factory.deployMetadata(mockToken);
-        address rental = factory.deployRental(mockToken, 30 days);
+        address royalty = factory.deployRoyalty(mockToken, royaltyReceiver, 500, 1000);
+        address metadata = factory.deployMetadata(mockToken, true, false);
+        address rental = factory.deployRental(mockToken, royaltyReceiver, 250, 1 days, 30 days, 0.01 ether, true, 1000);
         
         vm.stopPrank();
         
