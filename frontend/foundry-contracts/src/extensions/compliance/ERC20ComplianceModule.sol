@@ -36,13 +36,17 @@ contract ERC20ComplianceModule is
     /**
      * @notice Initialize compliance module
      * @param admin Admin address
-     * @param kycRequired Whether KYC is required
-     * @param whitelistRequired Whether whitelist is required
+     * @param jurisdictions Array of allowed jurisdictions (e.g., ["US", "EU"])
+     * @param complianceLevel Compliance strictness level (1-5)
+     * @param maxHoldersPerJurisdiction Maximum holders per jurisdiction
+     * @param kycRequired Whether KYC verification is mandatory
      */
     function initialize(
         address admin,
-        bool kycRequired,
-        bool whitelistRequired
+        string[] memory jurisdictions,
+        uint256 complianceLevel,
+        uint256 maxHoldersPerJurisdiction,
+        bool kycRequired
     ) public initializer {
         __AccessControl_init();
         __UUPSUpgradeable_init();
@@ -51,9 +55,27 @@ contract ERC20ComplianceModule is
         _grantRole(COMPLIANCE_OFFICER_ROLE, admin);
         _grantRole(UPGRADER_ROLE, admin);
         
+        // Set KYC requirement based on parameter
         _kycRequired = kycRequired;
-        _whitelistRequired = whitelistRequired;
-        _accreditedOnly = false; // Default: allow all verified investors
+        
+        // Set whitelist requirement based on compliance level
+        // Level 1-2: No whitelist, Level 3-5: Whitelist required
+        _whitelistRequired = complianceLevel >= 3;
+        
+        // Set accredited-only based on compliance level
+        // Level 4-5: Accredited investors only
+        _accreditedOnly = complianceLevel >= 4;
+        
+        // Initialize allowed jurisdictions
+        for (uint256 i = 0; i < jurisdictions.length; i++) {
+            bytes32 jurisdictionHash = keccak256(bytes(jurisdictions[i]));
+            _jurisdictionAllowed[jurisdictionHash] = true;
+            
+            // Set max holders per jurisdiction if specified
+            if (maxHoldersPerJurisdiction > 0) {
+                _jurisdictionLimits[jurisdictionHash] = maxHoldersPerJurisdiction;
+            }
+        }
     }
     
     // ============ Whitelist Management ============

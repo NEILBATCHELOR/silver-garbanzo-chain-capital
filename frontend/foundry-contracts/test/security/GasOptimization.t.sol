@@ -159,7 +159,10 @@ contract GasOptimizationTest is Test {
     function testGasERC20ComplianceDeployment() public {
         vm.prank(deployer);
         uint256 gasBefore = gasleft();
-        erc20Factory.deployCompliance(mockERC20Token, true, true);
+        string[] memory jurisdictions = new string[](2);
+        jurisdictions[0] = "US";
+        jurisdictions[1] = "EU";
+        erc20Factory.deployCompliance(mockERC20Token, jurisdictions, 3, 1000, true);
         uint256 gasUsed = gasBefore - gasleft();
         
         emit log_named_uint("Gas: ERC20 Compliance Deployment", gasUsed);
@@ -327,7 +330,10 @@ contract GasOptimizationTest is Test {
         
         // Deploy 5 extensions sequentially
         erc20Factory.deployPermit(mockERC20Token, "Test", "1");
-        erc20Factory.deployCompliance(mockERC20Token, true, true);
+        string[] memory jurisdictions = new string[](2);
+        jurisdictions[0] = "US";
+        jurisdictions[1] = "EU";
+        erc20Factory.deployCompliance(mockERC20Token, jurisdictions, 3, 1000, true);
         erc20Factory.deployVesting(mockERC20Token);
         erc20Factory.deploySnapshot(mockERC20Token);
         erc20Factory.deployVotes(mockERC20Token, "Gov Token", 1, 50400, 100000 * 10**18, 4);
@@ -349,7 +355,10 @@ contract GasOptimizationTest is Test {
         
         // Deploy all 10 ERC20 extensions
         erc20Factory.deployPermit(mockERC20Token, "Test", "1");
-        erc20Factory.deployCompliance(mockERC20Token, true, true);
+        string[] memory jurisdictions2 = new string[](2);
+        jurisdictions2[0] = "US";
+        jurisdictions2[1] = "EU";
+        erc20Factory.deployCompliance(mockERC20Token, jurisdictions2, 3, 1000, true);
         erc20Factory.deployVesting(mockERC20Token);
         erc20Factory.deploySnapshot(mockERC20Token);
         erc20Factory.deployTimelock(mockERC20Token, 1 days, 30 days, false);
@@ -399,7 +408,10 @@ contract GasOptimizationTest is Test {
         // Deploy some extensions first
         vm.startPrank(deployer);
         erc20Factory.deployPermit(mockERC20Token, "Test", "1");
-        erc20Factory.deployCompliance(mockERC20Token, true, true);
+        string[] memory jurisdictions3 = new string[](2);
+        jurisdictions3[0] = "US";
+        jurisdictions3[1] = "EU";
+        erc20Factory.deployCompliance(mockERC20Token, jurisdictions3, 3, 1000, true);
         vm.stopPrank();
         
         // Test query gas costs

@@ -388,10 +388,19 @@ export class InstanceDeploymentService {
     }
 
     console.log(`Deploying NEW compliance module instance for token ${tokenAddress}`);
+    
+    // UPDATED: New signature with jurisdictions and compliance level
+    const jurisdictions = config.jurisdictions || [];
+    const complianceLevel = config.complianceLevel || 1; // Default level 1
+    const maxHoldersPerJurisdiction = config.maxHoldersPerJurisdiction || 1000; // Default 1000
+    const kycRequired = config.kycRequired ?? true; // Default true
+    
     const tx = await factory.deployCompliance(
       tokenAddress,
-      config.kycRequired || false,
-      config.whitelistRequired || false
+      jurisdictions,
+      complianceLevel,
+      maxHoldersPerJurisdiction,
+      kycRequired
     );
     const receipt = await tx.wait();
 

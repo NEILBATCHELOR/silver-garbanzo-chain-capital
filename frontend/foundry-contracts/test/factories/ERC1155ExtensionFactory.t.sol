@@ -149,7 +149,7 @@ contract ERC1155ExtensionFactoryTest is Test {
         address royaltyExtension = factory.deployRoyalty(
             mockToken,
             royaltyReceiver,
-            500 // 5%
+            500  // defaultRoyaltyBps (5%)
         );
         
         assertTrue(royaltyExtension != address(0));

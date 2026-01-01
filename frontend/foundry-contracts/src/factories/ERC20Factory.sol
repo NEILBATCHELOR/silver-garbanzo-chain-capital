@@ -402,18 +402,28 @@ contract ERC20Factory is FactoryBase {
     }
     
     /**
-     * @notice Attach Compliance extension for KYC/whitelist
+     * @notice Attach Compliance extension for regulatory compliance
      * @param token Token address to attach extension to
-     * @param requireKYC Whether to require KYC
-     * @param whitelistEnabled Whether whitelist is enabled
+     * @param jurisdictions Array of allowed jurisdictions (e.g., ["US", "EU"])
+     * @param complianceLevel Compliance strictness level (1-5)
+     * @param maxHoldersPerJurisdiction Maximum holders per jurisdiction
+     * @param kycRequired Whether KYC verification is mandatory
      * @return extension Deployed extension address
      */
     function attachCompliance(
         address token,
-        bool requireKYC,
-        bool whitelistEnabled
+        string[] memory jurisdictions,
+        uint256 complianceLevel,
+        uint256 maxHoldersPerJurisdiction,
+        bool kycRequired
     ) external returns (address extension) {
-        return extensionFactory.deployCompliance(token, requireKYC, whitelistEnabled);
+        return extensionFactory.deployCompliance(
+            token,
+            jurisdictions,
+            complianceLevel,
+            maxHoldersPerJurisdiction,
+            kycRequired
+        );
     }
     
     /**

@@ -175,7 +175,10 @@ contract SecurityTest is Test {
         // Attacker cannot attach
         vm.prank(attacker);
         vm.expectRevert();
-        erc20Factory.deployCompliance(mockToken, true, true);
+        string[] memory jurisdictions = new string[](2);
+        jurisdictions[0] = "US";
+        jurisdictions[1] = "EU";
+        erc20Factory.deployCompliance(mockToken, jurisdictions, 3, 1000, true);
     }
     
     // ============ Input Validation Tests ============
@@ -323,7 +326,10 @@ contract SecurityTest is Test {
         }
         
         // Verify state is still consistent - can deploy other extensions
-        address compliance = erc20Factory.deployCompliance(mockToken, true, true);
+        string[] memory jurisdictions2 = new string[](2);
+        jurisdictions2[0] = "US";
+        jurisdictions2[1] = "EU";
+        address compliance = erc20Factory.deployCompliance(mockToken, jurisdictions2, 3, 1000, true);
         assertFalse(compliance == address(0));
         
         vm.stopPrank();
@@ -339,7 +345,10 @@ contract SecurityTest is Test {
         
         // Deploy multiple extensions
         erc20Factory.deployPermit(mockToken, "Test", "1");
-        erc20Factory.deployCompliance(mockToken, true, true);
+        string[] memory jurisdictions3 = new string[](2);
+        jurisdictions3[0] = "US";
+        jurisdictions3[1] = "EU";
+        erc20Factory.deployCompliance(mockToken, jurisdictions3, 3, 1000, true);
         
         // Verify registry state is correct
         address[] memory extensions = registry.getTokenExtensions(mockToken);
@@ -372,7 +381,10 @@ contract SecurityTest is Test {
         
         // Deploy all 10 ERC20 extensions (max)
         erc20Factory.deployPermit(mockToken, "Test", "1");
-        erc20Factory.deployCompliance(mockToken, true, true);
+        string[] memory jurisdictions4 = new string[](2);
+        jurisdictions4[0] = "US";
+        jurisdictions4[1] = "EU";
+        erc20Factory.deployCompliance(mockToken, jurisdictions4, 3, 1000, true);
         erc20Factory.deployVesting(mockToken);
         erc20Factory.deploySnapshot(mockToken);
         erc20Factory.deployTimelock(mockToken, 1 days, 30 days, false);

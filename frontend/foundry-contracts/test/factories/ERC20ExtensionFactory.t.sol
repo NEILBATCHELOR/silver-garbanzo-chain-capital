@@ -146,11 +146,18 @@ contract ERC20ExtensionFactoryTest is Test {
         vm.prank(admin);
         registry.grantRole(registry.REGISTRAR_ROLE(), address(factory));
         
+        // Prepare jurisdictions array
+        string[] memory jurisdictions = new string[](2);
+        jurisdictions[0] = "US";
+        jurisdictions[1] = "EU";
+        
         vm.prank(deployer);
         address complianceExtension = factory.deployCompliance(
             mockToken,
-            true,  // requireKYC
-            true   // whitelistEnabled
+            jurisdictions,  // jurisdictions array
+            1,              // complianceLevel
+            1000,           // maxHoldersPerJurisdiction
+            true            // kycRequired
         );
         
         assertTrue(complianceExtension != address(0));
@@ -339,9 +346,13 @@ contract ERC20ExtensionFactoryTest is Test {
         
         vm.startPrank(deployer);
         
+        // Prepare jurisdictions for compliance
+        string[] memory jurisdictions = new string[](1);
+        jurisdictions[0] = "US";
+        
         // Deploy multiple extensions
         address permitExt = factory.deployPermit(mockToken, "Test", "1");
-        address complianceExt = factory.deployCompliance(mockToken, true, true);
+        address complianceExt = factory.deployCompliance(mockToken, jurisdictions, 1, 1000, true);
         address vestingExt = factory.deployVesting(mockToken);
         
         vm.stopPrank();
@@ -514,9 +525,14 @@ contract ERC20ExtensionFactoryTest is Test {
         
         vm.startPrank(deployer);
         
+        // Prepare jurisdictions for compliance
+        string[] memory jurisdictions = new string[](2);
+        jurisdictions[0] = "US";
+        jurisdictions[1] = "EU";
+        
         // 1. Deploy token with multiple extensions
         address permit = factory.deployPermit(mockToken, "Test Token", "1");
-        address compliance = factory.deployCompliance(mockToken, true, true);
+        address compliance = factory.deployCompliance(mockToken, jurisdictions, 1, 1000, true);
         address vesting = factory.deployVesting(mockToken);
         address votes = factory.deployVotes(
             mockToken,

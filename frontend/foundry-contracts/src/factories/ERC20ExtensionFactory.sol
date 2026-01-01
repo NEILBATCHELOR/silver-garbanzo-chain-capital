@@ -166,26 +166,32 @@ contract ERC20ExtensionFactory is ExtensionBase {
     }
     
     /**
-     * @notice Deploy Compliance extension for KYC/whitelist
+     * @notice Deploy Compliance extension for regulatory requirements
      * @param token Token address to attach extension to
-     * @param requireKYC Whether to require KYC
-     * @param whitelistEnabled Whether whitelist is enabled
+     * @param jurisdictions Array of allowed jurisdictions (e.g., ["US", "EU"])
+     * @param complianceLevel Compliance strictness level (1-5)
+     * @param maxHoldersPerJurisdiction Maximum holders per jurisdiction
+     * @param kycRequired Whether KYC verification is mandatory
      * @return extension Deployed extension address
      */
     function deployCompliance(
         address token,
-        bool requireKYC,
-        bool whitelistEnabled
+        string[] memory jurisdictions,
+        uint256 complianceLevel,
+        uint256 maxHoldersPerJurisdiction,
+        bool kycRequired
     ) external returns (address extension) {
         if (token == address(0)) revert InvalidToken();
         require(complianceBeacon != address(0), "Beacon not initialized");
         
-        // Prepare initialization data
+        // Prepare initialization data with NEW signature
         bytes memory initData = abi.encodeWithSelector(
             ERC20ComplianceModule.initialize.selector,
             msg.sender,  // admin
-            requireKYC,
-            whitelistEnabled
+            jurisdictions,
+            complianceLevel,
+            maxHoldersPerJurisdiction,
+            kycRequired
         );
         
         // Deploy via beacon
