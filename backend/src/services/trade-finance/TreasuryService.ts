@@ -1,4 +1,5 @@
-import { supabase } from '../../infrastructure/database/supabase';
+import { getSupabaseClient } from '../../infrastructure/database/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * TreasuryService
@@ -76,6 +77,13 @@ export interface ProtocolReserve {
 
 export class TreasuryService {
     /**
+     * Get Supabase client with null safety
+     */
+    private get supabase(): SupabaseClient {
+        return getSupabaseClient();
+    }
+
+    /**
      * Record fee collection
      */
     async recordFeeCollection(
@@ -86,7 +94,7 @@ export class TreasuryService {
         txHash?: string
     ): Promise<void> {
         // Insert collection record
-        const { error: collectionError } = await supabase
+        const { error: collectionError } = await this.supabase
             .from('trade_finance_fee_collections')
             .insert({
                 token_address: tokenAddress.toLowerCase(),
@@ -99,14 +107,14 @@ export class TreasuryService {
         if (collectionError) throw collectionError;
         
         // Update accumulation
-        const { data: existing } = await supabase
+        const { data: existing } = await this.supabase
             .from('trade_finance_fee_accumulations')
             .select('*')
             .eq('token_address', tokenAddress.toLowerCase())
             .single();
             
         if (existing) {
-            await supabase
+            await this.supabase
                 .from('trade_finance_fee_accumulations')
                 .update({
                     current_amount: (BigInt(existing.current_amount) + amount).toString(),
@@ -116,7 +124,7 @@ export class TreasuryService {
                 })
                 .eq('token_address', tokenAddress.toLowerCase());
         } else {
-            await supabase
+            await this.supabase
                 .from('trade_finance_fee_accumulations')
                 .insert({
                     token_address: tokenAddress.toLowerCase(),
@@ -131,7 +139,7 @@ export class TreasuryService {
      * Get fee accumulation for token
      */
     async getFeeAccumulation(tokenAddress: string): Promise<FeeAccumulation | null> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('trade_finance_fee_accumulations')
             .select('*')
             .eq('token_address', tokenAddress.toLowerCase())
@@ -149,7 +157,7 @@ export class TreasuryService {
      * Get all fee accumulations
      */
     async getAllFeeAccumulations(): Promise<FeeAccumulation[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('trade_finance_fee_accumulations')
             .select('*')
             .order('total_collected', { ascending: false });
@@ -166,7 +174,7 @@ export class TreasuryService {
         tokenAddress?: string,
         limit: number = 100
     ): Promise<FeeCollection[]> {
-        let query = supabase
+        let query = this.supabase
             .from('trade_finance_fee_collections')
             .select('*')
             .order('collected_at', { ascending: false })
@@ -186,7 +194,7 @@ export class TreasuryService {
      * Create or update revenue recipient
      */
     async upsertRevenueRecipient(recipient: Omit<RevenueRecipient, 'id'>): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('trade_finance_revenue_recipients')
             .upsert({
                 recipient_id: recipient.recipientId,
@@ -207,7 +215,7 @@ export class TreasuryService {
      * Get all revenue recipients
      */
     async getRevenueRecipients(activeOnly: boolean = false): Promise<RevenueRecipient[]> {
-        let query = supabase
+        let query = this.supabase
             .from('trade_finance_revenue_recipients')
             .select('*')
             .order('fee_share_bps', { ascending: false });
@@ -234,7 +242,7 @@ export class TreasuryService {
         txHash?: string
     ): Promise<void> {
         // Record distribution
-        const { error: distributionError } = await supabase
+        const { error: distributionError } = await this.supabase
             .from('trade_finance_fee_distributions')
             .insert({
                 token_address: tokenAddress.toLowerCase(),
@@ -248,7 +256,7 @@ export class TreasuryService {
         if (distributionError) throw distributionError;
         
         // Update accumulation
-        const { data: accumulation } = await supabase
+        const { data: accumulation } = await this.supabase
             .from('trade_finance_fee_accumulations')
             .select('current_amount')
             .eq('token_address', tokenAddress.toLowerCase())
@@ -256,7 +264,7 @@ export class TreasuryService {
             
         if (accumulation) {
             const newAmount = BigInt(accumulation.current_amount) - amount;
-            await supabase
+            await this.supabase
                 .from('trade_finance_fee_accumulations')
                 .update({
                     current_amount: newAmount.toString(),
@@ -275,7 +283,7 @@ export class TreasuryService {
         recipientId?: string,
         limit: number = 100
     ): Promise<FeeDistribution[]> {
-        let query = supabase
+        let query = this.supabase
             .from('trade_finance_fee_distributions')
             .select('*')
             .order('distributed_at', { ascending: false })
@@ -298,7 +306,7 @@ export class TreasuryService {
      * Create payment stream
      */
     async createPaymentStream(stream: Omit<PaymentStream, 'id' | 'withdrawnAmount' | 'canceled'>): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('trade_finance_payment_streams')
             .insert({
                 stream_id: stream.streamId.toString(),
@@ -327,7 +335,7 @@ export class TreasuryService {
         txHash?: string
     ): Promise<void> {
         // Record withdrawal
-        const { error: withdrawalError } = await supabase
+        const { error: withdrawalError } = await this.supabase
             .from('trade_finance_stream_withdrawals')
             .insert({
                 stream_id: streamId.toString(),
@@ -339,14 +347,14 @@ export class TreasuryService {
         if (withdrawalError) throw withdrawalError;
         
         // Update stream
-        const { data: stream } = await supabase
+        const { data: stream } = await this.supabase
             .from('trade_finance_payment_streams')
             .select('withdrawn_amount, remaining_balance')
             .eq('stream_id', streamId.toString())
             .single();
             
         if (stream) {
-            await supabase
+            await this.supabase
                 .from('trade_finance_payment_streams')
                 .update({
                     withdrawn_amount: (BigInt(stream.withdrawn_amount) + amount).toString(),
@@ -361,7 +369,7 @@ export class TreasuryService {
      * Cancel stream
      */
     async cancelStream(streamId: bigint): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('trade_finance_payment_streams')
             .update({
                 canceled: true,
@@ -379,7 +387,7 @@ export class TreasuryService {
         recipientAddress?: string,
         activeOnly: boolean = false
     ): Promise<PaymentStream[]> {
-        let query = supabase
+        let query = this.supabase
             .from('trade_finance_payment_streams')
             .select('*')
             .order('created_at', { ascending: false });
@@ -409,7 +417,7 @@ export class TreasuryService {
         txHash?: string
     ): Promise<void> {
         // Record transaction
-        const { error: txError } = await supabase
+        const { error: txError } = await this.supabase
             .from('trade_finance_reserve_transactions')
             .insert({
                 token_address: tokenAddress.toLowerCase(),
@@ -423,7 +431,7 @@ export class TreasuryService {
         if (txError) throw txError;
         
         // Update reserve balance
-        const { data: reserve } = await supabase
+        const { data: reserve } = await this.supabase
             .from('trade_finance_protocol_reserve')
             .select('*')
             .eq('token_address', tokenAddress.toLowerCase())
@@ -451,13 +459,13 @@ export class TreasuryService {
                 updateData.available_amount = (totalBalance - allocatedAmount + amount).toString();
             }
             
-            await supabase
+            await this.supabase
                 .from('trade_finance_protocol_reserve')
                 .update(updateData)
                 .eq('token_address', tokenAddress.toLowerCase());
         } else {
             // Create new reserve entry
-            await supabase
+            await this.supabase
                 .from('trade_finance_protocol_reserve')
                 .insert({
                     token_address: tokenAddress.toLowerCase(),
@@ -473,7 +481,7 @@ export class TreasuryService {
      * Get protocol reserve
      */
     async getProtocolReserve(tokenAddress: string): Promise<ProtocolReserve | null> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('trade_finance_protocol_reserve')
             .select('*')
             .eq('token_address', tokenAddress.toLowerCase())
@@ -491,7 +499,7 @@ export class TreasuryService {
      * Get all protocol reserves
      */
     async getAllProtocolReserves(): Promise<ProtocolReserve[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.supabase
             .from('trade_finance_protocol_reserve')
             .select('*')
             .order('total_balance', { ascending: false });
@@ -510,14 +518,14 @@ export class TreasuryService {
             this.getProtocolReserve(tokenAddress)
         ]);
         
-        const { data: distributions } = await supabase
+        const { data: distributions } = await this.supabase
             .from('trade_finance_fee_distributions')
             .select('amount')
             .eq('token_address', tokenAddress.toLowerCase());
             
         const totalDistributed = distributions?.reduce((sum: bigint, d: any) => sum + BigInt(d.amount), 0n) || 0n;
         
-        const { error } = await supabase
+        const { error } = await this.supabase
             .from('trade_finance_treasury_snapshots')
             .insert({
                 token_address: tokenAddress.toLowerCase(),
@@ -545,18 +553,18 @@ export class TreasuryService {
         startDate.setDate(startDate.getDate() - days);
         
         const [collections, distributions, reserves, streams] = await Promise.all([
-            supabase
+            this.supabase
                 .from('trade_finance_fee_collections')
                 .select('amount, fee_source')
                 .gte('collected_at', startDate.toISOString()),
-            supabase
+            this.supabase
                 .from('trade_finance_fee_distributions')
                 .select('amount')
                 .gte('distributed_at', startDate.toISOString()),
-            supabase
+            this.supabase
                 .from('trade_finance_protocol_reserve')
                 .select('total_balance'),
-            supabase
+            this.supabase
                 .from('trade_finance_payment_streams')
                 .select('remaining_balance')
                 .eq('canceled', false)

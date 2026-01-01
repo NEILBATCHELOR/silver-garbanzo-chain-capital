@@ -3,9 +3,9 @@
  * All backend services properly exposed with accurate endpoint counts and comprehensive documentation
  */
 
-// Load environment variables first
-import { config } from 'dotenv'
-config()
+// Load environment variables first via centralized config
+// This MUST be first to ensure dotenv loads before any other imports
+import { env, PORT, HOST, NODE_ENV } from './src/config/env'
 
 import Fastify, { FastifyInstance } from 'fastify'
 import { initializeDatabase } from './src/infrastructure/database/client'
@@ -56,11 +56,6 @@ import { deploymentRoutes } from './src/routes/deploymentRoutes'
 
 // Plugins
 import supabasePlugin from './src/plugins/supabase'
-
-// Types
-const PORT = parseInt(process.env.PORT || '3001', 10)
-const HOST = process.env.HOST || 'localhost'
-const NODE_ENV = process.env.NODE_ENV || 'development'
 
 // Create logger
 const logger = createLogger('EnhancedAccurateServer')

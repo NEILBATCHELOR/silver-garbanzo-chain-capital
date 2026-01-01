@@ -49,20 +49,27 @@ export async function initializeDatabase(): Promise<PrismaClient> {
     const adapter = new PrismaPg(pool)
 
     // Prisma 7: Initialize client with adapter
+    // In development, enable query logging via event emission
     prisma = new PrismaClient({
       adapter,
-      log: [
-        { level: 'query', emit: 'event' },
-        { level: 'info', emit: 'stdout' },
-        { level: 'warn', emit: 'stdout' },
-        { level: 'error', emit: 'stdout' },
-      ],
+      log: process.env.NODE_ENV === 'development' 
+        ? [
+            { level: 'query', emit: 'event' },
+            { level: 'info', emit: 'stdout' },
+            { level: 'warn', emit: 'stdout' },
+            { level: 'error', emit: 'stdout' },
+          ]
+        : [
+            { level: 'info', emit: 'stdout' },
+            { level: 'warn', emit: 'stdout' },
+            { level: 'error', emit: 'stdout' },
+          ],
       errorFormat: 'pretty',
-    })
+    }) as PrismaClient
 
-    // Log queries in development
+    // Log queries in development (only if event logging is enabled)
     if (process.env.NODE_ENV === 'development') {
-      prisma.$on('query', (e: any) => {
+      (prisma as any).$on('query', (e: any) => {
         logger.debug({ duration: e.duration, query: e.query }, 'Prisma Query')
       })
     }

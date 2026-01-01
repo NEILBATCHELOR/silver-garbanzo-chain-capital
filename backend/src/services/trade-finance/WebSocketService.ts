@@ -261,8 +261,8 @@ export async function registerTradeFinanceWebSocket(fastify: FastifyInstance) {
   await fastify.register(fastifyWebsocket);
 
   // WebSocket endpoint
-  fastify.get('/api/trade-finance/ws', { websocket: true }, (socket, request) => {
-    // In @fastify/websocket v8+, the callback receives the socket directly
+  fastify.get('/api/trade-finance/ws', { websocket: true }, (connection, request) => {
+    const socket = connection;
 
     // Extract project_id from query params
     const url = new URL(request.url, 'http://localhost');

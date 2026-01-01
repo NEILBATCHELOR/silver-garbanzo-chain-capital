@@ -3,7 +3,7 @@
  * Backend service for Interest Rate Strategy V2 with commodity-specific adjustments
  */
 
-import { supabase } from '../../infrastructure/database/supabase';
+import { getSupabaseClient } from '../../infrastructure/database/supabase';
 
 // ============ Constants ============
 
@@ -152,6 +152,7 @@ export class InterestRateService {
         // Validate parameters
         this.validateRateParams(config);
 
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_interest_rate_config')
             .upsert({
@@ -181,6 +182,7 @@ export class InterestRateService {
 
 
     async getInterestRateConfig(reserveAddress: string, chainId?: number): Promise<InterestRateConfig | null> {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_interest_rate_config')
             .select('*')
@@ -196,6 +198,7 @@ export class InterestRateService {
     }
 
     async getAllConfigs(chainId?: number): Promise<InterestRateConfig[]> {
+        const supabase = getSupabaseClient();
         let query = supabase
             .from('trade_finance_interest_rate_config')
             .select('*')
@@ -211,6 +214,7 @@ export class InterestRateService {
     }
 
     async deactivateConfig(reserveAddress: string, chainId?: number): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_interest_rate_config')
             .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -223,6 +227,7 @@ export class InterestRateService {
     // ============ Seasonal Multipliers ============
 
     async getSeasonalMultipliers(commodityType: CommodityType): Promise<SeasonalMultiplier[]> {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_seasonal_multipliers')
             .select('*')
@@ -247,6 +252,7 @@ export class InterestRateService {
             throw new Error('Multiplier must be between 7000 and 15000 bps');
         }
 
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_seasonal_multipliers')
             .upsert({
@@ -267,6 +273,7 @@ export class InterestRateService {
 
     async getCurrentSeasonalMultiplier(commodityType: CommodityType): Promise<number> {
         const month = new Date().getMonth();
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_seasonal_multipliers')
             .select('multiplier_bps')
@@ -387,6 +394,7 @@ export class InterestRateService {
         );
 
         // Record simulation
+        const supabase = getSupabaseClient();
         await supabase.from('trade_finance_rate_simulations').insert({
             reserve_address: params.reserveAddress.toLowerCase(),
             chain_id: params.chainId ?? this.defaultChainId,

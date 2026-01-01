@@ -3,7 +3,7 @@
  * Manages ERC4626 wrapped commodity tokens with auto-compounding
  */
 
-import { supabase } from '../../infrastructure/database/supabase';
+import { getSupabaseClient } from '../../infrastructure/database/supabase';
 import { createLogger } from '../../utils/logger';
 
 const logger = createLogger('StataTokenService');
@@ -75,6 +75,7 @@ export class StataTokenService {
    */
   async deployStataToken(input: DeployStataTokenInput): Promise<StataToken> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_tokens')
         .insert({
@@ -111,6 +112,7 @@ export class StataTokenService {
    */
   async getAllStataTokens(chainId?: number): Promise<StataToken[]> {
     try {
+      const supabase = getSupabaseClient();
       let query = supabase
         .from('trade_finance_stata_tokens')
         .select('*')
@@ -139,6 +141,7 @@ export class StataTokenService {
    */
   async getStataTokenByAddress(address: string): Promise<StataToken | null> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_tokens')
         .select('*')
@@ -165,6 +168,7 @@ export class StataTokenService {
    */
   async getStataTokenByCToken(ctokenAddress: string): Promise<StataToken | null> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_tokens')
         .select('*')
@@ -191,6 +195,7 @@ export class StataTokenService {
    */
   async recordOperation(input: RecordOperationInput): Promise<StataOperation> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_operations')
         .insert({
@@ -227,6 +232,7 @@ export class StataTokenService {
     offset: number = 0
   ): Promise<StataOperation[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_operations')
         .select('*')
@@ -255,6 +261,7 @@ export class StataTokenService {
     offset: number = 0
   ): Promise<StataOperation[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_operations')
         .select('*')
@@ -279,6 +286,7 @@ export class StataTokenService {
    */
   async updateTotals(input: UpdateTotalsInput): Promise<StataToken> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_tokens')
         .update({
@@ -307,6 +315,7 @@ export class StataTokenService {
    */
   async togglePause(stataTokenAddress: string, isPaused: boolean): Promise<StataToken> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_tokens')
         .update({
@@ -335,6 +344,7 @@ export class StataTokenService {
    */
   async getStataTokensByCommodity(commodityType: string): Promise<StataToken[]> {
     try {
+      const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('trade_finance_stata_tokens')
         .select('*')
@@ -387,6 +397,7 @@ export class StataTokenService {
    */
   async getStataTokenStats(stataTokenAddress: string) {
     try {
+      const supabase = getSupabaseClient();
       const stataToken = await this.getStataTokenByAddress(stataTokenAddress);
       if (!stataToken) {
         throw new Error('StataToken not found');

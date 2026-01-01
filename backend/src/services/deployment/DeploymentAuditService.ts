@@ -4,7 +4,7 @@
  * Logs all deployment activities to database for security and compliance
  */
 
-import { supabase } from '../../infrastructure/database/supabase';
+import { getSupabaseClient } from '../../infrastructure/database/supabase';
 
 // ============================================
 // Types
@@ -32,6 +32,8 @@ export interface DeploymentAuditLog {
  */
 export async function logDeploymentActivity(log: DeploymentAuditLog): Promise<void> {
   try {
+    const supabase = getSupabaseClient();
+    
     // Sanitize command (remove private keys)
     const sanitizedCommand = sanitizeCommand(log.command);
 
@@ -68,6 +70,8 @@ export async function getDeploymentHistory(params: {
   limit?: number;
   offset?: number;
 }) {
+  const supabase = getSupabaseClient();
+  
   let query = supabase
     .from('deployment_audit_logs')
     .select('*')
@@ -107,6 +111,8 @@ export async function getDeploymentStats(params: {
   startDate?: string;
   endDate?: string;
 }) {
+  const supabase = getSupabaseClient();
+  
   let query = supabase
     .from('deployment_audit_logs')
     .select('action, success, network, created_at');

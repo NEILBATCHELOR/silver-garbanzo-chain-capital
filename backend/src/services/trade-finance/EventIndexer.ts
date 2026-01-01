@@ -108,12 +108,15 @@ export class EventIndexer {
       const currentBlock = await this.provider.getBlockNumber();
       console.log(`[EventIndexer] Indexing historical events from block ${fromBlock} to ${currentBlock}`);
 
-      // Get event filters - using getEvent to properly create filters
-      const contractFilters = this.contract.filters;
-      
+      if (!this.contract.filters) {
+        throw new Error('Contract filters not available');
+      }
+
+      const filters = this.contract.filters;
+
       // Supply events
-      const supplyFilter = contractFilters['Supply']?.();
-      if (supplyFilter) {
+      if (filters.Supply) {
+        const supplyFilter = filters.Supply();
         const supplyEvents = await this.contract.queryFilter(supplyFilter, fromBlock, currentBlock);
         for (const event of supplyEvents) {
           await this.processSupplyEvent(event);
@@ -121,8 +124,8 @@ export class EventIndexer {
       }
 
       // Borrow events
-      const borrowFilter = contractFilters['Borrow']?.();
-      if (borrowFilter) {
+      if (filters.Borrow) {
+        const borrowFilter = filters.Borrow();
         const borrowEvents = await this.contract.queryFilter(borrowFilter, fromBlock, currentBlock);
         for (const event of borrowEvents) {
           await this.processBorrowEvent(event);
@@ -130,8 +133,8 @@ export class EventIndexer {
       }
 
       // Repay events
-      const repayFilter = contractFilters['Repay']?.();
-      if (repayFilter) {
+      if (filters.Repay) {
+        const repayFilter = filters.Repay();
         const repayEvents = await this.contract.queryFilter(repayFilter, fromBlock, currentBlock);
         for (const event of repayEvents) {
           await this.processRepayEvent(event);
@@ -139,8 +142,8 @@ export class EventIndexer {
       }
 
       // Withdraw events
-      const withdrawFilter = contractFilters['Withdraw']?.();
-      if (withdrawFilter) {
+      if (filters.Withdraw) {
+        const withdrawFilter = filters.Withdraw();
         const withdrawEvents = await this.contract.queryFilter(withdrawFilter, fromBlock, currentBlock);
         for (const event of withdrawEvents) {
           await this.processWithdrawEvent(event);
@@ -148,8 +151,8 @@ export class EventIndexer {
       }
 
       // Liquidation events
-      const liquidateFilter = contractFilters['Liquidate']?.();
-      if (liquidateFilter) {
+      if (filters.Liquidate) {
+        const liquidateFilter = filters.Liquidate();
         const liquidateEvents = await this.contract.queryFilter(liquidateFilter, fromBlock, currentBlock);
         for (const event of liquidateEvents) {
           await this.processLiquidateEvent(event);

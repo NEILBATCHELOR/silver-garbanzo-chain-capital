@@ -179,12 +179,23 @@ export class RewardsService {
         this.defaultChainId = chainId;
     }
 
+    /**
+     * Helper method to safely access supabase client
+     * Throws error if supabase is not initialized
+     */
+    private getSupabase() {
+        if (!supabase) {
+            throw new Error('Supabase client is not initialized');
+        }
+        return supabase;
+    }
+
     // ============ Configuration Management ============
 
     async configureRewards(config: RewardsConfigInput): Promise<RewardsConfig> {
         const chainId = config.chainId ?? this.defaultChainId;
         
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_config')
             .upsert({
                 asset_address: config.assetAddress.toLowerCase(),
@@ -213,7 +224,7 @@ export class RewardsService {
     }
 
     async getRewardsConfig(assetAddress: string, rewardTokenAddress?: string): Promise<RewardsConfig[]> {
-        let query = supabase
+        let query = this.getSupabase()
             .from('trade_finance_rewards_config')
             .select('*')
             .eq('asset_address', assetAddress.toLowerCase())
@@ -229,7 +240,7 @@ export class RewardsService {
     }
 
     async getAllActiveRewardsConfigs(chainId?: number): Promise<RewardsConfig[]> {
-        let query = supabase
+        let query = this.getSupabase()
             .from('trade_finance_rewards_config')
             .select('*')
             .eq('is_active', true)
@@ -245,7 +256,7 @@ export class RewardsService {
     }
 
     async deactivateRewards(assetAddress: string, rewardTokenAddress: string): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.getSupabase()
             .from('trade_finance_rewards_config')
             .update({
                 is_active: false,
@@ -262,7 +273,7 @@ export class RewardsService {
         rewardTokenAddress: string,
         newEmissionPerSecond: string
     ): Promise<RewardsConfig> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_config')
             .update({
                 emission_per_second: newEmissionPerSecond,
@@ -282,7 +293,7 @@ export class RewardsService {
         rewardTokenAddress: string,
         newDistributionEnd: Date
     ): Promise<RewardsConfig> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_config')
             .update({
                 distribution_end: newDistributionEnd.toISOString(),
@@ -300,7 +311,7 @@ export class RewardsService {
     // ============ User Rewards ============
 
     async getUserRewards(userAddress: string, chainId?: number): Promise<UserReward[]> {
-        let query = supabase
+        let query = this.getSupabase()
             .from('trade_finance_user_rewards')
             .select('*')
             .eq('user_address', userAddress.toLowerCase());
@@ -382,7 +393,7 @@ export class RewardsService {
         accruedAmount: string,
         chainId?: number
     ): Promise<UserReward> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_user_rewards')
             .upsert({
                 user_address: userAddress.toLowerCase(),
@@ -417,7 +428,7 @@ export class RewardsService {
         chainId?: number
     ): Promise<RewardsClaim> {
         const decimals = 18; // Default, could be fetched from config
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_claims')
             .insert({
                 user_address: userAddress.toLowerCase(),
@@ -453,7 +464,7 @@ export class RewardsService {
             offset?: number;
         }
     ): Promise<RewardsClaim[]> {
-        let query = supabase
+        let query = this.getSupabase()
             .from('trade_finance_rewards_claims')
             .select('*')
             .eq('user_address', userAddress.toLowerCase())
@@ -481,7 +492,7 @@ export class RewardsService {
     }
 
     async getTotalClaimed(userAddress: string, rewardTokenAddress?: string): Promise<string> {
-        let query = supabase
+        let query = this.getSupabase()
             .from('trade_finance_rewards_claims')
             .select('amount')
             .eq('user_address', userAddress.toLowerCase());
@@ -503,7 +514,7 @@ export class RewardsService {
         amount: string
     ): Promise<void> {
         // Get current claimed amount
-        const { data: existing } = await supabase
+        const { data: existing } = await this.getSupabase()
             .from('trade_finance_user_rewards')
             .select('claimed_amount')
             .eq('user_address', userAddress.toLowerCase())
@@ -513,7 +524,7 @@ export class RewardsService {
         const currentClaimed = BigInt(existing?.claimed_amount || '0');
         const newClaimed = currentClaimed + BigInt(amount);
         
-        await supabase
+        await this.getSupabase()
             .from('trade_finance_user_rewards')
             .update({
                 claimed_amount: newClaimed.toString(),
@@ -530,7 +541,7 @@ export class RewardsService {
         claimerAddress: string,
         expiresAt?: Date
     ): Promise<AuthorizedClaimer> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_authorized_claimers')
             .upsert({
                 user_address: userAddress.toLowerCase(),
@@ -552,7 +563,7 @@ export class RewardsService {
         userAddress: string,
         claimerAddress: string
     ): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.getSupabase()
             .from('trade_finance_authorized_claimers')
             .update({ is_active: false })
             .eq('user_address', userAddress.toLowerCase())
@@ -562,7 +573,7 @@ export class RewardsService {
     }
 
     async getAuthorizedClaimers(userAddress: string): Promise<AuthorizedClaimer[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_authorized_claimers')
             .select('*')
             .eq('user_address', userAddress.toLowerCase())
@@ -576,7 +587,7 @@ export class RewardsService {
         userAddress: string,
         claimerAddress: string
     ): Promise<boolean> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_authorized_claimers')
             .select('id, expires_at')
             .eq('user_address', userAddress.toLowerCase())
@@ -609,7 +620,7 @@ export class RewardsService {
         }
         
         // Calculate totals from claims
-        const { data: claims } = await supabase
+        const { data: claims } = await this.getSupabase()
             .from('trade_finance_rewards_claims')
             .select('amount, user_address')
             .eq('reward_token_address', rewardTokenAddress.toLowerCase());
@@ -631,7 +642,7 @@ export class RewardsService {
         
         const totalUnclaimed = totalDistributed - totalClaimed;
         
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_snapshots')
             .insert({
                 asset_address: assetAddress.toLowerCase(),
@@ -657,7 +668,7 @@ export class RewardsService {
         assetAddress: string,
         rewardTokenAddress: string
     ): Promise<RewardsSnapshot | null> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_snapshots')
             .select('*')
             .eq('asset_address', assetAddress.toLowerCase())
@@ -677,7 +688,7 @@ export class RewardsService {
         rewardTokenAddress: string,
         limit: number = 30
     ): Promise<RewardsSnapshot[]> {
-        const { data, error } = await supabase
+        const { data, error } = await this.getSupabase()
             .from('trade_finance_rewards_snapshots')
             .select('*')
             .eq('asset_address', assetAddress.toLowerCase())
@@ -700,7 +711,7 @@ export class RewardsService {
         programsByAsset: Record<string, number>;
     }> {
         // Get all configs
-        const { data: configs } = await supabase
+        const { data: configs } = await this.getSupabase()
             .from('trade_finance_rewards_config')
             .select('*');
             
@@ -711,7 +722,7 @@ export class RewardsService {
         ).length || 0;
         
         // Get all claims
-        const { data: claims } = await supabase
+        const { data: claims } = await this.getSupabase()
             .from('trade_finance_rewards_claims')
             .select('amount, user_address');
             
@@ -814,7 +825,7 @@ export class RewardsService {
         rewardTokenAddress: string,
         newIndex: string
     ): Promise<void> {
-        const { error } = await supabase
+        const { error } = await this.getSupabase()
             .from('trade_finance_rewards_config')
             .update({
                 current_index: newIndex,

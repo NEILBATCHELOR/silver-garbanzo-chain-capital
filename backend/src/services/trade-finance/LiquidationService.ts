@@ -1,4 +1,4 @@
-import { supabase } from '../../infrastructure/database/supabase';
+import { getSupabaseClient } from '../../infrastructure/database/supabase';
 
 /**
  * LiquidationService
@@ -75,6 +75,7 @@ export class LiquidationService {
      * Record a new Dutch auction
      */
     async recordDutchAuction(auction: Omit<DutchAuction, 'id'>): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_dutch_auctions')
             .insert({
@@ -108,6 +109,7 @@ export class LiquidationService {
         finalPrice: bigint,
         txHash?: string
     ): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_auction_executions')
             .insert({
@@ -135,6 +137,7 @@ export class LiquidationService {
      * Get active Dutch auctions
      */
     async getActiveAuctions(): Promise<DutchAuction[]> {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_dutch_auctions')
             .select('*')
@@ -150,6 +153,7 @@ export class LiquidationService {
      * Get auctions by user
      */
     async getUserAuctions(userAddress: string): Promise<DutchAuction[]> {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_dutch_auctions')
             .select('*')
@@ -165,6 +169,7 @@ export class LiquidationService {
      * Record margin call
      */
     async recordMarginCall(marginCall: Omit<MarginCall, 'id'>): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_margin_calls')
             .insert({
@@ -189,6 +194,7 @@ export class LiquidationService {
         collateralAdded: bigint,
         newHealthFactor: number
     ): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_margin_calls')
             .update({
@@ -209,6 +215,7 @@ export class LiquidationService {
      * Get active margin calls
      */
     async getActiveMarginCalls(): Promise<MarginCall[]> {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_margin_calls')
             .select('*')
@@ -225,6 +232,7 @@ export class LiquidationService {
      * Get user's margin calls
      */
     async getUserMarginCalls(userAddress: string): Promise<MarginCall[]> {
+        const supabase = getSupabaseClient();
         const { data, error } = await supabase
             .from('trade_finance_margin_calls')
             .select('*')
@@ -244,6 +252,7 @@ export class LiquidationService {
         healthFactor: number,
         warningType: 'LOW' | 'CRITICAL' | 'MARGIN_CALL'
     ): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_health_warnings')
             .insert({
@@ -259,6 +268,7 @@ export class LiquidationService {
      * Record flash liquidation
      */
     async recordFlashLiquidation(liquidation: Omit<FlashLiquidation, 'id'>): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_flash_liquidations')
             .insert({
@@ -285,6 +295,7 @@ export class LiquidationService {
         initiatorAddress?: string,
         limit: number = 50
     ): Promise<FlashLiquidation[]> {
+        const supabase = getSupabaseClient();
         let query = supabase
             .from('trade_finance_flash_liquidations')
             .select('*')
@@ -305,6 +316,7 @@ export class LiquidationService {
      * Create insurance claim
      */
     async createInsuranceClaim(claim: Omit<InsuranceClaim, 'id' | 'status' | 'initiatedAt'>): Promise<void> {
+        const supabase = getSupabaseClient();
         const { error } = await supabase
             .from('trade_finance_insurance_claims')
             .insert({
@@ -326,6 +338,7 @@ export class LiquidationService {
         status: 'APPROVED' | 'REJECTED' | 'PAID',
         payoutAmount?: bigint
     ): Promise<void> {
+        const supabase = getSupabaseClient();
         const updateData: any = {
             status,
             resolved_at: new Date().toISOString()
@@ -350,6 +363,7 @@ export class LiquidationService {
         userAddress?: string,
         status?: string
     ): Promise<InsuranceClaim[]> {
+        const supabase = getSupabaseClient();
         let query = supabase
             .from('trade_finance_insurance_claims')
             .select('*')
@@ -379,6 +393,7 @@ export class LiquidationService {
         flashLiquidations: number;
         gracefulResolutions: number;
     }> {
+        const supabase = getSupabaseClient();
         const startDate = new Date();
         startDate.setDate(startDate.getDate() - days);
         

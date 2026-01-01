@@ -8,6 +8,7 @@
 import { FastifyInstance, FastifyPluginAsync } from 'fastify'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import fp from 'fastify-plugin'
+import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from '../config/env'
 
 // Extend Fastify instance type to include supabase
 declare module 'fastify' {
@@ -31,13 +32,13 @@ const supabasePlugin: FastifyPluginAsync<SupabasePluginOptions> = async (
   fastify: FastifyInstance,
   options: SupabasePluginOptions
 ) => {
-  // Get Supabase credentials from options or environment
-  const supabaseUrl = options.url || process.env.SUPABASE_URL
-  const supabaseKey = options.serviceRoleKey || process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Get Supabase credentials from options or environment (via centralized config)
+  const supabaseUrl = options.url || SUPABASE_URL
+  const supabaseKey = options.serviceRoleKey || SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseKey) {
     throw new Error(
-      'Supabase configuration missing. Please provide SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY'
+      'Supabase configuration missing. Please provide SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env file'
     )
   }
 
