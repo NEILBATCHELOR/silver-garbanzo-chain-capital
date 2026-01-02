@@ -231,13 +231,9 @@ export class InvestorWalletService {
     }
 
     // Step 2: Retrieve and decrypt key from key vault
-    const keyData = await keyVaultClient.getKey(walletData.private_key_vault_id);
-    
-    if (typeof keyData === 'string') {
-      return keyData;
-    } else {
-      return keyData.privateKey;
-    }
+    // Use getRawValue to get the private key directly without wallet instantiation
+    const privateKey = await keyVaultClient.getRawValue(walletData.private_key_vault_id);
+    return privateKey;
   }
 
   /**
@@ -259,13 +255,9 @@ export class InvestorWalletService {
     }
 
     // Step 2: Retrieve and decrypt mnemonic from key vault
-    const keyData = await keyVaultClient.getKey(walletData.mnemonic_vault_id);
-    
-    if (typeof keyData === 'string') {
-      return keyData;
-    } else {
-      return keyData.privateKey; // Mnemonic stored as "privateKey" in vault
-    }
+    // Use getRawValue instead of getKey to avoid wallet instantiation issues
+    const mnemonic = await keyVaultClient.getRawValue(walletData.mnemonic_vault_id);
+    return mnemonic;
   }
 
   /**

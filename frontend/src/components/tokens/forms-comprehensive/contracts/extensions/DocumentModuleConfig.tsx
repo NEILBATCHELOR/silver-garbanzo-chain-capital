@@ -338,13 +338,28 @@ export function DocumentModuleConfigPanel({
             </div>
           </Card>
 
-          {/* Info Alert */}
+          {/* Info Alert - Phase Explanation */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              <strong>Pre-deployment configuration:</strong> All documents will be linked 
-              to your token contract automatically during deployment. Documents are stored 
-              on IPFS and only their hashes are stored on-chain for verification.
+              <div className="space-y-2">
+                <p>
+                  <strong>Deployment Process:</strong>
+                </p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li>
+                    <strong>Phase 1 (Initialization):</strong> Document module is deployed with admin permissions
+                  </li>
+                  <li>
+                    <strong>Phase 2 (Configuration):</strong> Documents you configure here will be automatically 
+                    added to the module after deployment via <code className="text-xs">setDocument()</code> calls
+                  </li>
+                </ul>
+                <p className="pt-2">
+                  Documents are stored on IPFS and only their hashes are stored on-chain for verification.
+                  You can always add more documents later through the admin interface.
+                </p>
+              </div>
             </AlertDescription>
           </Alert>
 

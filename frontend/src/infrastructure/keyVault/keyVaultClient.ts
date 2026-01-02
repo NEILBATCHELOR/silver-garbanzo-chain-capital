@@ -43,19 +43,61 @@ class KeyVaultClient implements IKeyVaultClient {
       }
       
       // Decrypt the key (in production, this would not be necessary)
-      const privateKey = await this.decryptPrivateKey(encryptedKey);
+      const decryptedValue = await this.decryptPrivateKey(encryptedKey);
       
-      // Create a wallet to get the address
-      const wallet = new ethers.Wallet(privateKey);
+      // Check if this looks like a mnemonic (contains spaces) vs a private key (hex)
+      const isMnemonic = decryptedValue.includes(' ') && !decryptedValue.startsWith('0x');
+      
+      let address: string;
+      if (isMnemonic) {
+        // Remove any "0x" prefix that may have been incorrectly added
+        const cleanMnemonic = decryptedValue.replace(/^0x/, '').trim();
+        const hdWallet = ethers.Wallet.fromPhrase(cleanMnemonic);
+        address = hdWallet.address;
+      } else {
+        // It's a private key
+        const wallet = new ethers.Wallet(decryptedValue);
+        address = wallet.address;
+      }
       
       // Return both the private key and the address
       return {
-        privateKey,
-        address: wallet.address
+        privateKey: decryptedValue, // Return original decrypted value (could be mnemonic or private key)
+        address: address
       };
     } catch (error) {
       console.error(`Error retrieving key ${vaultIdOrKeyId}:`, error);
       throw new Error(`Failed to retrieve key: ${error}`);
+    }
+  }
+
+  /**
+   * Retrieve raw decrypted value from key vault without creating a wallet
+   * Useful for retrieving mnemonics or other non-private-key values
+   * 
+   * @param vaultIdOrKeyId - The UUID or custom key_id of the key vault entry
+   * @returns The raw decrypted value
+   */
+  async getRawValue(vaultIdOrKeyId: string): Promise<string> {
+    try {
+      // Retrieve the encrypted key using the UUID vault ID or custom key_id
+      const encryptedKey = await this.getEncryptedKey(vaultIdOrKeyId);
+      if (!encryptedKey) {
+        throw new Error('Key not found');
+      }
+      
+      // Decrypt and return the raw value
+      const decryptedValue = await this.decryptPrivateKey(encryptedKey);
+      
+      // Remove any incorrect "0x" prefix from mnemonics
+      if (decryptedValue.startsWith('0x') && decryptedValue.includes(' ')) {
+        return decryptedValue.replace(/^0x/, '').trim();
+      }
+      
+      return decryptedValue;
+    } catch (error) {
+      console.error(`Error retrieving raw value ${vaultIdOrKeyId}:`, error);
+      throw new Error(`Failed to retrieve raw value: ${error}`);
     }
   }
 

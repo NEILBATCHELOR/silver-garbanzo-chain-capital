@@ -1,6 +1,7 @@
 /**
  * Supply Cap Module Configuration Component
- * ✅ ENHANCED: Complete per-token supply cap management
+ * ✅ NEW: Complete per-token supply management for ERC1155
+ * Enforces supply limits per token ID with global cap option
  */
 
 import React from 'react';
@@ -10,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Plus, Trash2, TrendingUp } from 'lucide-react';
+import { Info, Plus, Trash2, TrendingUp, Lock } from 'lucide-react';
 import type { ModuleConfigProps, SupplyCapModuleConfig } from '../types';
 
 export function SupplyCapModuleConfigPanel({
@@ -23,60 +24,55 @@ export function SupplyCapModuleConfigPanel({
   const handleToggle = (checked: boolean) => {
     if (!checked) {
       onChange({
-        enabled: false,
-        defaultCap: 0,
-        perTokenCaps: [],
-        enforceGlobalCap: false,
-        globalCap: undefined
+        ...config,
+        enabled: false
       });
     } else {
       onChange({
+        ...config,
         enabled: true,
+        globalCap: config.globalCap || 0, // 0 = unlimited
         defaultCap: config.defaultCap || 0,
         perTokenCaps: config.perTokenCaps || [],
-        enforceGlobalCap: config.enforceGlobalCap || false,
-        globalCap: config.globalCap
+        enforceGlobalCap: config.enforceGlobalCap !== false // Default true
       });
     }
   };
 
-  const addTokenCap = () => {
-    const newCap = {
-      tokenId: '',
-      cap: 0
+  const addPerTokenCap = () => {
+    const newPerTokenCaps = [
+      ...(config.perTokenCaps || []),
+      {
+        tokenId: '',
+        cap: 0
+      }
+    ];
+    onChange({
+      ...config,
+      perTokenCaps: newPerTokenCaps
+    });
+  };
+
+  const removePerTokenCap = (index: number) => {
+    const newPerTokenCaps = [...(config.perTokenCaps || [])];
+    newPerTokenCaps.splice(index, 1);
+    onChange({
+      ...config,
+      perTokenCaps: newPerTokenCaps
+    });
+  };
+
+  const updatePerTokenCap = (index: number, field: 'tokenId' | 'cap', value: string) => {
+    const newPerTokenCaps = [...(config.perTokenCaps || [])];
+    newPerTokenCaps[index] = {
+      ...newPerTokenCaps[index],
+      [field]: field === 'cap' ? parseInt(value) || 0 : value
     };
-
     onChange({
       ...config,
-      perTokenCaps: [...(config.perTokenCaps || []), newCap]
+      perTokenCaps: newPerTokenCaps
     });
   };
-
-  const removeTokenCap = (index: number) => {
-    const newCaps = [...(config.perTokenCaps || [])];
-    newCaps.splice(index, 1);
-    onChange({
-      ...config,
-      perTokenCaps: newCaps
-    });
-  };
-
-  const updateTokenCap = (index: number, field: 'tokenId' | 'cap', value: string | number) => {
-    const newCaps = [...(config.perTokenCaps || [])];
-    newCaps[index] = {
-      ...newCaps[index],
-      [field]: value
-    };
-    onChange({
-      ...config,
-      perTokenCaps: newCaps
-    });
-  };
-
-  const totalPerTokenCaps = (config.perTokenCaps || []).reduce(
-    (sum, cap) => sum + (parseInt(cap.cap.toString()) || 0), 
-    0
-  );
 
   return (
     <div className="space-y-4">
@@ -85,7 +81,7 @@ export function SupplyCapModuleConfigPanel({
         <div className="space-y-0.5">
           <Label className="text-sm font-medium">Supply Cap Module</Label>
           <p className="text-xs text-muted-foreground">
-            Configure maximum supply limits per token ID
+            Enforce supply limits per token ID with optional global cap
           </p>
         </div>
         <Switch
@@ -99,77 +95,88 @@ export function SupplyCapModuleConfigPanel({
         <>
           <Alert>
             <Info className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              Set supply caps to create scarcity and enforce limited editions. 
-              Ideal for collectibles, game items, and exclusive content.
+            <AlertDescription>
+              Control maximum supply for each token ID individually, with optional global supply cap 
+              across all token types. Essential for limited edition collections.
             </AlertDescription>
           </Alert>
 
-          {/* Default Cap */}
+          {/* Global Supply Cap */}
           <Card className="p-4">
-            <div className="space-y-3">
-              <Label className="text-sm">Default Supply Cap</Label>
-              <Input
-                type="number"
-                value={config.defaultCap}
-                onChange={(e) => onChange({
-                  ...config,
-                  defaultCap: parseInt(e.target.value) || 0
-                })}
-                placeholder="0"
-                disabled={disabled}
-                min="0"
-              />
-              <p className="text-xs text-muted-foreground">
-                Default maximum supply for each token ID (0 = unlimited)
-              </p>
-            </div>
-          </Card>
+            <div className="space-y-4">
+              <Label className="text-sm flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Global Supply Configuration
+              </Label>
 
-          {/* Global Cap */}
-          <Card className="p-4 bg-muted/50">
-            <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="enforceGlobalCap"
-                  checked={config.enforceGlobalCap || false}
-                  onChange={(e) => onChange({
-                    ...config,
-                    enforceGlobalCap: e.target.checked,
-                    globalCap: e.target.checked ? config.globalCap || 0 : undefined
-                  })}
-                  disabled={disabled}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="enforceGlobalCap" className="text-sm font-medium cursor-pointer">
-                  Enforce Global Supply Cap
-                </Label>
-              </div>
-
-              {config.enforceGlobalCap && (
-                <div className="space-y-2 pl-6">
-                  <Label className="text-xs">Global Cap (all tokens combined)</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Global Cap */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Global Supply Cap</Label>
                   <Input
                     type="number"
+                    min="0"
                     value={config.globalCap || 0}
                     onChange={(e) => onChange({
                       ...config,
                       globalCap: parseInt(e.target.value) || 0
                     })}
-                    placeholder="0"
                     disabled={disabled}
-                    min="0"
+                    placeholder="0 (unlimited)"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Maximum total supply across all token IDs
+                    Maximum total supply across all token IDs. 0 = unlimited
+                  </p>
+                  {errors?.['globalCap'] && (
+                    <p className="text-xs text-destructive">{errors['globalCap']}</p>
+                  )}
+                </div>
+
+                {/* Default Cap for New Tokens */}
+                <div className="space-y-2">
+                  <Label className="text-xs">Default Per-Token Cap</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={config.defaultCap || 0}
+                    onChange={(e) => onChange({
+                      ...config,
+                      defaultCap: parseInt(e.target.value) || 0
+                    })}
+                    disabled={disabled}
+                    placeholder="0 (unlimited)"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Default supply cap for new token IDs. 0 = unlimited
                   </p>
                 </div>
-              )}
+              </div>
+
+              {/* Enforce Global Cap Toggle */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="enforceGlobalCap"
+                  checked={config.enforceGlobalCap !== false}
+                  onChange={(e) => onChange({
+                    ...config,
+                    enforceGlobalCap: e.target.checked
+                  })}
+                  disabled={disabled}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="enforceGlobalCap" className="text-xs font-normal cursor-pointer flex items-center gap-2">
+                  <Lock className="h-3 w-3" />
+                  Enforce Global Cap
+                </Label>
+              </div>
+              <p className="text-xs text-muted-foreground pl-6">
+                When enabled, total minted tokens across all IDs cannot exceed global cap
+              </p>
             </div>
           </Card>
 
-          {/* Per-Token Caps */}
+          {/* Per-Token Supply Caps */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm">Per-Token Supply Caps</Label>
@@ -177,7 +184,7 @@ export function SupplyCapModuleConfigPanel({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={addTokenCap}
+                onClick={addPerTokenCap}
                 disabled={disabled}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -188,23 +195,23 @@ export function SupplyCapModuleConfigPanel({
             {(!config.perTokenCaps || config.perTokenCaps.length === 0) && (
               <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription className="text-xs">
-                  No specific token caps configured. All tokens will use the default cap.
-                  Add token-specific caps to override the default for particular token IDs.
+                <AlertDescription>
+                  No per-token caps configured. All token IDs will use the default cap. 
+                  Click "Add Token Cap" to set specific limits for individual tokens.
                 </AlertDescription>
               </Alert>
             )}
 
             {config.perTokenCaps && config.perTokenCaps.map((tokenCap, index) => (
-              <Card key={index} className="p-4">
+              <Card key={index} className="p-3">
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium">Token Cap {index + 1}</h4>
+                    <h5 className="text-sm font-medium">Token Cap {index + 1}</h5>
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeTokenCap(index)}
+                      onClick={() => removePerTokenCap(index)}
                       disabled={disabled}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -216,95 +223,86 @@ export function SupplyCapModuleConfigPanel({
                       <Label className="text-xs">Token ID *</Label>
                       <Input
                         value={tokenCap.tokenId}
-                        onChange={(e) => updateTokenCap(index, 'tokenId', e.target.value)}
+                        onChange={(e) => updatePerTokenCap(index, 'tokenId', e.target.value)}
                         disabled={disabled}
                         placeholder="1"
+                        className="text-sm"
                       />
-                      {errors?.['perTokenCaps']?.[index]?.['tokenId'] && (
-                        <p className="text-xs text-destructive mt-1">
-                          {errors['perTokenCaps'][index]['tokenId']}
-                        </p>
-                      )}
                     </div>
 
                     <div>
                       <Label className="text-xs">Supply Cap *</Label>
                       <Input
                         type="number"
-                        value={tokenCap.cap}
-                        onChange={(e) => updateTokenCap(index, 'cap', parseInt(e.target.value) || 0)}
-                        disabled={disabled}
-                        placeholder="1000"
                         min="0"
+                        value={tokenCap.cap}
+                        onChange={(e) => updatePerTokenCap(index, 'cap', e.target.value)}
+                        disabled={disabled}
+                        placeholder="0 (unlimited)"
+                        className="text-sm"
                       />
                     </div>
                   </div>
 
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-xs">
-                      Token ID <strong>{tokenCap.tokenId || '?'}</strong> will have a maximum supply of{' '}
-                      <strong>{tokenCap.cap || 0}</strong> units
-                    </AlertDescription>
-                  </Alert>
+                  {tokenCap.tokenId && (
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Token <strong>#{tokenCap.tokenId}</strong> will have a maximum supply of{' '}
+                        <strong>{tokenCap.cap === 0 ? 'unlimited' : tokenCap.cap.toLocaleString()}</strong>
+                      </AlertDescription>
+                    </Alert>
+                  )}
                 </div>
               </Card>
             ))}
           </div>
 
-          {/* Summary Card */}
-          {(config.perTokenCaps && config.perTokenCaps.length > 0) && (
-            <Card className="p-4 bg-primary/5">
-              <div className="space-y-2">
-                <div className="flex items-center">
-                  <TrendingUp className="h-4 w-4 mr-2 text-primary" />
-                  <Label className="text-sm font-medium">Supply Configuration Summary</Label>
-                </div>
-                <div className="grid grid-cols-2 gap-2 text-xs pl-6">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Default cap:</span>
-                    <span className="font-semibold">
-                      {config.defaultCap === 0 ? 'Unlimited' : config.defaultCap}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Custom caps:</span>
-                    <span className="font-semibold">{config.perTokenCaps.length} tokens</span>
-                  </div>
-                  {config.enforceGlobalCap && (
-                    <div className="flex justify-between col-span-2">
-                      <span className="text-muted-foreground">Global cap:</span>
-                      <span className="font-semibold">{config.globalCap || 0}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between col-span-2">
-                    <span className="text-muted-foreground">Total custom caps:</span>
-                    <span className="font-semibold">{totalPerTokenCaps}</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Supply Cap Examples */}
-          <Card className="p-4 bg-muted/50">
+          {/* Supply Cap Example */}
+          <Card className="p-4 bg-primary/10">
             <div className="space-y-2">
-              <Label className="text-sm">Supply Cap Examples</Label>
-              <div className="text-xs space-y-1 text-muted-foreground">
-                <p><strong>Limited Edition NFT:</strong> Token ID 1, Cap: 100 (only 100 will ever exist)</p>
-                <p><strong>In-Game Currency:</strong> Token ID 2, Cap: 1,000,000 (max currency supply)</p>
-                <p><strong>Collectible Series:</strong> Default cap: 500 (all items limited to 500 each)</p>
-                <p><strong>Unlimited Base Items:</strong> Default cap: 0 (no supply limit)</p>
+              <Label className="text-sm font-medium">Supply Cap Example</Label>
+              <div className="text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Global Cap:</span>
+                  <code className="bg-muted px-2 py-1 rounded">
+                    {config.globalCap === 0 ? 'Unlimited' : config.globalCap.toLocaleString()}
+                  </code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Default Per-Token:</span>
+                  <code className="bg-muted px-2 py-1 rounded">
+                    {config.defaultCap === 0 ? 'Unlimited' : config.defaultCap.toLocaleString()}
+                  </code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Custom Caps:</span>
+                  <code className="bg-muted px-2 py-1 rounded">
+                    {config.perTokenCaps?.length || 0} tokens
+                  </code>
+                </div>
               </div>
             </div>
           </Card>
 
-          {/* Pre-deployment Info */}
+          {/* Summary */}
+          {config.perTokenCaps && config.perTokenCaps.length > 0 && (
+            <div className="flex items-center justify-between text-sm p-3 bg-primary/10 rounded-lg">
+              <span className="text-muted-foreground">
+                Custom Supply Caps
+              </span>
+              <span className="font-semibold">
+                {config.perTokenCaps.length} {config.perTokenCaps.length === 1 ? 'token' : 'tokens'}
+              </span>
+            </div>
+          )}
+
+          {/* Info Alert */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              <strong>Pre-deployment configuration:</strong> Supply caps will be enforced immediately 
-              upon deployment. Minting beyond these caps will be automatically prevented on-chain.
+              <strong>Pre-deployment configuration:</strong> Global cap will be set during deployment. 
+              Per-token caps can be configured post-deployment via the supply cap module interface.
             </AlertDescription>
           </Alert>
         </>

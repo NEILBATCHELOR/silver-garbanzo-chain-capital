@@ -71,19 +71,31 @@ export interface TransferRestriction {
 /**
  * Compliance Module Configuration
  * Used across all token standards for KYC/AML compliance
+ * 
+ * ✅ CORRECTED: Aligned with smart contract initialize() signature
+ * Contract expects: admin, jurisdictions, complianceLevel, maxHoldersPerJurisdiction, kycRequired
  */
 export interface ComplianceConfig {
+  // ============ DEPLOYMENT PARAMETERS (sent to initialize) ============
+  complianceLevel: number;              // 1-5: Progressive compliance restrictions
+  maxHoldersPerJurisdiction: number;    // Maximum holders per jurisdiction (0 = unlimited)
   kycRequired: boolean;
-  whitelistRequired: boolean;
-  kycProvider?: string;
-  restrictedCountries?: string[];
-  whitelistAddresses?: string[];
-  accreditedInvestorOnly?: boolean;
-  jurisdictionRules?: Array<{
+  jurisdictionRules?: Array<{           // Transforms to jurisdictions array for deployment
     jurisdiction: string;
     allowed: boolean;
     requirements?: string[];
   }>;
+  
+  // ============ DERIVED FIELDS (read-only, computed from complianceLevel) ============
+  whitelistRequired?: boolean;          // Auto-derived: complianceLevel >= 3
+  accreditedInvestorOnly?: boolean;     // Auto-derived: complianceLevel >= 4
+  
+  // ============ POST-DEPLOYMENT DATA (added via addToWhitelistBatch) ============
+  whitelistAddresses?: string[];        // Addresses to add to whitelist after deployment
+  
+  // ============ UI/METADATA (not sent to contract) ============
+  kycProvider?: string;                 // Metadata only
+  restrictedCountries?: string[];       // For UI display
 }
 
 /**
@@ -174,22 +186,34 @@ export interface TimelockConfig {
 
 /**
  * Votes Module Configuration (ERC20)
- * For governance tokens (EIP-5805) */
+ * For governance tokens (EIP-5805)
+ * 
+ * ✅ CORRECTED: All governance parameters are REQUIRED by contract
+ * Contract expects: admin, tokenName, votingDelay, votingPeriod, proposalThreshold, quorumPercentage
+ */
 export interface VotesConfig {
-  votingDelay?: number; // Delay before voting starts (blocks)
-  votingPeriod?: number; // Voting duration (blocks)
-  proposalThreshold?: string; // Tokens needed to create proposal
-  quorumPercentage?: number; // Quorum as percentage
-  delegatesEnabled?: boolean;
+  votingDelay: number;              // REQUIRED: Delay before voting starts (blocks)
+  votingPeriod: number;             // REQUIRED: Voting duration (blocks)
+  proposalThreshold: string;        // REQUIRED: Tokens needed to create proposal
+  quorumPercentage: number;         // REQUIRED: Quorum as percentage
+  delegatesEnabled?: boolean;       // Optional: Enable vote delegation (default: true)
 }
 
 /**
  * Payable Token Module Configuration (ERC20)
  * EIP-1363: Payable Token
+ * 
+ * ✅ FIXED: Aligned with ERC1363PayableToken.sol initialize() signature
+ * Contract expects: admin, tokenContract, callbackGasLimit
  */
 export interface PayableTokenConfig {
+  // Phase 1: Factory initialization parameters (REQUIRED)
+  callbackGasLimit: number;          // Gas limit for callback executions (default: 100000)
+  
+  // Phase 2: Post-deployment configuration (OPTIONAL)
   acceptedForPayment?: boolean;
   paymentCallbackEnabled?: boolean;
+  whitelistEnabled?: boolean;
 }
 
 /**
@@ -271,10 +295,19 @@ export interface ConsecutiveConfig {
 /**
  * Metadata Events Module Configuration (ERC721)
  * EIP-4906: Metadata Update Events
+ * 
+ * ✅ FIXED: Aligned with ERC4906MetadataModule.sol initialize() signature
+ * Contract expects: tokenContract, admin, batchUpdatesEnabled, emitOnTransfer
  */
 export interface MetadataEventsConfig {
-  emitBatchUpdates?: boolean; // Emit events for batch metadata updates
-  emitOnTransfer?: boolean;
+  // Phase 1: Factory initialization parameters (REQUIRED)
+  batchUpdatesEnabled: boolean;      // Enable batch metadata update events
+  emitOnTransfer: boolean;           // Emit metadata event on every transfer
+  
+  // Phase 2: Post-deployment configuration (OPTIONAL)
+  autoEmitOnMint?: boolean;
+  autoEmitOnBurn?: boolean;
+  autoEmitOnUpdate?: boolean;
 }
 
 // ============ ERC1155 MODULE CONFIGURATIONS ============
@@ -299,6 +332,7 @@ export interface SupplyCapConfig {
  */
 export interface UriManagementConfig {
   baseURI: string; // Base URI for metadata
+  ipfsGateway?: string; // IPFS gateway URL (e.g., "https://ipfs.io/ipfs/")
   useTokenIdSubstitution?: boolean; // Replace {id} in URI with token ID
   perTokenUris?: Array<{
     tokenId: string;
@@ -311,9 +345,17 @@ export interface UriManagementConfig {
 /**
  * Granular Approval Module Configuration (ERC1155)
  * EIP-5216: Granular Approval for ERC-1155
+ * 
+ * ✅ FIXED: Aligned with ERC5216GranularApprovalModule.sol initialize() signature
+ * Contract expects: tokenContract, admin, requireExplicitApproval, allowPartialApproval
  */
 export interface GranularApprovalConfig {
-  allowPartialApprovals?: boolean;
+  // Phase 1: Factory initialization parameters (REQUIRED)
+  requireExplicitApproval: boolean;  // Require explicit approval for each operation
+  allowPartialApproval: boolean;     // Allow partial approvals (not full balance)
+  
+  // Phase 2: Post-deployment configuration (OPTIONAL)
+  requireExplicitRevocation?: boolean;
   defaultApprovalAmount?: string;
 }
 
@@ -348,11 +390,17 @@ export interface SlotApprovableConfig {
 /**
  * Slot Manager Module Configuration (ERC3525)
  * ✅ ENHANCED: Complete slot definitions pre-deployment
+ * ✅ FIXED: Added missing factory parameters (restrictCrossSlot, allowSlotMerging)
  */
 export interface SlotManagerConfig {
-  slots: SlotDefinition[];  // ✅ Define ALL slots upfront
-  allowDynamicSlots?: boolean; // Allow creation of new slots post-deployment
-  slotCreationFee?: string;
+  // Phase 1: Factory initialization parameters
+  allowDynamicSlots?: boolean;     // Allow creation of new slots post-deployment (maps to allowDynamicSlotCreation)
+  restrictCrossSlot?: boolean;     // ✅ ADDED: Restrict transfers between different slots
+  allowSlotMerging?: boolean;      // ✅ ADDED: Allow merging values between slots
+  
+  // Phase 2: Post-deployment configuration
+  slots: SlotDefinition[];         // ✅ Define ALL slots upfront (configured post-deployment)
+  slotCreationFee?: string;        // Fee for creating new slots (Phase 2)
 }
 
 /**
@@ -441,19 +489,24 @@ export interface RouterConfig {
 /**
  * Multi-Asset Vault Module Configuration (ERC4626)
  * ✅ ENHANCED: Complete asset allocation pre-configured
+ * ✅ FIXED: Aligned with ERC7575MultiAssetVaultModule.sol initialize() signature
+ * Contract expects: vault, priceOracle, baseAsset
  */
 export interface MultiAssetVaultConfig {
-  maxAssets: number; // Maximum number of different assets
+  // Phase 1: Factory initialization parameters (REQUIRED)
+  priceOracle: string;               // Address of price oracle contract
+  baseAsset: string;                 // Base asset for valuation
+  
+  // Phase 2: Post-deployment configuration (OPTIONAL)
+  maxAssets?: number;                // Maximum number of different assets
   assets?: Array<{
     assetAddress: string;
-    weight: number; // Weight in basis points (total must equal 10000)
+    weight: number;                  // Weight in basis points (total must equal 10000)
     minWeight?: number;
     maxWeight?: number;
   }>;
-  priceOracle?: string; // Address of price oracle contract
-  baseAsset?: string; // Base asset for valuation
-  rebalanceThreshold?: number; // Threshold for triggering rebalance (bps)
-  rebalanceFrequency?: number; // Minimum time between rebalances (seconds)
+  rebalanceThreshold?: number;       // Threshold for triggering rebalance (bps)
+  rebalanceFrequency?: number;       // Minimum time between rebalances (seconds)
 }
 
 // ============ ERC1400 MODULE CONFIGURATIONS ============
@@ -498,9 +551,13 @@ export interface ControllerConfig {
 /**
  * ERC1400 Document Module Configuration (ERC1400)
  * ✅ ENHANCED: Partition-specific documents
+ * 
+ * NOTE: UniversalDocumentModule.initialize() only requires admin.
+ * All documents are Phase 2 configuration (added via setDocument() post-deployment).
  */
 export interface ERC1400DocumentConfig {
-  documents: Document[];  // Global documents
+  // Phase 2: Post-deployment configuration (ALL FIELDS)
+  documents: Document[];  // Global documents (applied post-deployment)
   partitionDocuments?: Array<{
     partition: string;
     documents: Document[];

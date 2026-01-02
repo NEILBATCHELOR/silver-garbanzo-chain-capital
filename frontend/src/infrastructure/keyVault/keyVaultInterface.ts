@@ -33,6 +33,7 @@ export interface IKeyVaultClient {
   connect(credentials: any): Promise<void>;
   disconnect(): Promise<void>;
   getKey(keyId: string): Promise<KeyResult>;
+  getRawValue(keyId: string): Promise<string>; // Retrieve raw decrypted value without wallet instantiation
   storeKey(key: string): Promise<string>;
   generateKeyPair(): Promise<KeyPairResult>;
   signData(keyId: string, data: string): Promise<string>;

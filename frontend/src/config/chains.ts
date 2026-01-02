@@ -43,12 +43,26 @@ const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
       isTestnet: false,
       explorerUrl: CHAIN_INFO[CHAIN_IDS.ethereum]?.explorer,
     },
-    testnet: {
-      name: 'testnet',
+    sepolia: {
+      name: 'sepolia',
       chainId: CHAIN_IDS.sepolia.toString(),
       displayName: 'Sepolia Testnet',
       isTestnet: true,
       explorerUrl: CHAIN_INFO[CHAIN_IDS.sepolia]?.explorer,
+    },
+    holesky: {
+      name: 'holesky',
+      chainId: CHAIN_IDS.holesky.toString(),
+      displayName: 'Holesky Testnet',
+      isTestnet: true,
+      explorerUrl: CHAIN_INFO[CHAIN_IDS.holesky]?.explorer,
+    },
+    hoodi: {
+      name: 'hoodi',
+      chainId: CHAIN_IDS.hoodi.toString(),
+      displayName: 'Hoodi Testnet',
+      isTestnet: true,
+      explorerUrl: CHAIN_INFO[CHAIN_IDS.hoodi]?.explorer,
     },
   },
   polygon: {

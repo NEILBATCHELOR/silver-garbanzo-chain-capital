@@ -324,8 +324,9 @@ export function SlotManagerModuleConfigPanel({
           {/* Module Options */}
           <Card className="p-4 bg-muted/50">
             <div className="space-y-3">
-              <Label className="text-sm">Additional Options</Label>
+              <Label className="text-sm">Module Configuration</Label>
               
+              {/* Allow Dynamic Slots */}
               <div className="flex items-center space-x-2">
                 <input
                   type="checkbox"
@@ -344,7 +345,7 @@ export function SlotManagerModuleConfigPanel({
               </div>
 
               {config.allowDynamicSlots && (
-                <div>
+                <div className="ml-6">
                   <Label className="text-xs">Slot Creation Fee (in wei)</Label>
                   <Input
                     value={config.slotCreationFee || '0'}
@@ -358,6 +359,51 @@ export function SlotManagerModuleConfigPanel({
                   />
                 </div>
               )}
+
+              {/* Restrict Cross-Slot Transfers */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="restrictCrossSlot"
+                  checked={config.restrictCrossSlot || false}
+                  onChange={(e) => onChange({
+                    ...config,
+                    restrictCrossSlot: e.target.checked
+                  })}
+                  disabled={disabled}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="restrictCrossSlot" className="text-xs font-normal cursor-pointer">
+                  Restrict cross-slot transfers (prevent value transfers between different slots)
+                </Label>
+              </div>
+
+              {/* Allow Slot Merging */}
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="allowSlotMerging"
+                  checked={config.allowSlotMerging || false}
+                  onChange={(e) => onChange({
+                    ...config,
+                    allowSlotMerging: e.target.checked
+                  })}
+                  disabled={disabled}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="allowSlotMerging" className="text-xs font-normal cursor-pointer">
+                  Allow slot merging (enable combining values from different slots)
+                </Label>
+              </div>
+
+              {/* Help Text */}
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Factory Parameters:</strong> These settings configure the slot manager's core behavior 
+                  and are set during deployment. Slot definitions below are applied post-deployment.
+                </AlertDescription>
+              </Alert>
             </div>
           </Card>
 

@@ -28,7 +28,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Wallet, Key, ChevronsUpDown, Copy, Lock, AlertTriangle, Plus, Minus, UserPlus, Shield, RefreshCw } from "lucide-react";
+import { Wallet, Key, ChevronsUpDown, Copy, Lock, AlertTriangle, Plus, Minus, UserPlus, Shield, RefreshCw, Download } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,6 +57,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { validateBlockchain, BLOCKCHAIN_CATEGORIES } from '@/infrastructure/web3/utils/BlockchainValidator';
 import { abiManager, type ContractType } from '@/services/wallet/ABI';
 import { getPrimaryOrFirstProject } from '@/services/project/primaryProjectService';
+import { conditionalErrorLog, shouldIgnoreError } from '@/utils/errorHandling';
 
 // Import multi-sig components
 import {
@@ -474,12 +475,15 @@ const NewWalletPage: React.FC = () => {
         if (error) throw error;
         setInvestors(data || []);
       } catch (error) {
-        console.error("Error fetching investors:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load investors. Please try again.",
-        });
+        // Silently ignore AbortErrors (expected when component unmounts)
+        if (!shouldIgnoreError(error)) {
+          conditionalErrorLog("Error fetching investors", error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to load investors. Please try again.",
+          });
+        }
       } finally {
         setInvestorsLoading(false);
       }
@@ -511,7 +515,7 @@ const NewWalletPage: React.FC = () => {
               .eq('wallet_id', wallet.id);
 
             if (ownersError) {
-              console.error(`Error fetching owners for wallet ${wallet.id}:`, ownersError);
+              conditionalErrorLog(`Error fetching owners for wallet ${wallet.id}`, ownersError);
               return {
                 ...wallet,
                 owners: [], // No owners found
@@ -532,7 +536,7 @@ const NewWalletPage: React.FC = () => {
                 .eq('is_active', true);
 
               if (addressesError) {
-                console.error(`Error fetching user addresses for wallet ${wallet.id}:`, addressesError);
+                conditionalErrorLog(`Error fetching user addresses for wallet ${wallet.id}`, addressesError);
               }
 
               ownerAddresses = (addressesData || [])
@@ -558,12 +562,15 @@ const NewWalletPage: React.FC = () => {
           });
         }
       } catch (error) {
-        console.error("Error fetching multi-sig wallets:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to load multi-sig wallets. Please try again.",
-        });
+        // Silently ignore AbortErrors (expected when component unmounts)
+        if (!shouldIgnoreError(error)) {
+          conditionalErrorLog("Error fetching multi-sig wallets", error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to load multi-sig wallets. Please try again.",
+          });
+        }
       } finally {
         setLoadingWallets(false);
       }
@@ -585,6 +592,7 @@ const NewWalletPage: React.FC = () => {
       setSelectedInvestors([]);
       setMultiSigAddresses([]);
       setMultiSigThreshold(1);
+      setWalletCreationStatus({ total: 0, completed: 0, failed: 0, results: [] });
       
       // Reload investors
       const { data: investorData, error: investorError } = await supabase
@@ -613,7 +621,7 @@ const NewWalletPage: React.FC = () => {
             .eq('wallet_id', wallet.id);
 
           if (ownersError) {
-            console.error(`Error fetching owners for wallet ${wallet.id}:`, ownersError);
+            conditionalErrorLog(`Error fetching owners for wallet ${wallet.id}`, ownersError);
             return { ...wallet, owners: [] };
           }
 
@@ -630,7 +638,7 @@ const NewWalletPage: React.FC = () => {
               .eq('is_active', true);
 
             if (addressesError) {
-              console.error(`Error fetching user addresses:`, addressesError);
+              conditionalErrorLog(`Error fetching user addresses`, addressesError);
             }
 
             ownerAddresses = (addressesData || [])
@@ -652,12 +660,15 @@ const NewWalletPage: React.FC = () => {
         description: "Data has been reloaded successfully",
       });
     } catch (error) {
-      console.error("Error refreshing page:", error);
-      toast({
-        variant: "destructive",
-        title: "Refresh Failed",
-        description: "Failed to refresh page data. Please try again.",
-      });
+      // Silently ignore AbortErrors (expected when component unmounts)
+      if (!shouldIgnoreError(error)) {
+        conditionalErrorLog("Error refreshing page", error);
+        toast({
+          variant: "destructive",
+          title: "Refresh Failed",
+          description: "Failed to refresh page data. Please try again.",
+        });
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -719,19 +730,18 @@ const NewWalletPage: React.FC = () => {
       const successCount = progress.completed;
       const failCount = progress.failed;
 
-      if (successCount > 0) {
-        toast({
-          title: "Wallets Generated Successfully",
-          description: `✅ Created ${successCount} wallet${successCount !== 1 ? 's' : ''} with secure key storage. ${failCount > 0 ? `❌ ${failCount} failed.` : ''}`,
-        });
-      }
-
       if (failCount > 0 && successCount === 0) {
         toast({
           variant: "destructive",
           title: "Wallet Generation Failed",
           description: `Failed to create ${failCount} wallet${failCount !== 1 ? 's' : ''}. Check console for details.`,
         });
+        return;
+      }
+
+      // Automatically prepare and download wallet data
+      if (successCount > 0) {
+        await prepareAndAutoDownloadWalletData(progress);
       }
 
       // Refresh the investor list
@@ -743,6 +753,7 @@ const NewWalletPage: React.FC = () => {
       
       setInvestors(data || []);
       setSelectedInvestors([]);
+
     } catch (error) {
       console.error("Error in bulk wallet generation:", error);
       toast({
@@ -752,7 +763,89 @@ const NewWalletPage: React.FC = () => {
       });
     } finally {
       setIsGeneratingBulk(false);
-      setWalletCreationStatus({ total: 0, completed: 0, failed: 0, results: [] });
+    }
+  };
+
+  // Prepare full wallet data and automatically download as JSON
+  const prepareAndAutoDownloadWalletData = async (progress: BulkGenerationProgress) => {
+    try {
+      const fullWalletData = await Promise.all(
+        progress.results
+          .filter(result => result.success)
+          .map(async (result) => {
+            try {
+              // Get investor details
+              const { data: investorData } = await supabase
+                .from('investors')
+                .select('investor_id, name, email, type, company, kyc_status')
+                .eq('investor_id', result.investorId)
+                .single();
+
+              // Get full wallet details including keys from vault
+              const privateKey = await InvestorWalletService.getWalletPrivateKey(result.walletId);
+              const mnemonic = await InvestorWalletService.getWalletMnemonic(result.walletId);
+
+              // Get public key from wallet record
+              const { data: walletData } = await supabase
+                .from('wallets')
+                .select('public_key')
+                .eq('id', result.walletId)
+                .single();
+
+              return {
+                investorId: investorData?.investor_id,
+                name: investorData?.name,
+                email: investorData?.email,
+                type: investorData?.type,
+                company: investorData?.company || 'N/A',
+                kycStatus: investorData?.kyc_status || 'not started',
+                publicKey: walletData?.public_key,
+                privateKey: privateKey,
+                mnemonicPhrase: mnemonic,
+                blockchain: result.blockchain,
+                generatedAt: new Date().toISOString(),
+              };
+            } catch (error) {
+              console.error(`Error fetching wallet details for ${result.investorId}:`, error);
+              return null;
+            }
+          })
+      );
+
+      // Filter out any null results from errors
+      const validWalletData = fullWalletData.filter(data => data !== null);
+
+      if (validWalletData.length > 0) {
+        // Automatically download the JSON file
+        const dataStr = JSON.stringify(validWalletData, null, 2);
+        const dataBlob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(dataBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `investor-wallets-${new Date().toISOString().split('T')[0]}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Wallets Generated & Downloaded",
+          description: `✅ ${validWalletData.length} wallet${validWalletData.length !== 1 ? 's' : ''} created. JSON file downloaded with complete wallet data. Store it securely and delete after backup.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Download Failed",
+          description: "Failed to prepare wallet data for download.",
+        });
+      }
+    } catch (error) {
+      console.error("Error preparing wallet data:", error);
+      toast({
+        variant: "destructive",
+        title: "Download Error",
+        description: "Failed to download wallet data. Please contact support.",
+      });
     }
   };
 
@@ -799,310 +892,16 @@ const NewWalletPage: React.FC = () => {
       </div>
 
       {/* Main content */}
-      <div className="container mx-auto py-8">
-        <Tabs defaultValue="create">
-        <TabsList className="mb-4">
-          <TabsTrigger value="create">Create New Wallet</TabsTrigger>
-          <TabsTrigger value="import">Import Existing Wallet</TabsTrigger>
-          <TabsTrigger value="bulk">Bulk Generation</TabsTrigger>
-          <TabsTrigger value="multisig" className="flex items-center gap-2">
+      <div className="container mx-auto py-8 px-6">
+        <Tabs defaultValue="bulk">
+        <TabsList className="mb-4 w-full grid grid-cols-3 h-auto p-1">
+          <TabsTrigger value="import" className="px-6 py-3">Import Existing Wallet</TabsTrigger>
+          <TabsTrigger value="bulk" className="px-6 py-3">Bulk Generation</TabsTrigger>
+          <TabsTrigger value="multisig" className="flex items-center gap-2 px-6 py-3">
             <Shield className="h-4 w-4" />
             Multi-sig Management
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="create">
-          <Card>
-            <CardHeader>
-              <CardTitle>Create New Wallet</CardTitle>
-              <CardDescription>Generate a new wallet or set up a MultiSig wallet</CardDescription>
-            </CardHeader>
-            
-            <CardContent>
-              <Form {...newWalletForm}>
-                <form className="space-y-6">
-                  <FormField
-                    control={newWalletForm.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Wallet Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="My Wallet" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={newWalletForm.control}
-                    name="type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Wallet Type</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select wallet type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="eoa">Single Signature (EOA)</SelectItem>
-                            <SelectItem value="multisig">Multi Signature</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          Choose between a standard wallet or a MultiSig wallet that requires multiple signatures
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={newWalletForm.control}
-                    name="network"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Network</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select network" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {SUPPORTED_BLOCKCHAINS.map(blockchain => (
-                              <SelectItem key={blockchain} value={blockchain}>
-                                {blockchain.charAt(0).toUpperCase() + blockchain.slice(1)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {newWalletForm.watch("type") === "eoa" ? (
-                    <div className="space-y-4">
-                      <div className="flex justify-between">
-                        <Button
-                          type="button"
-                          onClick={handleGenerateAddress}
-                          disabled={walletCreated}
-                        >
-                          Generate Address
-                        </Button>
-
-                        {walletCreated && (
-                          <div className="flex items-center text-green-600">
-                            <Lock className="w-4 h-4 mr-2" />
-                            Private Key Secured
-                          </div>
-                        )}
-                      </div>
-
-                      {generatedWallet && (
-                        <div className="space-y-4 mt-4 p-4 border rounded-md bg-secondary/50">
-                          <div>
-                            <Label className="text-sm text-muted-foreground">Wallet Address</Label>
-                            <div className="flex items-center mt-1">
-                              <code className="bg-secondary p-2 rounded text-xs flex-1 overflow-x-auto">
-                                {generatedWallet.address}
-                              </code>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => copyToClipboard(generatedWallet.address, "Address")}
-                              >
-                                <Copy className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {generatedWallet.privateKey && (
-                            <div>
-                              <Label className="text-sm text-muted-foreground">
-                                Private Key (Keep this secret!)
-                              </Label>
-                              <div className="flex items-center mt-1">
-                                <code className="bg-secondary p-2 rounded text-xs flex-1 overflow-x-auto">
-                                  {generatedWallet.privateKey}
-                                </code>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() =>
-                                    copyToClipboard(generatedWallet.privateKey, "Private Key")
-                                  }
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          {generatedWallet.mnemonic && (
-                            <div>
-                              <Label className="text-sm text-muted-foreground">
-                                Recovery Phrase (Keep this secret!)
-                              </Label>
-                              <div className="flex items-center mt-1">
-                                <code className="bg-secondary p-2 rounded text-xs flex-1 overflow-x-auto">
-                                  {generatedWallet.mnemonic}
-                                </code>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() =>
-                                    copyToClipboard(generatedWallet.mnemonic, "Recovery Phrase")
-                                  }
-                                >
-                                  <Copy className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-
-                          <Alert className="bg-amber-100 text-amber-800 border-amber-300">
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertTitle>Security Warning</AlertTitle>
-                            <AlertDescription>
-                              Never share your private key or recovery phrase with anyone. Back them up securely. They provide full control of your wallet.
-                            </AlertDescription>
-                          </Alert>
-
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id="secure-confirm"
-                              checked={copySecured}
-                              onCheckedChange={() => confirmSecured()}
-                            />
-                            <label
-                              htmlFor="secure-confirm"
-                              className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              I have saved my private key and recovery phrase securely
-                            </label>
-                          </div>
-
-                          {generatedWallet.address && (
-                            <WalletRiskCheck 
-                              walletAddress={generatedWallet.address} 
-                              network={newWalletForm.getValues().network}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <h3 className="font-medium">MultiSig Owners</h3>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={addOwnerAddress}
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          Add Owner
-                        </Button>
-                      </div>
-                      
-                      {multiSigAddresses.length === 0 ? (
-                        <div className="text-center p-4 border border-dashed rounded-md">
-                          <p className="text-muted-foreground">
-                            Add owner addresses for your MultiSig wallet
-                          </p>
-                          <Button 
-                            type="button" 
-                            variant="secondary" 
-                            size="sm" 
-                            className="mt-2"
-                            onClick={addOwnerAddress}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            Add First Owner
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {multiSigAddresses.map((address, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <Input
-                                placeholder={`Owner ${index + 1} Address`}
-                                value={address}
-                                onChange={(e) => updateOwnerAddress(index, e.target.value)}
-                                className="flex-1"
-                              />
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeOwnerAddress(index)}
-                              >
-                                <Minus className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      
-                      <div className="pt-4">
-                        <Label>Threshold (Required Signatures)</Label>
-                        <div className="flex items-center gap-4 mt-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setMultiSigThreshold(Math.max(1, multiSigThreshold - 1))}
-                            disabled={multiSigThreshold <= 1}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="font-medium text-lg">{multiSigThreshold}</span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setMultiSigThreshold(Math.min(multiSigAddresses.length, multiSigThreshold + 1))}
-                            disabled={multiSigThreshold >= multiSigAddresses.length || multiSigAddresses.length === 0}
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                          <span className="text-sm text-muted-foreground">
-                            out of {multiSigAddresses.length} owner{multiSigAddresses.length !== 1 ? "s" : ""}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          Any transaction from this wallet will require at least {multiSigThreshold} signature{multiSigThreshold !== 1 ? "s" : ""} to be executed.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </form>
-              </Form>
-            </CardContent>
-            
-            <CardFooter>
-              <Button
-                onClick={newWalletForm.handleSubmit(onCreateWallet)}
-                className="w-full"
-              >
-                Create Wallet
-              </Button>
-            </CardFooter>
-          </Card>
-        </TabsContent>
         
         <TabsContent value="import">
           <Card>

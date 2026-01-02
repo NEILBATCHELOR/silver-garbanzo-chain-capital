@@ -32,6 +32,7 @@ export function URIManagementModuleConfigPanel({
         ...config,
         enabled: true,
         baseURI: config.baseURI || '',
+        ipfsGateway: config.ipfsGateway || 'https://ipfs.io/ipfs/',
         useTokenIdSubstitution: config.useTokenIdSubstitution !== false, // Default true
         perTokenUris: config.perTokenUris || [],
         dynamicUris: config.dynamicUris || false,
@@ -126,6 +127,25 @@ export function URIManagementModuleConfigPanel({
                 </p>
                 {errors?.['baseURI'] && (
                   <p className="text-xs text-destructive">{errors['baseURI']}</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">IPFS Gateway URL</Label>
+                <Input
+                  value={config.ipfsGateway || ''}
+                  onChange={(e) => onChange({
+                    ...config,
+                    ipfsGateway: e.target.value
+                  })}
+                  placeholder="https://ipfs.io/ipfs/"
+                  disabled={disabled}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Gateway URL for IPFS content. Examples: https://ipfs.io/ipfs/, https://gateway.pinata.cloud/ipfs/
+                </p>
+                {errors?.['ipfsGateway'] && (
+                  <p className="text-xs text-destructive">{errors['ipfsGateway']}</p>
                 )}
               </div>
 

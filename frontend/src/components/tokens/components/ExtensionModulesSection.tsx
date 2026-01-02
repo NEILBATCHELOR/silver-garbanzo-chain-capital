@@ -90,6 +90,8 @@ export const getDefaultModuleConfigs = (): ExtensionModuleConfigs => ({
   // Universal modules
   compliance: {
     enabled: false,
+    complianceLevel: 1,
+    maxHoldersPerJurisdiction: 0,
     kycRequired: false,
     whitelistRequired: false,
     restrictedCountries: [],
@@ -133,9 +135,14 @@ export const getDefaultModuleConfigs = (): ExtensionModuleConfigs => ({
   },
   votes: {
     enabled: false,
+    votingDelay: 0,
+    votingPeriod: 50400,
+    proposalThreshold: '0',
+    quorumPercentage: 4,
   },
   payableToken: {
     enabled: false,
+    callbackGasLimit: 100000, // Default gas limit for callback executions
   },
   temporaryApproval: {
     enabled: false,

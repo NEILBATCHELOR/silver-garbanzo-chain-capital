@@ -1,10 +1,11 @@
 /**
  * Payable Token Module Configuration Component (EIP-1363)
- * ✅ ENHANCED: Complete payable token configuration
+ * ✅ ENHANCED: Complete payable token configuration with Phase 1 & Phase 2
  */
 
 import React from 'react';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,12 +22,14 @@ export function PayableTokenModuleConfigPanel({
     if (!checked) {
       onChange({
         enabled: false,
+        callbackGasLimit: undefined,
         acceptedForPayment: undefined,
         paymentCallbackEnabled: undefined
       });
     } else {
       onChange({
         enabled: true,
+        callbackGasLimit: config.callbackGasLimit || 100000,
         acceptedForPayment: config.acceptedForPayment !== false,
         paymentCallbackEnabled: config.paymentCallbackEnabled !== false
       });
@@ -64,7 +67,40 @@ export function PayableTokenModuleConfigPanel({
 
           <Card className="p-4">
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Payment Configuration</Label>
+              <Label className="text-sm font-medium">Phase 1: Initialization Settings</Label>
+
+              <div className="space-y-2">
+                <div className="space-y-1">
+                  <Label htmlFor="callbackGasLimit" className="text-xs">
+                    Callback Gas Limit *
+                  </Label>
+                  <Input
+                    id="callbackGasLimit"
+                    type="number"
+                    value={config.callbackGasLimit ?? 100000}
+                    onChange={(e) => onChange({
+                      ...config,
+                      callbackGasLimit: parseInt(e.target.value) || 100000
+                    })}
+                    disabled={disabled}
+                    placeholder="100000"
+                    min="21000"
+                    max="500000"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Gas limit for callback executions (default: 100,000)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Phase 2: Post-Deployment Configuration</Label>
+              <p className="text-xs text-muted-foreground">
+                These settings can be configured after deployment via admin functions
+              </p>
 
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">

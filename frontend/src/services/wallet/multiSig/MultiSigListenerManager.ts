@@ -26,6 +26,7 @@
 import { supabase } from '@/infrastructure/database/client';
 import { multiSigEventListener } from './MultiSigEventListener';
 import type { ListenerStatus } from './MultiSigEventListener';
+import { conditionalErrorLog, shouldIgnoreError } from '@/utils/errorHandling';
 
 // ============================================================================
 // INTERFACES
@@ -146,8 +147,11 @@ export class MultiSigListenerManager {
 
       console.log(`✅ Started ${wallets.length} listeners for project ${projectId}`);
     } catch (error: any) {
-      console.error(`Failed to start listeners for project ${projectId}:`, error);
-      throw error;
+      // Silently ignore AbortErrors (expected when component unmounts)
+      if (!shouldIgnoreError(error)) {
+        console.error(`Failed to start listeners for project ${projectId}:`, error);
+      }
+      // Don't throw - let other listeners continue
     }
   }
 
@@ -198,8 +202,11 @@ export class MultiSigListenerManager {
 
       console.log(`✅ Started listeners for user ${userId} across ${projectAssignments.length} projects`);
     } catch (error: any) {
-      console.error(`Failed to start listeners for user ${userId}:`, error);
-      throw error;
+      // Silently ignore AbortErrors (expected when component unmounts)
+      if (!shouldIgnoreError(error)) {
+        console.error(`Failed to start listeners for user ${userId}:`, error);
+      }
+      // Don't throw - listener failures shouldn't break app initialization
     }
   }
 
@@ -314,7 +321,8 @@ export class MultiSigListenerManager {
       const report = this.getHealthReport();
       console.log(`✅ Listeners started: ${report.activeListeners} active, ${report.inactiveListeners} inactive`);
     } catch (error: any) {
-      console.error('Failed to auto-start listeners:', error);
+      // Silently ignore AbortErrors (expected when component unmounts)
+      conditionalErrorLog('Failed to auto-start listeners', error);
       // Don't throw - listeners are non-critical for app startup
     }
   }

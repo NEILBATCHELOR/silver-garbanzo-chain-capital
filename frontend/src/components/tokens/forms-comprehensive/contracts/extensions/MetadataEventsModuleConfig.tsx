@@ -21,13 +21,13 @@ export function MetadataEventsModuleConfigPanel({
     if (!checked) {
       onChange({
         enabled: false,
-        emitBatchUpdates: undefined,
+        batchUpdatesEnabled: undefined,
         emitOnTransfer: undefined
       });
     } else {
       onChange({
         enabled: true,
-        emitBatchUpdates: config.emitBatchUpdates !== false,
+        batchUpdatesEnabled: config.batchUpdatesEnabled !== false,
         emitOnTransfer: config.emitOnTransfer || false
       });
     }
@@ -64,23 +64,23 @@ export function MetadataEventsModuleConfigPanel({
 
           <Card className="p-4">
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Event Configuration</Label>
+              <Label className="text-sm font-medium">Phase 1: Initialization Settings</Label>
 
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
-                    id="emitBatchUpdates"
-                    checked={config.emitBatchUpdates !== false}
+                    id="batchUpdatesEnabled"
+                    checked={config.batchUpdatesEnabled !== false}
                     onChange={(e) => onChange({
                       ...config,
-                      emitBatchUpdates: e.target.checked
+                      batchUpdatesEnabled: e.target.checked
                     })}
                     disabled={disabled}
                     className="h-4 w-4"
                   />
-                  <Label htmlFor="emitBatchUpdates" className="text-xs font-normal cursor-pointer">
-                    Emit batch metadata update events (for multiple tokens at once)
+                  <Label htmlFor="batchUpdatesEnabled" className="text-xs font-normal cursor-pointer">
+                    Enable batch metadata update events (for multiple tokens at once)
                   </Label>
                 </div>
 

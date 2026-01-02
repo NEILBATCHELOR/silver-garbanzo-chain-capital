@@ -1,18 +1,31 @@
 /**
  * Compliance Module Configuration Component
- * ✅ ENHANCED: Complete KYC/AML compliance with jurisdiction rules
- * Handles KYC/AML compliance settings across all token standards
+ * ✅ CORRECTED: Aligned with ERC20ComplianceModule.sol initialize() signature
+ * Contract expects: admin, jurisdictions, complianceLevel, maxHoldersPerJurisdiction, kycRequired
+ * 
+ * Key Changes:
+ * - Added complianceLevel dropdown (1-5)
+ * - Added maxHoldersPerJurisdiction input
+ * - Made whitelistRequired and accreditedInvestorOnly DERIVED (read-only)
+ * - Retained whitelistAddresses for post-deployment population
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Plus, Trash2, Shield, Globe } from 'lucide-react';
+import { Info, Plus, Trash2, Shield, Globe, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { ModuleConfigProps, ComplianceModuleConfig } from '../types';
 
 export function ComplianceModuleConfigPanel({
@@ -22,24 +35,45 @@ export function ComplianceModuleConfigPanel({
   errors
 }: ModuleConfigProps<ComplianceModuleConfig>) {
   
+  // Derive whitelistRequired and accreditedInvestorOnly from complianceLevel
+  useEffect(() => {
+    if (config.enabled && config.complianceLevel !== undefined) {
+      const whitelistRequired = config.complianceLevel >= 3;
+      const accreditedInvestorOnly = config.complianceLevel >= 4;
+      
+      // Only update if values changed to avoid infinite loop
+      if (
+        config.whitelistRequired !== whitelistRequired ||
+        config.accreditedInvestorOnly !== accreditedInvestorOnly
+      ) {
+        onChange({
+          ...config,
+          whitelistRequired,
+          accreditedInvestorOnly
+        });
+      }
+    }
+  }, [config.complianceLevel, config.enabled]);
+
   const handleToggle = (checked: boolean) => {
     if (!checked) {
       onChange({
         ...config,
         enabled: false,
         kycRequired: false,
-        whitelistRequired: false
+        complianceLevel: 1,
+        maxHoldersPerJurisdiction: 0
       });
     } else {
       onChange({
         ...config,
         enabled: true,
         kycRequired: config.kycRequired || false,
-        whitelistRequired: config.whitelistRequired || false,
+        complianceLevel: config.complianceLevel || 1,
+        maxHoldersPerJurisdiction: config.maxHoldersPerJurisdiction || 0,
         kycProvider: config.kycProvider || '',
         restrictedCountries: config.restrictedCountries || [],
         whitelistAddresses: config.whitelistAddresses || [],
-        accreditedInvestorOnly: config.accreditedInvestorOnly || false,
         jurisdictionRules: config.jurisdictionRules || []
       });
     }
@@ -161,6 +195,24 @@ export function ComplianceModuleConfigPanel({
     });
   };
 
+  // Get compliance level description
+  const getComplianceLevelDescription = (level: number): string => {
+    switch (level) {
+      case 1:
+        return 'Minimal - Public token, no restrictions';
+      case 2:
+        return 'Basic - Optional KYC, no whitelist';
+      case 3:
+        return 'Standard - Whitelist required, retail investors allowed if approved';
+      case 4:
+        return 'High - Accredited investors only, retail blocked';
+      case 5:
+        return 'Maximum - Strictest compliance (institutional-grade)';
+      default:
+        return 'Select compliance level';
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Main Toggle */}
@@ -191,15 +243,65 @@ export function ComplianceModuleConfigPanel({
             </AlertDescription>
           </Alert>
 
-          {/* Basic Compliance Settings */}
-          <Card className="p-4">
+          {/* Core Deployment Parameters */}
+          <Card className="p-4 bg-blue-50 dark:bg-blue-950 border-blue-200">
             <div className="space-y-4">
-              <Label className="text-sm font-medium">Basic Compliance Requirements</Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Core Compliance Settings</Label>
+                <Badge variant="secondary" className="text-xs">
+                  Required for Deployment
+                </Badge>
+              </div>
+
+              {/* Compliance Level */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">
+                  Compliance Level * <span className="text-muted-foreground font-normal">(1-5)</span>
+                </Label>
+                <Select
+                  value={config.complianceLevel?.toString() || '1'}
+                  onValueChange={(value) => handleFieldChange('complianceLevel', parseInt(value))}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select compliance level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5].map((level) => (
+                      <SelectItem key={level} value={level.toString()}>
+                        Level {level}: {getComplianceLevelDescription(level)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Higher levels add more restrictions. Level 3+ requires whitelist, Level 4+ accredited investors only.
+                </p>
+              </div>
+
+              {/* Max Holders Per Jurisdiction */}
+              <div className="space-y-2">
+                <Label className="text-xs font-medium">
+                  Max Holders Per Jurisdiction * <span className="text-muted-foreground font-normal">(0 = unlimited)</span>
+                </Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={config.maxHoldersPerJurisdiction ?? 0}
+                  onChange={(e) => handleFieldChange('maxHoldersPerJurisdiction', parseInt(e.target.value) || 0)}
+                  disabled={disabled}
+                  placeholder="0"
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Limit the number of token holders per jurisdiction (e.g., max 100 US investors).
+                </p>
+              </div>
 
               {/* KYC Required */}
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-xs font-medium">KYC Required</Label>
+                  <Label className="text-xs font-medium">KYC Required *</Label>
                   <p className="text-xs text-muted-foreground mt-1">
                     Require all addresses to complete KYC verification before trading
                   </p>
@@ -227,44 +329,63 @@ export function ComplianceModuleConfigPanel({
                   </p>
                 </div>
               )}
-
-              {/* Whitelist Required */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs font-medium">Whitelist Required</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Only whitelisted addresses can hold or trade tokens
-                  </p>
-                </div>
-                <Switch
-                  checked={config.whitelistRequired}
-                  onCheckedChange={(checked) => handleFieldChange('whitelistRequired', checked)}
-                  disabled={disabled}
-                />
-              </div>
-
-              {/* Accredited Investor Only */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-xs font-medium">Accredited Investors Only</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Restrict token to accredited investors only
-                  </p>
-                </div>
-                <Switch
-                  checked={config.accreditedInvestorOnly || false}
-                  onCheckedChange={(checked) => handleFieldChange('accreditedInvestorOnly', checked)}
-                  disabled={disabled}
-                />
-              </div>
             </div>
           </Card>
 
-          {/* Whitelist Addresses */}
+          {/* Derived Compliance Indicators (Read-Only) */}
+          <Card className="p-4 bg-muted/50">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium">Automatic Compliance Rules</Label>
+                <Badge variant="outline" className="text-xs">
+                  Auto-Derived from Level
+                </Badge>
+              </div>
+              
+              <Alert className={config.whitelistRequired ? "border-yellow-500 bg-yellow-50 dark:bg-yellow-950" : ""}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Whitelist Required:</strong>{' '}
+                  {config.whitelistRequired ? (
+                    <span className="text-yellow-600 dark:text-yellow-400">
+                      YES - Only whitelisted addresses can hold tokens (Level 3+)
+                    </span>
+                  ) : (
+                    <span className="text-green-600 dark:text-green-400">
+                      NO - Public trading allowed (Level 1-2)
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+
+              <Alert className={config.accreditedInvestorOnly ? "border-red-500 bg-red-50 dark:bg-red-950" : ""}>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  <strong>Accredited Investors Only:</strong>{' '}
+                  {config.accreditedInvestorOnly ? (
+                    <span className="text-red-600 dark:text-red-400">
+                      YES - Retail investors blocked (Level 4+)
+                    </span>
+                  ) : (
+                    <span className="text-green-600 dark:text-green-400">
+                      NO - Retail investors allowed if whitelisted (Level 1-3)
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+            </div>
+          </Card>
+
+          {/* Whitelist Addresses (Post-Deployment) */}
           {config.whitelistRequired && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm">Whitelist Addresses</Label>
+                <div>
+                  <Label className="text-sm">Initial Whitelist Addresses</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    These addresses will be added to whitelist after deployment
+                  </p>
+                </div>
                 <Button
                   type="button"
                   variant="outline"
@@ -280,8 +401,9 @@ export function ComplianceModuleConfigPanel({
               {(!config.whitelistAddresses || config.whitelistAddresses.length === 0) && (
                 <Alert>
                   <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    No addresses whitelisted yet. Add approved addresses who can hold/trade tokens.
+                  <AlertDescription className="text-xs">
+                    No addresses configured yet. You can add approved addresses here to automatically
+                    populate the whitelist after deployment, or add them later via the compliance management page.
                   </AlertDescription>
                 </Alert>
               )}
@@ -331,7 +453,7 @@ export function ComplianceModuleConfigPanel({
             {(!config.restrictedCountries || config.restrictedCountries.length === 0) && (
               <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription>
+                <AlertDescription className="text-xs">
                   No country restrictions configured. Add ISO country codes (e.g., US, CN, KP) to block.
                 </AlertDescription>
               </Alert>
@@ -383,7 +505,7 @@ export function ComplianceModuleConfigPanel({
             {(!config.jurisdictionRules || config.jurisdictionRules.length === 0) && (
               <Alert>
                 <Info className="h-4 w-4" />
-                <AlertDescription>
+                <AlertDescription className="text-xs">
                   No jurisdiction-specific rules configured. Add custom requirements per jurisdiction.
                 </AlertDescription>
               </Alert>
@@ -476,6 +598,14 @@ export function ComplianceModuleConfigPanel({
               <Label className="text-sm font-medium">Compliance Summary</Label>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className="flex justify-between">
+                  <span className="text-muted-foreground">Compliance Level:</span>
+                  <span className="font-semibold">{config.complianceLevel || 1}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Max Holders/Jurisdiction:</span>
+                  <span className="font-semibold">{config.maxHoldersPerJurisdiction || 'Unlimited'}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-muted-foreground">KYC Required:</span>
                   <span className="font-semibold">{config.kycRequired ? 'Yes' : 'No'}</span>
                 </div>
@@ -493,8 +623,8 @@ export function ComplianceModuleConfigPanel({
                 </div>
                 {config.whitelistRequired && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Whitelisted Addresses:</span>
-                    <span className="font-semibold">{config.whitelistAddresses?.length || 0}</span>
+                    <span className="text-muted-foreground">Initial Whitelist:</span>
+                    <span className="font-semibold">{config.whitelistAddresses?.length || 0} addresses</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -509,8 +639,9 @@ export function ComplianceModuleConfigPanel({
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
-              <strong>Pre-deployment configuration:</strong> All compliance rules will be enforced 
-              automatically during token deployment. Transfers violating these rules will be blocked.
+              <strong>Deployment Process:</strong> Core compliance parameters (level, max holders, KYC requirement)
+              will be configured during deployment. Whitelist addresses will be added immediately after deployment
+              via batch transaction.
             </AlertDescription>
           </Alert>
         </>

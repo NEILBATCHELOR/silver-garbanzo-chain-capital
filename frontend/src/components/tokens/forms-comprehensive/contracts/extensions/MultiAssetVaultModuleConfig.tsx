@@ -1,6 +1,6 @@
 /**
- * Multi-Asset Vault Module Configuration Component
- * ✅ ENHANCED: Complete asset allocation pre-configured
+ * Multi-Asset Vault Module Configuration Component (ERC-7575)
+ * ✅ ENHANCED: Complete asset allocation with Phase 1 & Phase 2 separation
  * Support multiple underlying assets in one vault (ERC4626)
  */
 
@@ -96,10 +96,67 @@ export function MultiAssetVaultModuleConfigPanel({
 
       {config.enabled && (
         <>
-          {/* Configuration Card */}
+          {/* Phase 1: Initialization Settings */}
+          <Card className="p-4 bg-primary/5">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Phase 1: Initialization Settings (Required)</Label>
+              <p className="text-xs text-muted-foreground">
+                These parameters are required for module deployment and cannot be changed later
+              </p>
+              
+              <div className="grid grid-cols-1 gap-3">
+                {/* Price Oracle */}
+                <div>
+                  <Label className="text-xs">
+                    Price Oracle Address <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={config.priceOracle || ''}
+                    onChange={(e) => onChange({
+                      ...config,
+                      priceOracle: e.target.value
+                    })}
+                    disabled={disabled}
+                    placeholder="0x... (Chainlink, Uniswap, etc.)"
+                    className="font-mono text-sm"
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Oracle contract for asset pricing (required for initialization)
+                  </p>
+                </div>
+
+                {/* Base Asset */}
+                <div>
+                  <Label className="text-xs">
+                    Base Asset Address <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    value={config.baseAsset || ''}
+                    onChange={(e) => onChange({
+                      ...config,
+                      baseAsset: e.target.value
+                    })}
+                    disabled={disabled}
+                    placeholder="0x... (e.g., USDC, USDT)"
+                    className="font-mono text-sm"
+                    required
+                  />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    Asset used for valuation calculations (required for initialization)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Phase 2: Post-Deployment Configuration */}
           <Card className="p-4 bg-muted/50">
             <div className="space-y-3">
-              <Label className="text-sm">Vault Configuration</Label>
+              <Label className="text-sm font-medium">Phase 2: Post-Deployment Configuration</Label>
+              <p className="text-xs text-muted-foreground">
+                These settings are configured after deployment via admin functions
+              </p>
               
               <div className="grid grid-cols-2 gap-3">
                 {/* Max Assets */}
@@ -119,42 +176,6 @@ export function MultiAssetVaultModuleConfigPanel({
                   />
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     Maximum number of different assets the vault can hold
-                  </p>
-                </div>
-
-                {/* Base Asset */}
-                <div>
-                  <Label className="text-xs">Base Asset (Optional)</Label>
-                  <Input
-                    value={config.baseAsset || ''}
-                    onChange={(e) => onChange({
-                      ...config,
-                      baseAsset: e.target.value
-                    })}
-                    disabled={disabled}
-                    placeholder="0x... (e.g., USDC)"
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Asset used for valuation calculations
-                  </p>
-                </div>
-
-                {/* Price Oracle */}
-                <div className="col-span-2">
-                  <Label className="text-xs">Price Oracle Address</Label>
-                  <Input
-                    value={config.priceOracle || ''}
-                    onChange={(e) => onChange({
-                      ...config,
-                      priceOracle: e.target.value
-                    })}
-                    disabled={disabled}
-                    placeholder="0x... (Chainlink, Uniswap, etc.)"
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    Oracle contract for asset pricing
                   </p>
                 </div>
               </div>

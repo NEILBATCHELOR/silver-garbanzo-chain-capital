@@ -155,8 +155,68 @@ export class InstanceConfigurationService {
 
       console.log(`✅ Deployed ${result.deployed.length} NEW module instances`);
 
-      // TODO: Add configuration step here if needed
-      // For now, just deployment - configuration can be added post-deployment
+      // ============ PHASE 2: CONFIGURATION ============
+      // Apply user's configuration settings to deployed module instances
+      
+      if (result.deployed.length > 0) {
+        console.log('🔄 Starting Phase 2: Module Configuration...');
+        
+        try {
+          // Convert deployed modules to format expected by configureModuleInstances
+          const deployedModulesForConfig = result.deployed.map(m => ({
+            moduleType: m.moduleType,
+            instanceAddress: m.instanceAddress
+          }));
+          
+          // Build complete module configuration from moduleSelection
+          const moduleConfigs: any = {};
+          for (const [moduleType, enabled] of Object.entries(moduleSelection)) {
+            if (enabled && typeof enabled === 'object') {
+              // Module has configuration
+              moduleConfigs[moduleType] = enabled;
+            } else if (enabled === true) {
+              // Module is enabled but has no config object
+              const configKey = `${moduleType}Config`;
+              if (moduleSelection[configKey as keyof ModuleSelection]) {
+                moduleConfigs[moduleType] = moduleSelection[configKey as keyof ModuleSelection];
+              }
+            }
+          }
+          
+          console.log(`   - Configuring ${deployedModulesForConfig.length} modules`);
+          console.log(`   - Module configs:`, Object.keys(moduleConfigs));
+          
+          // Apply configuration to all deployed modules
+          const configResults = await this.configureModuleInstances(
+            deployedModulesForConfig,
+            moduleConfigs as any,
+            wallet,
+            (progress) => {
+              console.log(`   [${progress.current}/${progress.total}] ${progress.message}`);
+            }
+          );
+          
+          // Log configuration results
+          const successfulConfigs = configResults.filter(r => r.configured).length;
+          const failedConfigs = configResults.filter(r => !r.configured).length;
+          
+          console.log(`✅ Phase 2 Complete: ${successfulConfigs} configured, ${failedConfigs} failed`);
+          
+          if (failedConfigs > 0) {
+            console.warn('⚠️ Some module configurations failed:', 
+              configResults.filter(r => !r.configured).map(r => ({
+                module: r.moduleType,
+                error: r.error
+              }))
+            );
+          }
+          
+        } catch (configError) {
+          console.error('❌ Phase 2 configuration failed:', configError);
+          // Don't fail the entire deployment if configuration fails
+          // Modules are deployed, they just need manual configuration
+        }
+      }
 
       // Log success
       await logActivity({
@@ -235,13 +295,21 @@ export class InstanceConfigurationService {
       
       if (config.compliance_config) {
         selection.complianceConfig = {
+          // Required fields (with defaults for backward compatibility)
+          complianceLevel: config.compliance_config.complianceLevel || 1,
+          maxHoldersPerJurisdiction: config.compliance_config.maxHoldersPerJurisdiction || 0,
           kycRequired: config.compliance_config.kycRequired || false,
+          // Optional fields
           whitelistRequired: config.compliance_config.whitelistRequired || false,
           whitelistAddresses: config.compliance_config.whitelistAddresses || ''
         };
       } else {
         selection.complianceConfig = {
+          // Required fields (with defaults for backward compatibility)
+          complianceLevel: 1, // Default: minimal compliance
+          maxHoldersPerJurisdiction: 0, // Default: unlimited
           kycRequired: config.kyc_required || false,
+          // Optional derived fields
           whitelistRequired: config.whitelist_required || false
         };
       }
@@ -665,23 +733,20 @@ export class InstanceConfigurationService {
       const module = new ethers.Contract(instanceAddress, abi, deployer);
       
       switch (moduleType) {
+        // ============ UNIVERSAL MODULES ============
         case 'vesting':
           await this.configureVestingModule(module, config, txHashes);
           break;
         case 'document':
           await this.configureDocumentModule(module, config, txHashes);
           break;
-        case 'compliance':
-          await this.configureComplianceModule(module, config, txHashes);
-          break;
-        case 'slotManager':
-          await this.configureSlotManagerModule(module, config, txHashes);
-          break;
-        case 'transferRestrictions':
-          await this.configureTransferRestrictionsModule(module, config, txHashes);
-          break;
         case 'policyEngine':
           await this.configurePolicyEngineModule(module, config, txHashes);
+          break;
+        
+        // ============ ERC20 MODULES ============
+        case 'compliance':
+          await this.configureComplianceModule(module, config, txHashes);
           break;
         case 'fees':
           await this.configureFeesModule(module, config, txHashes);
@@ -689,12 +754,101 @@ export class InstanceConfigurationService {
         case 'timelock':
           await this.configureTimelockModule(module, config, txHashes);
           break;
+        case 'permit':
+          await this.configurePermitModule(module, config, txHashes);
+          break;
+        case 'snapshot':
+          await this.configureSnapshotModule(module, config, txHashes);
+          break;
+        case 'flashMint':
+          await this.configureFlashMintModule(module, config, txHashes);
+          break;
+        case 'votes':
+          await this.configureVotesModule(module, config, txHashes);
+          break;
+        case 'temporaryApproval':
+          await this.configureTemporaryApprovalModule(module, config, txHashes);
+          break;
+        case 'payableToken':
+          await this.configurePayableTokenModule(module, config, txHashes);
+          break;
+        
+        // ============ ERC721 MODULES ============
         case 'royalty':
           await this.configureRoyaltyModule(module, config, txHashes);
           break;
         case 'rental':
           await this.configureRentalModule(module, config, txHashes);
           break;
+        case 'consecutive':
+          await this.configureConsecutiveModule(module, config, txHashes);
+          break;
+        case 'fractionalization':
+          await this.configureFractionalizationModule(module, config, txHashes);
+          break;
+        case 'soulbound':
+          await this.configureSoulboundModule(module, config, txHashes);
+          break;
+        case 'metadataEvents':
+          await this.configureMetadataEventsModule(module, config, txHashes);
+          break;
+        
+        // ============ ERC1155 MODULES ============
+        case 'supplyCap':
+          await this.configureSupplyCapModule(module, config, txHashes);
+          break;
+        case 'uriManagement':
+          await this.configureURIManagementModule(module, config, txHashes);
+          break;
+        case 'granularApproval':
+          await this.configureGranularApprovalModule(module, config, txHashes);
+          break;
+        
+        // ============ ERC3525 MODULES ============
+        case 'slotManager':
+          await this.configureSlotManagerModule(module, config, txHashes);
+          break;
+        case 'slotApprovable':
+          await this.configureSlotApprovableModule(module, config, txHashes);
+          break;
+        case 'valueExchange':
+          await this.configureValueExchangeModule(module, config, txHashes);
+          break;
+        
+        // ============ ERC4626 MODULES ============
+        case 'asyncVault':
+          await this.configureAsyncVaultModule(module, config, txHashes);
+          break;
+        case 'feeStrategy':
+          await this.configureFeeStrategyModule(module, config, txHashes);
+          break;
+        case 'nativeVault':
+          await this.configureNativeVaultModule(module, config, txHashes);
+          break;
+        case 'router':
+          await this.configureRouterModule(module, config, txHashes);
+          break;
+        case 'withdrawalQueue':
+          await this.configureWithdrawalQueueModule(module, config, txHashes);
+          break;
+        case 'yieldStrategy':
+          await this.configureYieldStrategyModule(module, config, txHashes);
+          break;
+        case 'multiAssetVault':
+          await this.configureMultiAssetVaultModule(module, config, txHashes);
+          break;
+        
+        // ============ ERC1400 MODULES ============
+        case 'transferRestrictions':
+          await this.configureTransferRestrictionsModule(module, config, txHashes);
+          break;
+        case 'controller':
+          await this.configureControllerModule(module, config, txHashes);
+          break;
+        case 'erc1400Document':
+          await this.configureERC1400DocumentModule(module, config, txHashes);
+          break;
+        
         default:
           console.warn(`No configuration handler for module type: ${moduleType}`);
       }
@@ -908,6 +1062,586 @@ export class InstanceConfigurationService {
     if (config.platformFeeRecipient && config.platformFeeBps !== undefined) {
       const tx = await module.setPlatformFee(config.platformFeeRecipient, config.platformFeeBps);
       txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  // ============ ERC20 ADDITIONAL MODULES ============
+
+  private static async configurePermitModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring permit module');
+    // Permit module typically requires no post-deployment configuration
+    // All functionality is in the deployment initialization
+    // This handler exists for consistency and future extensibility
+    if (config.customDomain) {
+      console.log('  Note: Custom domain configuration not currently supported');
+    }
+  }
+
+  private static async configureSnapshotModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring snapshot module');
+    
+    // Configure snapshot schedule if provided
+    if (config.automaticSnapshots && config.snapshotInterval !== undefined) {
+      const tx = await module.setSnapshotInterval(config.snapshotInterval);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Add snapshot controllers
+    if (config.snapshotControllers?.length > 0) {
+      console.log(`  Adding ${config.snapshotControllers.length} snapshot controllers`);
+      for (const controller of config.snapshotControllers) {
+        const tx = await module.grantRole(ethers.id('SNAPSHOT_ROLE'), controller);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Create initial snapshot if requested
+    if (config.createInitialSnapshot) {
+      console.log('  Creating initial snapshot');
+      const tx = await module.snapshot();
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureFlashMintModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring flash mint module');
+    
+    // Set flash loan fee
+    if (config.flashFeeBps !== undefined) {
+      const tx = await module.setFlashFee(config.flashFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set fee recipient
+    if (config.feeRecipient) {
+      const tx = await module.setFeeRecipient(config.feeRecipient);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set maximum flash loan amount
+    if (config.maxFlashAmount !== undefined) {
+      const tx = await module.setMaxFlashLoan(config.maxFlashAmount);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureVotesModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring votes module');
+    
+    // Configure voting parameters
+    if (config.votingDelay !== undefined) {
+      const tx = await module.setVotingDelay(config.votingDelay);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    if (config.votingPeriod !== undefined) {
+      const tx = await module.setVotingPeriod(config.votingPeriod);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    if (config.proposalThreshold !== undefined) {
+      const tx = await module.setProposalThreshold(ethers.parseUnits(config.proposalThreshold.toString(), 18));
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    if (config.quorumPercentage !== undefined) {
+      const tx = await module.updateQuorumNumerator(config.quorumPercentage);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureTemporaryApprovalModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring temporary approval module');
+    
+    // Set default approval duration
+    if (config.defaultDuration !== undefined) {
+      const tx = await module.setDefaultDuration(config.defaultDuration);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set min/max duration limits
+    if (config.minDuration !== undefined) {
+      const tx = await module.setMinDuration(config.minDuration);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    if (config.maxDuration !== undefined) {
+      const tx = await module.setMaxDuration(config.maxDuration);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configurePayableTokenModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring payable token module');
+    
+    // Set payment receivers
+    if (config.paymentReceivers?.length > 0) {
+      console.log(`  Configuring ${config.paymentReceivers.length} payment receivers`);
+      for (const receiver of config.paymentReceivers) {
+        const tx = await module.addPaymentReceiver(receiver);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set payment callback contract if specified
+    if (config.callbackContract) {
+      const tx = await module.setCallbackContract(config.callbackContract);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  // ============ ERC721 ADDITIONAL MODULES ============
+
+  private static async configureConsecutiveModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring consecutive module');
+    
+    // Set batch size limits
+    if (config.maxBatchSize !== undefined) {
+      const tx = await module.setMaxBatchSize(config.maxBatchSize);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure sequential minting rules
+    if (config.enforceSequential !== undefined) {
+      const tx = await module.setEnforceSequential(config.enforceSequential);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureFractionalizationModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring fractionalization module');
+    
+    // Set ERC20 wrapper template if specified
+    if (config.wrapperTemplate) {
+      const tx = await module.setWrapperTemplate(config.wrapperTemplate);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure share distribution rules
+    if (config.minSharePrice !== undefined) {
+      const tx = await module.setMinSharePrice(ethers.parseUnits(config.minSharePrice.toString(), 18));
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set fractionalization fee
+    if (config.fractionalizationFeeBps !== undefined) {
+      const tx = await module.setFractionalizationFee(config.fractionalizationFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureSoulboundModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring soulbound module');
+    
+    // Configure transfer rules
+    if (config.allowOneTimeTransfer !== undefined) {
+      const tx = await module.setAllowOneTimeTransfer(config.allowOneTimeTransfer);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure burn permissions
+    if (config.burnableByOwner !== undefined) {
+      const tx = await module.setBurnableByOwner(config.burnableByOwner);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    if (config.burnableByIssuer !== undefined) {
+      const tx = await module.setBurnableByIssuer(config.burnableByIssuer);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure expiration if enabled
+    if (config.expirationEnabled && config.expirationPeriod !== undefined) {
+      const tx = await module.setExpirationPeriod(config.expirationPeriod);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureMetadataEventsModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring metadata events module');
+    
+    // Enable/disable batch metadata updates
+    if (config.allowBatchUpdates !== undefined) {
+      const tx = await module.setAllowBatchUpdates(config.allowBatchUpdates);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure metadata update permissions
+    if (config.metadataUpdaters?.length > 0) {
+      console.log(`  Adding ${config.metadataUpdaters.length} metadata updaters`);
+      for (const updater of config.metadataUpdaters) {
+        const tx = await module.grantRole(ethers.id('METADATA_UPDATER_ROLE'), updater);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set metadata refresh interval if specified
+    if (config.refreshInterval !== undefined) {
+      const tx = await module.setRefreshInterval(config.refreshInterval);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Enable/disable automatic metadata events
+    if (config.autoEmitEvents !== undefined) {
+      const tx = await module.setAutoEmitEvents(config.autoEmitEvents);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  // ============ ERC1155 MODULES ============
+
+  private static async configureSupplyCapModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring supply cap module');
+    
+    // Set per-token supply caps
+    if (config.tokenCaps?.length > 0) {
+      console.log(`  Setting supply caps for ${config.tokenCaps.length} token IDs`);
+      for (const cap of config.tokenCaps) {
+        const tx = await module.setSupplyCap(cap.tokenId, cap.maxSupply);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set global supply cap if specified
+    if (config.globalCap !== undefined) {
+      const tx = await module.setGlobalSupplyCap(config.globalCap);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureURIManagementModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring URI management module');
+    
+    // Set base URI
+    if (config.baseURI) {
+      const tx = await module.setBaseURI(config.baseURI);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set per-token URIs
+    if (config.tokenURIs?.length > 0) {
+      console.log(`  Setting URIs for ${config.tokenURIs.length} tokens`);
+      for (const uri of config.tokenURIs) {
+        const tx = await module.setURI(uri.tokenId, uri.uri);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set URI freezing rules
+    if (config.allowURIUpdates !== undefined) {
+      const tx = await module.setAllowURIUpdates(config.allowURIUpdates);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureGranularApprovalModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring granular approval module');
+    
+    // Configure approval scopes
+    if (config.defaultApprovalScope) {
+      const tx = await module.setDefaultApprovalScope(config.defaultApprovalScope);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set approval limits
+    if (config.maxApprovalAmount !== undefined) {
+      const tx = await module.setMaxApprovalAmount(config.maxApprovalAmount);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  // ============ ERC3525 ADDITIONAL MODULES ============
+
+  private static async configureSlotApprovableModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring slot approvable module');
+    
+    // Configure slot-level approval rules
+    if (config.slotApprovalRules?.length > 0) {
+      console.log(`  Configuring ${config.slotApprovalRules.length} slot approval rules`);
+      for (const rule of config.slotApprovalRules) {
+        const tx = await module.setSlotApprovalRule(rule.slotId, rule.requiresApproval, rule.approvers || []);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+  }
+
+  private static async configureValueExchangeModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring value exchange module');
+    
+    // Set exchange rate oracle
+    if (config.exchangeOracle) {
+      const tx = await module.setExchangeOracle(config.exchangeOracle);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Configure exchange rates
+    if (config.exchangeRates?.length > 0) {
+      console.log(`  Setting ${config.exchangeRates.length} exchange rates`);
+      for (const rate of config.exchangeRates) {
+        const tx = await module.setExchangeRate(rate.fromSlot, rate.toSlot, rate.rate);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set exchange fee
+    if (config.exchangeFeeBps !== undefined) {
+      const tx = await module.setExchangeFee(config.exchangeFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  // ============ ERC4626 MODULES ============
+
+  private static async configureAsyncVaultModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring async vault module');
+    
+    // Set minimum fulfillment delay
+    if (config.minimumFulfillmentDelay !== undefined) {
+      const tx = await module.setMinimumFulfillmentDelay(config.minimumFulfillmentDelay);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set max pending requests per user
+    if (config.maxPendingRequestsPerUser !== undefined) {
+      const tx = await module.setMaxPendingRequests(config.maxPendingRequestsPerUser);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set request expiry
+    if (config.requestExpiry !== undefined) {
+      const tx = await module.setRequestExpiry(config.requestExpiry);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Enable/disable partial fulfillment
+    if (config.partialFulfillmentEnabled !== undefined) {
+      const tx = await module.setPartialFulfillmentEnabled(config.partialFulfillmentEnabled);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureFeeStrategyModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring fee strategy module');
+    
+    // Set management fee
+    if (config.managementFeeBps !== undefined) {
+      const tx = await module.setManagementFee(config.managementFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set performance fee
+    if (config.performanceFeeBps !== undefined) {
+      const tx = await module.setPerformanceFee(config.performanceFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set withdrawal fee
+    if (config.withdrawalFeeBps !== undefined) {
+      const tx = await module.setWithdrawalFee(config.withdrawalFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set fee recipient
+    if (config.feeRecipient) {
+      const tx = await module.setFeeRecipient(config.feeRecipient);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureNativeVaultModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring native vault module');
+    
+    // Set WETH address (if not set during initialization)
+    if (config.wethAddress) {
+      const tx = await module.setWETH(config.wethAddress);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Enable/disable native token acceptance
+    if (config.acceptNativeToken !== undefined) {
+      const tx = await module.setAcceptNativeToken(config.acceptNativeToken);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Enable/disable auto-unwrap on withdrawal
+    if (config.unwrapOnWithdrawal !== undefined) {
+      const tx = await module.setUnwrapOnWithdrawal(config.unwrapOnWithdrawal);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureRouterModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring router module');
+    
+    // Configure routing paths
+    if (config.routingPaths?.length > 0) {
+      console.log(`  Adding ${config.routingPaths.length} routing paths`);
+      for (const path of config.routingPaths) {
+        const tx = await module.addRoutingPath(path.fromVault, path.toVault, path.intermediateHops || []);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set max hops for multi-hop routing
+    if (config.maxHops !== undefined) {
+      const tx = await module.setMaxHops(config.maxHops);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set slippage tolerance
+    if (config.slippageTolerance !== undefined) {
+      const tx = await module.setSlippageTolerance(config.slippageTolerance);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureWithdrawalQueueModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring withdrawal queue module');
+    
+    // Set liquidity buffer
+    if (config.liquidityBuffer !== undefined) {
+      const tx = await module.setLiquidityBuffer(config.liquidityBuffer);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set max queue size
+    if (config.maxQueueSize !== undefined) {
+      const tx = await module.setMaxQueueSize(config.maxQueueSize);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set minimum withdrawal delay
+    if (config.minWithdrawalDelay !== undefined) {
+      const tx = await module.setMinWithdrawalDelay(config.minWithdrawalDelay);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set withdrawal amount limits
+    if (config.minWithdrawalAmount !== undefined) {
+      const tx = await module.setMinWithdrawalAmount(config.minWithdrawalAmount);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    if (config.maxWithdrawalAmount !== undefined) {
+      const tx = await module.setMaxWithdrawalAmount(config.maxWithdrawalAmount);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set priority fee for express withdrawals
+    if (config.priorityFeeBps !== undefined) {
+      const tx = await module.setPriorityFee(config.priorityFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureYieldStrategyModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring yield strategy module');
+    
+    // Set yield strategy contract
+    if (config.strategyContract) {
+      const tx = await module.setStrategy(config.strategyContract);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set harvest frequency
+    if (config.harvestFrequency !== undefined) {
+      const tx = await module.setHarvestFrequency(config.harvestFrequency);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set rebalance threshold
+    if (config.rebalanceThreshold !== undefined) {
+      const tx = await module.setRebalanceThreshold(config.rebalanceThreshold);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set performance fee for yield
+    if (config.performanceFeeBps !== undefined) {
+      const tx = await module.setPerformanceFee(config.performanceFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureMultiAssetVaultModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring multi-asset vault module');
+    
+    // Set price oracle
+    if (config.priceOracle) {
+      const tx = await module.setPriceOracle(config.priceOracle);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set base asset for valuation
+    if (config.baseAsset) {
+      const tx = await module.setBaseAsset(config.baseAsset);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Add supported assets
+    if (config.supportedAssets?.length > 0) {
+      console.log(`  Adding ${config.supportedAssets.length} supported assets`);
+      for (const asset of config.supportedAssets) {
+        const tx = await module.addSupportedAsset(asset.address, asset.weight || 100);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set rebalancing parameters
+    if (config.rebalanceThreshold !== undefined) {
+      const tx = await module.setRebalanceThreshold(config.rebalanceThreshold);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  // ============ ERC1400 ADDITIONAL MODULES ============
+
+  private static async configureControllerModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring controller module');
+    
+    // Add controllers
+    if (config.controllers?.length > 0) {
+      console.log(`  Adding ${config.controllers.length} controllers`);
+      for (const controller of config.controllers) {
+        const tx = await module.addController(controller);
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Enable/disable controllable transfers
+    if (config.controllableTransfers !== undefined) {
+      const tx = await module.setControllable(config.controllableTransfers);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+  }
+
+  private static async configureERC1400DocumentModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring ERC1400 document module');
+    
+    // Similar to universal document module but with ERC1400-specific features
+    if (config.documents?.length > 0) {
+      console.log(`  Adding ${config.documents.length} documents`);
+      for (const doc of config.documents) {
+        const tx = await module.setDocument(
+          ethers.encodeBytes32String(doc.name),
+          doc.uri,
+          doc.hash
+        );
+        txHashes.push((await tx.wait()).transactionHash);
+      }
+    }
+    
+    // Set partition-specific documents if supported
+    if (config.partitionDocuments?.length > 0) {
+      console.log(`  Adding ${config.partitionDocuments.length} partition documents`);
+      for (const doc of config.partitionDocuments) {
+        const tx = await module.setPartitionDocument(
+          ethers.encodeBytes32String(doc.partition),
+          ethers.encodeBytes32String(doc.name),
+          doc.uri,
+          doc.hash
+        );
+        txHashes.push((await tx.wait()).transactionHash);
+      }
     }
   }
 

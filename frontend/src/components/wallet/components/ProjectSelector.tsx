@@ -15,6 +15,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { supabase } from '@/infrastructure/database/client';
+import { conditionalErrorLog, shouldIgnoreError } from '@/utils/errorHandling';
 
 interface Project {
   id: string;
@@ -78,8 +79,11 @@ export function ProjectSelector({
       }
 
     } catch (err: any) {
-      console.error('Failed to load projects:', err);
-      setError(err.message || 'Failed to load projects');
+      // Silently ignore AbortErrors (expected when component unmounts)
+      if (!shouldIgnoreError(err)) {
+        conditionalErrorLog('Failed to load projects', err);
+        setError(err.message || 'Failed to load projects');
+      }
     } finally {
       setIsLoading(false);
     }

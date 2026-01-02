@@ -367,6 +367,7 @@ export class InstanceDeploymentService {
 
   /**
    * Deploy compliance module instance
+   * ✅ CORRECTED: Handles transformation of frontend config to smart contract parameters
    */
   private static async deployComplianceModule(
     factory: ethers.Contract,
@@ -389,12 +390,29 @@ export class InstanceDeploymentService {
 
     console.log(`Deploying NEW compliance module instance for token ${tokenAddress}`);
     
-    // UPDATED: New signature with jurisdictions and compliance level
-    const jurisdictions = config.jurisdictions || [];
-    const complianceLevel = config.complianceLevel || 1; // Default level 1
-    const maxHoldersPerJurisdiction = config.maxHoldersPerJurisdiction || 1000; // Default 1000
-    const kycRequired = config.kycRequired ?? true; // Default true
+    // Transform jurisdictionRules to jurisdictions array (only allowed jurisdictions)
+    let jurisdictions: string[] = [];
+    if (config.jurisdictionRules && Array.isArray(config.jurisdictionRules)) {
+      jurisdictions = config.jurisdictionRules
+        .filter((rule: any) => rule.allowed)
+        .map((rule: any) => rule.jurisdiction)
+        .filter((j: string) => j && j.trim() !== ''); // Remove empty strings
+    }
     
+    // Get deployment parameters (all required by smart contract)
+    const complianceLevel = config.complianceLevel ?? 1; // Default level 1 (minimal compliance)
+    const maxHoldersPerJurisdiction = config.maxHoldersPerJurisdiction ?? 0; // Default 0 (unlimited)
+    const kycRequired = config.kycRequired ?? false; // Default false
+    
+    console.log('Compliance deployment parameters:', {
+      tokenAddress,
+      jurisdictions,
+      complianceLevel,
+      maxHoldersPerJurisdiction,
+      kycRequired
+    });
+    
+    // Deploy compliance module with correct parameters
     const tx = await factory.deployCompliance(
       tokenAddress,
       jurisdictions,
@@ -414,7 +432,37 @@ export class InstanceDeploymentService {
     }
 
     console.log(`NEW compliance module deployed at: ${newModuleAddress}`);
+    
+    // Attach module to token
     await token.setComplianceModule(newModuleAddress);
+
+    // Post-deployment: Add whitelist addresses if provided
+    if (config.whitelistAddresses && Array.isArray(config.whitelistAddresses) && config.whitelistAddresses.length > 0) {
+      console.log(`Adding ${config.whitelistAddresses.length} addresses to whitelist...`);
+      
+      const complianceModule = new ethers.Contract(
+        newModuleAddress,
+        ['function addToWhitelistBatch(address[] calldata investors, bytes32[] calldata jurisdictions) external'],
+        factory.runner
+      );
+      
+      // Use first allowed jurisdiction as default for all addresses
+      const defaultJurisdiction = jurisdictions[0] || 'US';
+      const jurisdictionBytes = ethers.keccak256(ethers.toUtf8Bytes(defaultJurisdiction));
+      const jurisdictionsArray = new Array(config.whitelistAddresses.length).fill(jurisdictionBytes);
+      
+      try {
+        const whitelistTx = await complianceModule.addToWhitelistBatch(
+          config.whitelistAddresses,
+          jurisdictionsArray
+        );
+        await whitelistTx.wait();
+        console.log('Whitelist addresses added successfully');
+      } catch (error) {
+        console.error('Failed to add whitelist addresses:', error);
+        // Don't fail deployment if whitelist addition fails
+      }
+    }
 
     return {
       moduleAddress: newModuleAddress,
@@ -807,6 +855,7 @@ export class InstanceDeploymentService {
 
   /**
    * Deploy votes module instance (ERC20)
+   * ✅ CORRECTED: All parameters are REQUIRED, proper type handling
    */
   private static async deployVotesModule(
     factory: ethers.Contract,
@@ -829,12 +878,53 @@ export class InstanceDeploymentService {
 
     console.log(`Deploying NEW votes module instance for token ${tokenAddress}`);
     
-    // UPDATED: New governance parameters
-    const tokenName = config.tokenName || 'Governance Token';
-    const votingDelay = config.votingDelay || 1; // Default 1 block
-    const votingPeriod = config.votingPeriod || 50400; // Default ~1 week
-    const proposalThreshold = config.proposalThreshold || ethers.parseEther('100000'); // Default 100k tokens
-    const quorumPercentage = config.quorumPercentage || 4; // Default 4%
+    // Get token info for naming
+    let tokenName = 'Governance Token';
+    try {
+      tokenName = await token.name();
+    } catch (error) {
+      console.warn('Could not get token name, using default');
+    }
+    
+    // All governance parameters are REQUIRED by smart contract
+    const votingDelay = config.votingDelay ?? 0; // Default: immediate (0 blocks)
+    const votingPeriod = config.votingPeriod ?? 50400; // Default: ~1 week (Ethereum)
+    const quorumPercentage = config.quorumPercentage ?? 4; // Default: 4%
+    
+    // Handle proposalThreshold as string or number
+    let proposalThreshold: bigint;
+    if (typeof config.proposalThreshold === 'string') {
+      // If already in wei or large number as string
+      if (config.proposalThreshold === '0' || config.proposalThreshold === '') {
+        proposalThreshold = BigInt(0);
+      } else {
+        proposalThreshold = BigInt(config.proposalThreshold);
+      }
+    } else if (typeof config.proposalThreshold === 'number') {
+      proposalThreshold = BigInt(config.proposalThreshold);
+    } else {
+      proposalThreshold = BigInt(0); // Default: anyone can propose
+    }
+    
+    console.log('Votes deployment parameters:', {
+      tokenAddress,
+      tokenName,
+      votingDelay,
+      votingPeriod,
+      proposalThreshold: proposalThreshold.toString(),
+      quorumPercentage
+    });
+    
+    // Validate parameters
+    if (votingDelay < 0) {
+      throw new Error('Voting delay must be non-negative');
+    }
+    if (votingPeriod < 1) {
+      throw new Error('Voting period must be at least 1 block');
+    }
+    if (quorumPercentage < 0.1 || quorumPercentage > 100) {
+      throw new Error('Quorum percentage must be between 0.1 and 100');
+    }
     
     const tx = await factory.deployVotes(
       tokenAddress,
@@ -1427,7 +1517,8 @@ export class InstanceDeploymentService {
     const baseURI = config.baseURI || '';
     const ipfsGateway = config.ipfsGateway || 'https://ipfs.io/ipfs/';
     
-    const tx = await factory.attachURIManagement(tokenAddress, baseURI, ipfsGateway);
+    // FIXED: Use correct factory method name (deployURIManagement not attachURIManagement)
+    const tx = await factory.deployURIManagement(tokenAddress, baseURI, ipfsGateway);
     const receipt = await tx.wait();
     const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'URIManagementExtensionDeployed')?.args?.extension;
     if (!newModuleAddress) throw new Error('Failed to get deployed module address');

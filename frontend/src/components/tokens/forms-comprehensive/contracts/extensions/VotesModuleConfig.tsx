@@ -1,7 +1,12 @@
 /**
  * Votes Module Configuration Component
- * ✅ ENHANCED: Complete governance voting configuration
- * Adds voting power and delegation with customizable governance parameters
+ * ✅ CORRECTED: All governance parameters are REQUIRED by smart contract
+ * Contract expects: admin, tokenName, votingDelay, votingPeriod, proposalThreshold, quorumPercentage
+ * 
+ * Key Changes:
+ * - Made all governance parameters REQUIRED (removed optional)
+ * - Added proper validation with min/max constraints
+ * - Added sensible defaults for new configurations
  */
 
 import React from 'react';
@@ -10,7 +15,8 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, Vote, Users } from 'lucide-react';
+import { Info, Vote, Users, AlertCircle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import type { ModuleConfigProps, VotesModuleConfig } from '../types';
 
 export function VotesModuleConfigPanel({
@@ -27,15 +33,29 @@ export function VotesModuleConfigPanel({
         enabled: false
       });
     } else {
+      // Set sensible defaults for all REQUIRED parameters
       onChange({
         enabled: true,
-        votingDelay: config.votingDelay || 0, // Default: immediate
-        votingPeriod: config.votingPeriod || 50400, // Default: ~1 week (Ethereum blocks)
-        proposalThreshold: config.proposalThreshold || '0',
-        quorumPercentage: config.quorumPercentage || 4, // Default: 4%
+        votingDelay: config.votingDelay ?? 0,            // Default: immediate
+        votingPeriod: config.votingPeriod ?? 50400,      // Default: ~1 week (Ethereum blocks)
+        proposalThreshold: config.proposalThreshold ?? '0', // Default: anyone can propose
+        quorumPercentage: config.quorumPercentage ?? 4,  // Default: 4% quorum
         delegatesEnabled: config.delegatesEnabled !== false // Default: true
       });
     }
+  };
+
+  // Validation helpers
+  const hasValidationError = (field: keyof VotesModuleConfig): boolean => {
+    if (!errors) return false;
+    return !!errors[field];
+  };
+
+  const getValidationError = (field: keyof VotesModuleConfig): string | undefined => {
+    if (!errors) return undefined;
+    const error = errors[field];
+    // Handle both string and string[] error formats
+    return Array.isArray(error) ? error[0] : error;
   };
 
   return (
@@ -59,72 +79,122 @@ export function VotesModuleConfigPanel({
         <>
           <Alert>
             <Info className="h-4 w-4" />
-            <AlertDescription>
+            <AlertDescription className="text-xs">
               Tokens become governance tokens with voting power (1 token = 1 vote by default). 
               Includes vote delegation and historical voting power tracking.
+            </AlertDescription>
+          </Alert>
+
+          {/* Required Parameters Alert */}
+          <Alert className="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              <strong>All governance parameters are required</strong> for deployment. Please configure
+              all settings below before proceeding.
             </AlertDescription>
           </Alert>
 
           {/* Voting Parameters */}
           <Card className="p-4">
             <div className="space-y-4">
-              <Label className="text-sm font-medium flex items-center gap-2">
-                <Vote className="h-4 w-4" />
-                Voting Parameters
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Vote className="h-4 w-4" />
+                  Voting Parameters
+                </Label>
+                <Badge variant="secondary" className="text-xs">
+                  All Required
+                </Badge>
+              </div>
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Voting Delay */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Voting Delay (blocks)</Label>
+                  <Label className="text-xs font-medium">
+                    Voting Delay (blocks) * <span className="text-red-500">Required</span>
+                  </Label>
                   <Input
                     type="number"
                     min="0"
-                    value={config.votingDelay || 0}
-                    onChange={(e) => onChange({
-                      ...config,
-                      votingDelay: parseInt(e.target.value) || 0
-                    })}
+                    value={config.votingDelay ?? 0}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 0) {
+                        onChange({
+                          ...config,
+                          votingDelay: value
+                        });
+                      }
+                    }}
                     disabled={disabled}
                     placeholder="0"
+                    className={hasValidationError('votingDelay') ? 'border-red-500' : ''}
+                    required
                   />
+                  {hasValidationError('votingDelay') && (
+                    <p className="text-xs text-red-500">{getValidationError('votingDelay')}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    Blocks between proposal and vote start (~{((config.votingDelay || 0) * 12 / 3600).toFixed(1)} hours)
+                    Blocks between proposal and vote start (~{((config.votingDelay ?? 0) * 12 / 3600).toFixed(1)} hours)
                   </p>
                 </div>
 
                 {/* Voting Period */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Voting Period (blocks)</Label>
+                  <Label className="text-xs font-medium">
+                    Voting Period (blocks) * <span className="text-red-500">Required</span>
+                  </Label>
                   <Input
                     type="number"
                     min="1"
-                    value={config.votingPeriod || 50400}
-                    onChange={(e) => onChange({
-                      ...config,
-                      votingPeriod: parseInt(e.target.value) || 50400
-                    })}
+                    value={config.votingPeriod ?? 50400}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (!isNaN(value) && value >= 1) {
+                        onChange({
+                          ...config,
+                          votingPeriod: value
+                        });
+                      }
+                    }}
                     disabled={disabled}
                     placeholder="50400"
+                    className={hasValidationError('votingPeriod') ? 'border-red-500' : ''}
+                    required
                   />
+                  {hasValidationError('votingPeriod') && (
+                    <p className="text-xs text-red-500">{getValidationError('votingPeriod')}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    Duration of voting (~{((config.votingPeriod || 50400) * 12 / 3600 / 24).toFixed(1)} days)
+                    Duration of voting (~{((config.votingPeriod ?? 50400) * 12 / 3600 / 24).toFixed(1)} days)
                   </p>
                 </div>
 
                 {/* Proposal Threshold */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Proposal Threshold (tokens)</Label>
+                  <Label className="text-xs font-medium">
+                    Proposal Threshold (tokens) * <span className="text-red-500">Required</span>
+                  </Label>
                   <Input
-                    value={config.proposalThreshold || '0'}
-                    onChange={(e) => onChange({
-                      ...config,
-                      proposalThreshold: e.target.value
-                    })}
+                    value={config.proposalThreshold ?? '0'}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow only numbers
+                      if (/^\d*$/.test(value)) {
+                        onChange({
+                          ...config,
+                          proposalThreshold: value
+                        });
+                      }
+                    }}
                     disabled={disabled}
                     placeholder="0"
-                    className="font-mono"
+                    className={`font-mono ${hasValidationError('proposalThreshold') ? 'border-red-500' : ''}`}
+                    required
                   />
+                  {hasValidationError('proposalThreshold') && (
+                    <p className="text-xs text-red-500">{getValidationError('proposalThreshold')}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Minimum tokens needed to create a proposal (0 = anyone can propose)
                   </p>
@@ -132,22 +202,34 @@ export function VotesModuleConfigPanel({
 
                 {/* Quorum Percentage */}
                 <div className="space-y-2">
-                  <Label className="text-xs">Quorum (%)</Label>
+                  <Label className="text-xs font-medium">
+                    Quorum (%) * <span className="text-red-500">Required</span>
+                  </Label>
                   <Input
                     type="number"
                     step="0.1"
-                    min="0"
+                    min="0.1"
                     max="100"
-                    value={config.quorumPercentage || 4}
-                    onChange={(e) => onChange({
-                      ...config,
-                      quorumPercentage: parseFloat(e.target.value) || 4
-                    })}
+                    value={config.quorumPercentage ?? 4}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value) && value >= 0.1 && value <= 100) {
+                        onChange({
+                          ...config,
+                          quorumPercentage: value
+                        });
+                      }
+                    }}
                     disabled={disabled}
                     placeholder="4"
+                    className={hasValidationError('quorumPercentage') ? 'border-red-500' : ''}
+                    required
                   />
+                  {hasValidationError('quorumPercentage') && (
+                    <p className="text-xs text-red-500">{getValidationError('quorumPercentage')}</p>
+                  )}
                   <p className="text-xs text-muted-foreground">
-                    % of total supply needed for a valid vote
+                    % of total supply needed for a valid vote (minimum 0.1%, maximum 100%)
                   </p>
                 </div>
               </div>
@@ -158,8 +240,9 @@ export function VotesModuleConfigPanel({
                 <ul className="list-disc list-inside pl-2 space-y-0.5">
                   <li>1 day = ~7,200 blocks</li>
                   <li>1 week = ~50,400 blocks</li>
-                  <li>Typical delay: 0-7,200 blocks</li>
+                  <li>Typical delay: 0-7,200 blocks (0-24 hours)</li>
                   <li>Typical period: 50,400-100,800 blocks (1-2 weeks)</li>
+                  <li>Typical quorum: 4-10% of total supply</li>
                 </ul>
               </div>
             </div>
@@ -205,9 +288,9 @@ export function VotesModuleConfigPanel({
                 <p className="font-medium">For a governance proposal:</p>
                 <ol className="list-decimal list-inside pl-2 space-y-0.5">
                   <li>Proposer needs ≥{config.proposalThreshold || '0'} tokens to create proposal</li>
-                  <li>Wait {config.votingDelay || 0} blocks before voting opens (~{((config.votingDelay || 0) * 12 / 3600).toFixed(1)} hours)</li>
-                  <li>Voting open for {config.votingPeriod || 50400} blocks (~{((config.votingPeriod || 50400) * 12 / 3600 / 24).toFixed(1)} days)</li>
-                  <li>Need {config.quorumPercentage || 4}% quorum for valid result</li>
+                  <li>Wait {config.votingDelay ?? 0} blocks before voting opens (~{((config.votingDelay ?? 0) * 12 / 3600).toFixed(1)} hours)</li>
+                  <li>Voting open for {config.votingPeriod ?? 50400} blocks (~{((config.votingPeriod ?? 50400) * 12 / 3600 / 24).toFixed(1)} days)</li>
+                  <li>Need {config.quorumPercentage ?? 4}% quorum for valid result</li>
                   {config.delegatesEnabled !== false && (
                     <li>Token holders can delegate votes to representatives</li>
                   )}
@@ -216,13 +299,27 @@ export function VotesModuleConfigPanel({
             </div>
           </Card>
 
+          {/* Validation Summary */}
+          {config.votingDelay !== undefined && 
+           config.votingPeriod !== undefined && 
+           config.proposalThreshold !== undefined && 
+           config.quorumPercentage !== undefined && (
+            <Alert className="border-green-500 bg-green-50 dark:bg-green-950">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>Configuration Complete:</strong> All required governance parameters are set.
+                Token will be ready for governance voting upon deployment.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Info Alert */}
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription className="text-xs">
               <strong>Pre-deployment configuration:</strong> Governance parameters will be configured 
               automatically during deployment. These settings can typically be changed later through 
-              governance proposals.
+              governance proposals if the token has upgradeability enabled.
             </AlertDescription>
           </Alert>
         </>

@@ -1,6 +1,6 @@
 /**
  * Granular Approval Module Configuration Component (EIP-5216)
- * ✅ ENHANCED: Complete granular approval configuration for ERC1155
+ * ✅ ENHANCED: Complete granular approval configuration with Phase 1 & Phase 2
  */
 
 import React from 'react';
@@ -22,13 +22,15 @@ export function GranularApprovalModuleConfigPanel({
     if (!checked) {
       onChange({
         enabled: false,
-        allowPartialApprovals: undefined,
+        requireExplicitApproval: undefined,
+        allowPartialApproval: undefined,
         defaultApprovalAmount: undefined
       });
     } else {
       onChange({
         enabled: true,
-        allowPartialApprovals: config.allowPartialApprovals !== false,
+        requireExplicitApproval: config.requireExplicitApproval || false,
+        allowPartialApproval: config.allowPartialApproval !== false,
         defaultApprovalAmount: config.defaultApprovalAmount
       });
     }
@@ -65,25 +67,55 @@ export function GranularApprovalModuleConfigPanel({
 
           <Card className="p-4">
             <div className="space-y-3">
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="allowPartialApprovals"
-                  checked={config.allowPartialApprovals !== false}
-                  onChange={(e) => onChange({
-                    ...config,
-                    allowPartialApprovals: e.target.checked
-                  })}
-                  disabled={disabled}
-                  className="h-4 w-4"
-                />
-                <Label htmlFor="allowPartialApprovals" className="text-sm font-medium cursor-pointer">
-                  Allow partial amount approvals
-                </Label>
-              </div>
+              <Label className="text-sm font-medium">Phase 1: Initialization Settings</Label>
 
-              {config.allowPartialApprovals !== false && (
-                <div className="pl-6 space-y-2">
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="requireExplicitApproval"
+                    checked={config.requireExplicitApproval || false}
+                    onChange={(e) => onChange({
+                      ...config,
+                      requireExplicitApproval: e.target.checked
+                    })}
+                    disabled={disabled}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="requireExplicitApproval" className="text-xs font-normal cursor-pointer">
+                    Require explicit approval for each operation
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="allowPartialApproval"
+                    checked={config.allowPartialApproval !== false}
+                    onChange={(e) => onChange({
+                      ...config,
+                      allowPartialApproval: e.target.checked
+                    })}
+                    disabled={disabled}
+                    className="h-4 w-4"
+                  />
+                  <Label htmlFor="allowPartialApproval" className="text-xs font-normal cursor-pointer">
+                    Allow partial amount approvals
+                  </Label>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-4">
+            <div className="space-y-3">
+              <Label className="text-sm font-medium">Phase 2: Post-Deployment Configuration</Label>
+              <p className="text-xs text-muted-foreground">
+                Additional settings configurable after deployment
+              </p>
+
+              {config.allowPartialApproval !== false && (
+                <div className="space-y-2">
                   <Label className="text-xs">Default Approval Amount</Label>
                   <Input
                     type="text"
