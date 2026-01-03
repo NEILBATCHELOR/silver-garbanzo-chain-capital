@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {IPoolAddressesProvider} from "../interfaces/IPoolAddressesProvider.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
@@ -11,12 +14,25 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * @title CircuitBreakers
  * @notice Automated safety mechanisms for the protocol
  * @dev Monitors conditions and automatically triggers protective measures
+ * @dev Upgradeable via UUPS pattern - admin controls upgrades
  */
-contract CircuitBreakers {
+contract CircuitBreakers is 
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable
+{
     using WadRayMath for uint256;
     using PercentageMath for uint256;
 
-    IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
+    // ============ ROLES ============
+    
+    bytes32 public constant POOL_ADMIN_ROLE = keccak256("POOL_ADMIN");
+    bytes32 public constant RISK_ADMIN_ROLE = keccak256("RISK_ADMIN");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
+
+    // ============ STATE ============
+    
+    IPoolAddressesProvider private _addressesProvider;
 
     // Circuit breaker thresholds
     uint256 public constant PRICE_DEVIATION_THRESHOLD = 1000; // 10% in basis points
@@ -29,39 +45,58 @@ contract CircuitBreakers {
     mapping(address => uint256) public last24hLiquidationVolume;
     mapping(address => uint256) public liquidationVolumeResetTimestamp;
 
-    // Events
+    // ============ STORAGE GAP ============
+    // Reserve 43 slots for future variables (50 total - 7 current)
+    uint256[43] private __gap;
+
+    // ============ EVENTS ============
+    
     event PriceDeviationDetected(address indexed asset, uint256 deviation, uint256 timestamp);
     event HighUtilizationDetected(address indexed asset, uint256 utilization, uint256 timestamp);
     event LiquidationWaveDetected(address indexed asset, uint256 volume, uint256 timestamp);
     event OracleStaleDetected(address indexed asset, uint256 lastUpdate, uint256 timestamp);
     event CircuitBreakerTriggered(string reason, address indexed asset, uint256 timestamp);
     event AutomaticActionTaken(string action, address indexed asset, uint256 timestamp);
+    event Upgraded(address indexed newImplementation);
 
+    // ============ ERRORS ============
+    
+    error ZeroAddress();
+    error NotAuthorized();
+
+    // ============ CONSTRUCTOR ============
+    
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ INITIALIZER ============
+    
     /**
-     * @dev Constructor
+     * @notice Initialize the contract (replaces constructor)
      * @param provider The address of the PoolAddressesProvider
+     * @param admin The address to grant admin roles
      */
-    constructor(IPoolAddressesProvider provider) {
-        ADDRESSES_PROVIDER = provider;
+    function initialize(
+        IPoolAddressesProvider provider,
+        address admin
+    ) public initializer {
+        if (address(provider) == address(0)) revert ZeroAddress();
+        if (admin == address(0)) revert ZeroAddress();
+        
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        
+        _addressesProvider = provider;
+        
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(POOL_ADMIN_ROLE, admin);
+        _grantRole(RISK_ADMIN_ROLE, admin);
+        _grantRole(UPGRADER_ROLE, admin);
     }
 
-    // ============ Modifiers ============
-
-    modifier onlyPoolOrRiskAdmin() {
-        _onlyPoolOrRiskAdmin();
-        _;
-    }
-
-    function _onlyPoolOrRiskAdmin() internal view {
-        address aclManager = ADDRESSES_PROVIDER.getACLManager();
-        require(
-            IACLManager(aclManager).hasRole(keccak256("POOL_ADMIN"), msg.sender) ||
-            IACLManager(aclManager).hasRole(keccak256("RISK_ADMIN"), msg.sender),
-            "CircuitBreakers: Caller is not authorized"
-        );
-    }
-
-    // ============ Circuit Breaker Checks ============
+    // ============ CIRCUIT BREAKER CHECKS ============
 
     /**
      * @notice Check all circuit breakers for a given asset
@@ -127,7 +162,7 @@ contract CircuitBreakers {
      */
     function _checkPriceDeviation(address asset) internal returns (bool) {
         // Get current price from oracle
-        address oracle = ADDRESSES_PROVIDER.getPriceOracle();
+        address oracle = _addressesProvider.getPriceOracle();
         
         // Compare with historical price (implementation would get actual prices)
         // For now, this is a placeholder
@@ -154,7 +189,7 @@ contract CircuitBreakers {
      * @return True if utilization exceeded threshold
      */
     function _checkHighUtilization(address asset) internal returns (bool) {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         
         // Get reserve data
         // Calculate utilization = totalBorrowed / totalSupplied
@@ -186,7 +221,7 @@ contract CircuitBreakers {
             liquidationVolumeResetTimestamp[asset] = block.timestamp;
         }
 
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         
         // Get total value locked
         // Calculate if recent liquidations exceed 10% of TVL
@@ -210,7 +245,7 @@ contract CircuitBreakers {
         return false;
     }
 
-    // ============ Emergency Actions ============
+    // ============ EMERGENCY ACTIONS ============
 
     /**
      * @notice Trigger emergency action
@@ -225,13 +260,16 @@ contract CircuitBreakers {
         // Example: emergencyModule.pauseBorrowing(asset, "Circuit breaker triggered");
     }
 
-    // ============ Update Functions ============
+    // ============ UPDATE FUNCTIONS ============
 
     /**
      * @notice Update oracle timestamp (called by oracle or pool)
      * @param asset The address of the asset
      */
-    function updateOracleTimestamp(address asset) external onlyPoolOrRiskAdmin {
+    function updateOracleTimestamp(address asset) external {
+        if (!hasRole(POOL_ADMIN_ROLE, msg.sender) && !hasRole(RISK_ADMIN_ROLE, msg.sender)) {
+            revert NotAuthorized();
+        }
         lastOracleUpdate[asset] = block.timestamp;
     }
 
@@ -240,7 +278,11 @@ contract CircuitBreakers {
      * @param asset The address of the asset
      * @param amount The amount liquidated
      */
-    function recordLiquidation(address asset, uint256 amount) external onlyPoolOrRiskAdmin {
+    function recordLiquidation(address asset, uint256 amount) external {
+        if (!hasRole(POOL_ADMIN_ROLE, msg.sender) && !hasRole(RISK_ADMIN_ROLE, msg.sender)) {
+            revert NotAuthorized();
+        }
+        
         // Reset if 24h passed
         if (block.timestamp >= liquidationVolumeResetTimestamp[asset] + 24 hours) {
             last24hLiquidationVolume[asset] = 0;
@@ -250,7 +292,15 @@ contract CircuitBreakers {
         last24hLiquidationVolume[asset] += amount;
     }
 
-    // ============ View Functions ============
+    // ============ VIEW FUNCTIONS ============
+
+    /**
+     * @notice Get the addresses provider
+     * @return The addresses provider contract
+     */
+    function ADDRESSES_PROVIDER() external view returns (IPoolAddressesProvider) {
+        return _addressesProvider;
+    }
 
     /**
      * @notice Get circuit breaker status for an asset
@@ -296,5 +346,28 @@ contract CircuitBreakers {
         metrics[3] = 0;
 
         return metrics;
+    }
+
+    // ============ UPGRADE AUTHORIZATION ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only addresses with UPGRADER_ROLE can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyRole(UPGRADER_ROLE)
+    {
+        emit Upgraded(newImplementation);
+    }
+    
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
     }
 }

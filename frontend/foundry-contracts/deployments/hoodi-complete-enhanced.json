@@ -1,0 +1,562 @@
+{
+  "beaconProxyFactory": {
+    "address": "0xbD66bAAa2E446724ae142bFf68a42f36dE5032Ce",
+    "txHash": "0xd31a27500e2f2fe9adb0df209316c3fd201c26cd3fc37ef97d27f4789d5d5554",
+    "blockNumber": 1956530,
+    "gasUsed": 937706,
+    "deployedAt": "2026-01-03T12:41:36.000Z"
+  },
+  "complianceModule": {
+    "address": "0x1553c555F567aAa8A6cdCFDa6bcfF164716c420B",
+    "txHash": "0x34b36e7368f0b3cfae35ab2ff167c3ca2abfe5a639d091cb0034a875fd63926b",
+    "blockNumber": 1956443,
+    "gasUsed": 1842984,
+    "deployedAt": "2026-01-03T12:22:24.000Z"
+  },
+  "consecutiveModule": {
+    "address": "0x55097A909fea4A7Cb2BAF1b4Dc92Ee7F6ac35892",
+    "txHash": "0x61a121b4c6de8dbbc87da9dfa73906ff6159d49a31ebfcf6a909dd36d2cd1de8",
+    "blockNumber": 1956444,
+    "gasUsed": 1264044,
+    "deployedAt": "2026-01-03T12:22:36.000Z"
+  },
+  "create2Deployer": {
+    "address": "0x4B6468dAeeD20fbbab4C73836f3230D89dD5C3f0",
+    "txHash": "0x796379dc9d4ed2e694822ca8fe131d502868589d5d9a8a0e05f6cd0c90a264b1",
+    "blockNumber": 1956527,
+    "gasUsed": 194164,
+    "deployedAt": "2026-01-03T12:40:48.000Z"
+  },
+  "documentModule": {
+    "address": "0xF5CBEca13D7CD2232BA53a05Ca869973e0785E24",
+    "txHash": "0xb5ffe9e0ed251eb073eb311ace5b0e309b2df5cda68c9d7e930e53ffa8784bb7",
+    "blockNumber": 1956445,
+    "gasUsed": 1890366,
+    "deployedAt": "2026-01-03T12:22:48.000Z"
+  },
+  "erc1155Beacon": {
+    "address": "0xcC953e55F3c9Abf8472ECA73e547b4c1489c079d",
+    "txHash": "0xc56fe948ddfd30a8a79537737b4f2a17ace7195a804d2cd774fbfa660e6fe053",
+    "blockNumber": 1956426,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:18:48.000Z"
+  },
+  "erc1155ExtensionFactory": {
+    "address": "0xeC5e0d6181bda6Db1c3149A055AB779510Fa7629",
+    "txHash": "0x66c30bcc96a1e3569a39c51f44ad5e9e119802afb5aae2c5067e5f691000d843",
+    "blockNumber": 1956495,
+    "gasUsed": 1827442,
+    "deployedAt": "2026-01-03T12:33:36.000Z"
+  },
+  "erc1155Factory": {
+    "address": "0x51ef706d9fB6d2e83e9aBbaa7fb7a3620C53B7Ee",
+    "txHash": "0x110394c39d7d1893ce07d715e5dbc61323ab713b3e0d5ff1a51fd78b22dd39e4",
+    "blockNumber": 1956519,
+    "gasUsed": 1546118,
+    "deployedAt": "2026-01-03T12:39:00.000Z"
+  },
+  "erc1155Master": {
+    "address": "0xa51960be7007B0deE148aa9dfBEc2573F9e2cB80",
+    "txHash": "0x35dbee8d00adf45cdcb312cc2b823c83cf9d37771d2549c81eb2ca33ef7b0b2a",
+    "blockNumber": 1956425,
+    "gasUsed": 3816833,
+    "deployedAt": "2026-01-03T12:18:36.000Z"
+  },
+  "erc1155RoyaltyModule": {
+    "address": "0x0Ac5D1Aabc014Aa84cA667F49673039d76124bF5",
+    "txHash": "0xe50dd60d7a75c7646b9d57bfa1b3c8edc8353a058e207612f3178d917f1fcd5c",
+    "blockNumber": 1956474,
+    "gasUsed": 1328742,
+    "deployedAt": "2026-01-03T12:29:12.000Z"
+  },
+  "erc1400Beacon": {
+    "address": "0xC28CBb06D96cA13076bb14577F57a079FD4fBB8D",
+    "txHash": "0x6474db912b48400bdc844ff06763beda40628ebfb13941cd13675d3d1087b30d",
+    "blockNumber": 1956430,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:19:36.000Z"
+  },
+  "erc1400ControllerModule": {
+    "address": "0x7684829660Cc67EA4B75A4A2C109362Da44EF78A",
+    "txHash": "0xe2629ac870bec9da468a695928eb15f64b387cca09a34b4cc00f59c8210f3717",
+    "blockNumber": 1956446,
+    "gasUsed": 1422801,
+    "deployedAt": "2026-01-03T12:23:00.000Z"
+  },
+  "erc1400DocumentModule": {
+    "address": "0x58F30CC6980A5f9Ce2197E75BfbB294C765219d7",
+    "txHash": "0x99d341fb8bedbd69870894f5b63426c14effaa0b9a652eab4bfce285eca6ac33",
+    "blockNumber": 1956448,
+    "gasUsed": 1762992,
+    "deployedAt": "2026-01-03T12:23:24.000Z"
+  },
+  "erc1400ExtensionFactory": {
+    "address": "0x5ebeB53B35312f4E36e1E8D499B34f8fAa05266A",
+    "txHash": "0x05c73c107898a001ea0d2fef5b0f9fcaabca341be8b55bbcfef024ce4921701d",
+    "blockNumber": 1956501,
+    "gasUsed": 1770128,
+    "deployedAt": "2026-01-03T12:35:00.000Z"
+  },
+  "erc1400Factory": {
+    "address": "0x27d90F65f989C18dF1905D1576B893F9F466cf04",
+    "txHash": "0xc679584096c5361efa7b798fd8ebfc252d808d00cc8c9f4851590c0c0e25a3bd",
+    "blockNumber": 1956521,
+    "gasUsed": 1636678,
+    "deployedAt": "2026-01-03T12:39:24.000Z"
+  },
+  "erc1400Master": {
+    "address": "0x743479d023286B0c57a994077EC748AFECbED1c4",
+    "txHash": "0xbf3b15808e8f49df2bb85de3dc30bcfc9426d240e4bfb6d8be242e419826fa5c",
+    "blockNumber": 1956429,
+    "gasUsed": 3109168,
+    "deployedAt": "2026-01-03T12:19:24.000Z"
+  },
+  "erc1400TransferRestrictionsModule": {
+    "address": "0xf705b196B6A3CFD2f4e8f47D1587bd569EA73De7",
+    "txHash": "0x51a20a97dda829ee94cc12f0ba20e67b2c755d98dad8d33588ebb74ddec7ad80",
+    "blockNumber": 1956449,
+    "gasUsed": 2013265,
+    "deployedAt": "2026-01-03T12:23:36.000Z"
+  },
+  "erc20Beacon": {
+    "address": "0xe94C1867C3b0DF0622B1258dE49D2eeD5A73F9E8",
+    "txHash": "0x2156249b6e4e8ba2a0cbfe75306187a9f3c91ccd5782b4a30173d1b693ab12ed",
+    "blockNumber": 1956422,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:18:00.000Z"
+  },
+  "erc20ExtensionFactory": {
+    "address": "0xD4f046Df921FC533Db2B7c485a31057c57454376",
+    "txHash": "0xb45b2448a1e1e5dd26a6dffa6ef8a319bb7bd27a53f658755cafbd1711cb2599",
+    "blockNumber": 1956486,
+    "gasUsed": 3395738,
+    "deployedAt": "2026-01-03T12:31:36.000Z"
+  },
+  "erc20Factory": {
+    "address": "0xA800A314F6C10E8419aEFB312e344b19597a0C91",
+    "txHash": "0xb50be43507e1266ec3e80fc4b7c20cdad7fd98fba5c438af35c8ec7c04a3eb43",
+    "blockNumber": 1956517,
+    "gasUsed": 2225335,
+    "deployedAt": "2026-01-03T12:38:12.000Z"
+  },
+  "erc20Master": {
+    "address": "0x8c76de527730a7068D1cf74514bb24B457FE70f5",
+    "txHash": "0x60acd46ff7b5a5780236095ec730833a50edc1c6ff08b095815d501da55e6567",
+    "blockNumber": 1956421,
+    "gasUsed": 3482215,
+    "deployedAt": "2026-01-03T12:17:36.000Z"
+  },
+  "erc20RebasingBeacon": {
+    "address": "0x7FF9369fC0D661Dc86392f7293C42FEEa19a1d82",
+    "txHash": "0x11db7c3ae475c9b2a439f98efae228d07a522867496116a05f71fd984df50726",
+    "blockNumber": 1956436,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:21:00.000Z"
+  },
+  "erc20RebasingMaster": {
+    "address": "0x0D839641C73D931cE0e4933C64dc6127a28889EF",
+    "txHash": "0xb125b5693cc19ac41009cf54d848686ec0ed5aa2be2d8874e8777fd8c9c26ca3",
+    "blockNumber": 1956435,
+    "gasUsed": 2230464,
+    "deployedAt": "2026-01-03T12:20:48.000Z"
+  },
+  "erc20WrapperBeacon": {
+    "address": "0xdD8fA4012A375BAd8DEe8c86845Ea3518DBb71eC",
+    "txHash": "0x1b4aedd75f9eff7e44f46b9f7e7c068a644cb04fe65808bbfc554152cdf7e15f",
+    "blockNumber": 1956439,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:21:36.000Z"
+  },
+  "erc20WrapperFactory": {
+    "address": "0x382B7Fe4C7b3B7435eAA5065a2d21b5c8a789e65",
+    "txHash": "0x72a38bf0eb5018c32df12709e05abba0aea9588113fd6705f792b3b36c1830cc",
+    "blockNumber": 1956524,
+    "gasUsed": 1427353,
+    "deployedAt": "2026-01-03T12:40:12.000Z"
+  },
+  "erc20WrapperMaster": {
+    "address": "0x5D40435d908E8CA85999392b482537beE2e5227B",
+    "txHash": "0xceccec76c3cba3a28b9399f5c1b4ba6ebf52a4f96b520658a812e713e30a2fc2",
+    "blockNumber": 1956438,
+    "gasUsed": 2357394,
+    "deployedAt": "2026-01-03T12:21:24.000Z"
+  },
+  "erc3525Beacon": {
+    "address": "0x8C70Cd0880Ae0426A804Bc5f033f70C076b174a5",
+    "txHash": "0xc605cccbcb67a39710e6884da4c3759883b57a0c741f5c28af7d4ab5af47234e",
+    "blockNumber": 1956432,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:20:12.000Z"
+  },
+  "erc3525ExtensionFactory": {
+    "address": "0xCFcc8663d71B69Cc30Aa42B96A2c6404D61F7a61",
+    "txHash": "0xa0dbeff64bf4c1f0a59b02c1198147d0a6c2a33ed9ac14f5870979deeb60409f",
+    "blockNumber": 1956506,
+    "gasUsed": 1791949,
+    "deployedAt": "2026-01-03T12:36:00.000Z"
+  },
+  "erc3525Factory": {
+    "address": "0xeeF5CFC2244c95bd9e0eE0b43105aDe05Dbf6891",
+    "txHash": "0x7403a4d1bf3501b0947d228b57bc884f83a9bc5a9b5a9c559e3612ccc0fa8b97",
+    "blockNumber": 1956522,
+    "gasUsed": 1536569,
+    "deployedAt": "2026-01-03T12:39:36.000Z"
+  },
+  "erc3525Master": {
+    "address": "0x2E667124f7656F1Dc30e83A22D550866741ACd23",
+    "txHash": "0x6483981cb1a5f1907b20dec0c9ee67238f311f7254fc6d73606bd96edc7f998d",
+    "blockNumber": 1956431,
+    "gasUsed": 3222900,
+    "deployedAt": "2026-01-03T12:20:00.000Z"
+  },
+  "erc3525SlotApprovableModule": {
+    "address": "0x677A0Ac09BCB0F7648809200e52fdEc37E4f7D66",
+    "txHash": "0x0de8853c67106af282259da7cd52f41b09d67e328121e88e75c9d58b24a3c444",
+    "blockNumber": 1956451,
+    "gasUsed": 1134543,
+    "deployedAt": "2026-01-03T12:24:00.000Z"
+  },
+  "erc3525SlotManagerModule": {
+    "address": "0x5C8c3ACc463b88155E5E576a1c64029e9fa7EEcb",
+    "txHash": "0xf13d15e4510187c30523b3ca4d1066831bf300406566aa030e826a9577b08215",
+    "blockNumber": 1956453,
+    "gasUsed": 1931304,
+    "deployedAt": "2026-01-03T12:24:24.000Z"
+  },
+  "erc3525ValueExchangeModule": {
+    "address": "0xB0F3FD2603eF4a6550aDF26b1940528A71f763Cb",
+    "txHash": "0x45d9f3d11c6ac26b2b038f243ac2ff5d8f113b4e24e4a480fa84d4c66129c325",
+    "blockNumber": 1956454,
+    "gasUsed": 1470742,
+    "deployedAt": "2026-01-03T12:24:36.000Z"
+  },
+  "erc4626AsyncVaultModule": {
+    "address": "0xB72245dfD08f247F330F02bD3A6292E24C5A2679",
+    "txHash": "0xd1a01755e5b731aeceff522eab160fe6d55183f715676832384a9d0c906bc734",
+    "blockNumber": 1956458,
+    "gasUsed": 2012449,
+    "deployedAt": "2026-01-03T12:25:36.000Z"
+  },
+  "erc4626Beacon": {
+    "address": "0x163DB9d803064eF08725CC79fa2E454ce5787DF4",
+    "txHash": "0x26fef29a36ca7cbfce27d6ad3f894aa74581f911ed128eb636f0c4b430803dec",
+    "blockNumber": 1956434,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:20:36.000Z"
+  },
+  "erc4626ExtensionFactory": {
+    "address": "0x743bB3d5E86b2eA26159AE8D9a9794B11d238861",
+    "txHash": "0x7a97cb9598089694654243ecdfc16ce3775ec9ed442b7ae7f58a378fac4620a6",
+    "blockNumber": 1956510,
+    "gasUsed": 2619568,
+    "deployedAt": "2026-01-03T12:36:48.000Z"
+  },
+  "erc4626Factory": {
+    "address": "0x32B082AE9b446Cd20DB283ba20C5E21B924534Fc",
+    "txHash": "0x4d4d3e9fc40f191560f6fc90ef963a60f8e49405af63ec2dc6537df196004fbd",
+    "blockNumber": 1956523,
+    "gasUsed": 1739935,
+    "deployedAt": "2026-01-03T12:39:48.000Z"
+  },
+  "erc4626FeeStrategyModule": {
+    "address": "0x8C87A1408e0AC6bdB02E872eD4B0d48541660f3C",
+    "txHash": "0xdcb81c653afaa2f072e39cab3a3c2ed6a95e013fc1e19126f02b8436a8a62b36",
+    "blockNumber": 1956455,
+    "gasUsed": 1208582,
+    "deployedAt": "2026-01-03T12:24:48.000Z"
+  },
+  "erc4626Master": {
+    "address": "0x589A986B75caBA196DC27C1318847dDD1b95AE85",
+    "txHash": "0x7b6110386936534b904989e852e74438a59ba9fee9ffaa196660c77ac1849c02",
+    "blockNumber": 1956433,
+    "gasUsed": 3339791,
+    "deployedAt": "2026-01-03T12:20:24.000Z"
+  },
+  "erc4626NativeVaultModule": {
+    "address": "0x9E874739EEaA8aE7FFb633a95ab254736dd906D8",
+    "txHash": "0x818f47fb387f657f3504b36b198c64c11cf1c2871ac5395f0fb6615f400bf2c8",
+    "blockNumber": 1956459,
+    "gasUsed": 1607124,
+    "deployedAt": "2026-01-03T12:25:48.000Z"
+  },
+  "erc4626RouterModule": {
+    "address": "0xBBf888fbcA4247FA53Ef25279Fc6269ea83e1069",
+    "txHash": "0x68ed8a540f6b0b0f1e13b7164de34bfd2b8415c5fd5df0e30d6445eda4de05a0",
+    "blockNumber": 1956460,
+    "gasUsed": 1972075,
+    "deployedAt": "2026-01-03T12:26:00.000Z"
+  },
+  "erc4626WithdrawalQueueModule": {
+    "address": "0xd8f411Eb3E596F8Eeaca98B0ADbeFEbF45e49476",
+    "txHash": "0x2e8be44faff0e68e5cdb64c434453ecb1cf5911d96f8462717ada2c1041d36e6",
+    "blockNumber": 1956456,
+    "gasUsed": 1511691,
+    "deployedAt": "2026-01-03T12:25:12.000Z"
+  },
+  "erc4626YieldStrategyModule": {
+    "address": "0xf5DE91A49D6D1f869254D8d2B2f21FFcF493Eed5",
+    "txHash": "0xe92da3ac2e9c0bfe30b636f3523b8ab6f9d735c995f1177c93d617729ee6d7e2",
+    "blockNumber": 1956457,
+    "gasUsed": 1616812,
+    "deployedAt": "2026-01-03T12:25:24.000Z"
+  },
+  "erc721Beacon": {
+    "address": "0xD8a15aE97531cAd5D160E698dd09f4A2F174041A",
+    "txHash": "0x66df29799919535acfacd6315d7e2a7820bf7b9090432dbce09371816ea739b6",
+    "blockNumber": 1956424,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:18:24.000Z"
+  },
+  "erc721ExtensionFactory": {
+    "address": "0xd0Cb7c10429b26F34D9E97CF8d16a9890bE72EE4",
+    "txHash": "0x4cc31034dc359fd50880ff926d65ca0df4fcb52b4230e9ac48611ce95288548b",
+    "blockNumber": 1956490,
+    "gasUsed": 2751199,
+    "deployedAt": "2026-01-03T12:32:36.000Z"
+  },
+  "erc721Factory": {
+    "address": "0xBFb21806dFDFfA5de65513A74E41439eAfdd2844",
+    "txHash": "0x69971a8ad9bd5934df97d76c9a40409df289c9806c9b7b63631ca95b36bdb5b0",
+    "blockNumber": 1956518,
+    "gasUsed": 1760674,
+    "deployedAt": "2026-01-03T12:38:36.000Z"
+  },
+  "erc721Master": {
+    "address": "0x42BD457e8CB5c687195698DC28f56baF4f4556Fc",
+    "txHash": "0x6b79a83ff0dd3162d39480c35428a8e1a9d00d095b788b0cf0ba2c883a8f144b",
+    "blockNumber": 1956423,
+    "gasUsed": 4855737,
+    "deployedAt": "2026-01-03T12:18:12.000Z"
+  },
+  "erc721RoyaltyModule": {
+    "address": "0xF9Eb46c860e07099B9C4612dF5cC24D33350b74e",
+    "txHash": "0x318a2904cefde4d23665341c10ccc1d9acca627f92627529e2bd5835094d0993",
+    "blockNumber": 1956475,
+    "gasUsed": 1159382,
+    "deployedAt": "2026-01-03T12:29:24.000Z"
+  },
+  "erc721WrapperBeacon": {
+    "address": "0xFBd4A1b4603492d9b93E000c52FBcBc6215E935F",
+    "txHash": "0xef00822107fb2217cb6f5a2e07b8e37b346ec2c5fbbca0e8ab49b1541a557e30",
+    "blockNumber": 1956441,
+    "gasUsed": 257736,
+    "deployedAt": "2026-01-03T12:22:00.000Z"
+  },
+  "erc721WrapperFactory": {
+    "address": "0x6DDe8BcAf826C7955f36D579c702c5FC3226CC0c",
+    "txHash": "0x78505ed1576dd4cb10485d43fd52e52c6b4edf4a002b534d46ab729991949c5c",
+    "blockNumber": 1956526,
+    "gasUsed": 1447911,
+    "deployedAt": "2026-01-03T12:40:36.000Z"
+  },
+  "erc721WrapperMaster": {
+    "address": "0x6f03d72F53b5f267525c470509C244Ca47E3A651",
+    "txHash": "0x55e269b81c66b60187a7d88edaeb77d4a880c51e08ca3af905f39857a7c69d47",
+    "blockNumber": 1956440,
+    "gasUsed": 3032897,
+    "deployedAt": "2026-01-03T12:21:48.000Z"
+  },
+  "extensionRegistry": {
+    "address": "0x94f4E6b76676952F5A078644f2Eba01b1A77ab2E",
+    "txHash": "0x067c677bfa691c1292faaa08d03680b5b951a6d5fc255a7bc1adb4eecdc78f1d",
+    "blockNumber": 1956418,
+    "gasUsed": 945752,
+    "deployedAt": "2026-01-03T12:17:00.000Z"
+  },
+  "factoryRegistry": {
+    "address": "0x49B30211Ac386f11436bFFc0B52C01c9081D2001",
+    "txHash": "0x66be775ff8da6d854128442685070a8c28a8fac3a8a599ab060d066f558e8e37",
+    "blockNumber": 1956420,
+    "gasUsed": 615721,
+    "deployedAt": "2026-01-03T12:17:24.000Z"
+  },
+  "feeModule": {
+    "address": "0xeF02911017060044f7E4268CE63E0aaAbaE746E5",
+    "txHash": "0x513be61cfa4789a74f7f6b416afc227114d21c768dce4b021f8d71db6a81f77f",
+    "blockNumber": 1956461,
+    "gasUsed": 1715325,
+    "deployedAt": "2026-01-03T12:26:12.000Z"
+  },
+  "flashMintModule": {
+    "address": "0x999AF49A06edB4A970F74fB1987b34f78C0aE680",
+    "txHash": "0xaa8ec945dab3ec329bdf65302037a56a36bf1830fa9de7c6149e996d49b72a17",
+    "blockNumber": 1956462,
+    "gasUsed": 1175851,
+    "deployedAt": "2026-01-03T12:26:24.000Z"
+  },
+  "fractionModule": {
+    "address": "0xad089b5a652E2Adb0310C0ae3f5cCA89EA70edfE",
+    "txHash": "0x1fcabbab006e44f9d8458e005c4968e734bd60ebe2f079f69f21adc943870d41",
+    "blockNumber": 1956463,
+    "gasUsed": 2064770,
+    "deployedAt": "2026-01-03T12:26:48.000Z"
+  },
+  "granularApprovalModule": {
+    "address": "0xE2f923fB2066E9cE60B350A48E19600Db2c7Ca22",
+    "txHash": "0xc654954cafc22932cab0732d890d4e2ea662b5e1ac524557dad2e3979b8d3dc1",
+    "blockNumber": 1956464,
+    "gasUsed": 1218155,
+    "deployedAt": "2026-01-03T12:27:00.000Z"
+  },
+  "haircutEngine": {
+    "address": "0x41514405b97770293444C0FD3580fb889FBdd96F",
+    "txHash": "0xee63de8c9efe1a07a6dda830246192084f0cac66e21eccb2da24eb1b47adc2e4",
+    "blockNumber": 1956411,
+    "gasUsed": 1644654,
+    "deployedAt": "2026-01-03T12:15:00.000Z"
+  },
+  "metadataEventsModule": {
+    "address": "0x7B30C838352508292319b007c6e5A0f848c8c137",
+    "txHash": "0xb7a7887deee6adad8140a6f04471c2823b40b63ba9952de386269dba15bca048",
+    "blockNumber": 1956466,
+    "gasUsed": 1106201,
+    "deployedAt": "2026-01-03T12:27:24.000Z"
+  },
+  "multiAssetVaultModule": {
+    "address": "0x34c878ec64dbD65B9D1D42C99bf4e314d9b3f4b0",
+    "txHash": "0xddb8826dd2e3be4ffed170eae4338119e2ee1b61cb9edbf493b28f4993cde292",
+    "blockNumber": 1956469,
+    "gasUsed": 2269565,
+    "deployedAt": "2026-01-03T12:28:00.000Z"
+  },
+  "multiSigWallet": {
+    "address": "0xe688A09F6c0C2686bf5d5F8806918C4AfAA3d907",
+    "txHash": "0xe86c91da9c76220c677efa461a54a037d8286c3af38edb69eb459b8756dbddcd",
+    "blockNumber": 1956533,
+    "gasUsed": 1394250,
+    "deployedAt": "2026-01-03T12:42:12.000Z"
+  },
+  "multiSigWalletFactory": {
+    "address": "0x7378cd56B19DC91A18e331Ad5F5C2C0AC412E91E",
+    "txHash": "0xcb06fdf142ff733415293c1cc40ba5d915b700e004ef54e81fca28cc63f40e20",
+    "blockNumber": 1956534,
+    "gasUsed": 1934921,
+    "deployedAt": "2026-01-03T12:42:24.000Z"
+  },
+  "payableModule": {
+    "address": "0x47483cA45F9E5fe8Bca122CfBb3f9b36D0171098",
+    "txHash": "0x1d8541d990d50343da3453f1f4a068f9c887022a10782fd9126a6d8113a68c81",
+    "blockNumber": 1956470,
+    "gasUsed": 1804710,
+    "deployedAt": "2026-01-03T12:28:12.000Z"
+  },
+  "permitModule": {
+    "address": "0xeBB982Daf83990C7fBeC056935D43e274d3c0a6e",
+    "txHash": "0xde11bf947cf44c05a31d6beada6a9616df8630eb92b345ded4c45f20d130862c",
+    "blockNumber": 1956472,
+    "gasUsed": 1538048,
+    "deployedAt": "2026-01-03T12:28:48.000Z"
+  },
+  "policyEngine": {
+    "address": "0x94CC6D933B5397949Cf096D0Ad72E862D1599bEd",
+    "txHash": "0xca1b37514cf2dba48be3c62e20cdd709e836d962514f82fe1860d38de6010786",
+    "blockNumber": 1956405,
+    "gasUsed": 240012,
+    "deployedAt": "2026-01-03T12:13:36.000Z"
+  },
+  "policyRegistry": {
+    "address": "0xA5c6D361b27aD1bE6495046C24ba20D5EDd7c365",
+    "txHash": "0x46967f49423661237dff9b64ef5da214a945df1d1c673dcf961b66fc23ad9e35",
+    "blockNumber": 1956401,
+    "gasUsed": 215637,
+    "deployedAt": "2026-01-03T12:12:36.000Z"
+  },
+  "rentalModule": {
+    "address": "0x5517409070E28459afDB32f56F5271b40A0C4efc",
+    "txHash": "0xfed9a7a32fd358f604a0f9d26f79ec331bfeddb9786d4bd8e3cacb38ae2be46e",
+    "blockNumber": 1956473,
+    "gasUsed": 1528641,
+    "deployedAt": "2026-01-03T12:29:00.000Z"
+  },
+  "snapshotModule": {
+    "address": "0xF32B63c37Fcf57dA676C47A900F3d66F6B3f9C14",
+    "txHash": "0x27612770207aa847863dc19eeef62efe0e43189bef15e3500346effe4f341f08",
+    "blockNumber": 1956476,
+    "gasUsed": 1251702,
+    "deployedAt": "2026-01-03T12:29:36.000Z"
+  },
+  "soulboundModule": {
+    "address": "0xd2b5C877f9eC98A35abfAC8E51Adf24b436083fd",
+    "txHash": "0x03a400861827e4e41dd8394bc614a910901c09a789beec95223e139aeced3129",
+    "blockNumber": 1956477,
+    "gasUsed": 1274746,
+    "deployedAt": "2026-01-03T12:29:48.000Z"
+  },
+  "supplyCapModule": {
+    "address": "0xB75d0616169F52Fd5493D259c17147AC9dF898f1",
+    "txHash": "0x4cc436990349fa557d3c64a19bac40ead3a898461aa5afb19f83dad995b80479",
+    "blockNumber": 1956478,
+    "gasUsed": 1310142,
+    "deployedAt": "2026-01-03T12:30:00.000Z"
+  },
+  "temporaryApprovalModule": {
+    "address": "0x21c280911693c1DC8Be39C962B197420bcA6F8FF",
+    "txHash": "0x7d7d803ef910644639de95d987a09f1a0cc2c3f09a98629b34bb697eebef7fd9",
+    "blockNumber": 1956479,
+    "gasUsed": 1164400,
+    "deployedAt": "2026-01-03T12:30:12.000Z"
+  },
+  "timelockModule": {
+    "address": "0xaCe890FC349481E64BF75cFB03F73Aff20e9e9A8",
+    "txHash": "0x2409d72dd4bd82d3fd352392ff0807f16d4db44e85c1a8594a0d45fbbad20ade",
+    "blockNumber": 1956480,
+    "gasUsed": 1659177,
+    "deployedAt": "2026-01-03T12:30:24.000Z"
+  },
+  "tokenRegistry": {
+    "address": "0x2d11e64199068995A21bFfE5e2bCa2B00f50668C",
+    "txHash": "0x722263ea0cdf0b8e43d619b23158b908554f9b324288618b645e3e932f6819ef",
+    "blockNumber": 1956407,
+    "gasUsed": 191328,
+    "deployedAt": "2026-01-03T12:14:00.000Z"
+  },
+  "universalDeployer": {
+    "address": "0xa419DbC3952267FC6CA9f42b9E9cC93F592EE4D0",
+    "txHash": "0x9911c05455c3348e0c8e3166c1023771c7c4e72186440a4efa6140c2d162e488",
+    "blockNumber": 1956529,
+    "gasUsed": 4263101,
+    "deployedAt": "2026-01-03T12:41:24.000Z"
+  },
+  "universalExtensionFactory": {
+    "address": "0xf071a5b01fA3228d247c7395E3BC1F8B4a84124E",
+    "txHash": "0x0341afaa86b60039fef7110b3e11078f2f4a8161d897fb114499af87c077d0c2",
+    "blockNumber": 1956515,
+    "gasUsed": 1259635,
+    "deployedAt": "2026-01-03T12:37:48.000Z"
+  },
+  "upgradeGovernance": {
+    "address": "0x497d92E17207ef62Af260D3F21f70E4c20f89D8D",
+    "txHash": "0xf8bfd672f209c29ee23957531cfc532221a26bde12e80d8b2297a4d19662357d",
+    "blockNumber": 1956532,
+    "gasUsed": 1504421,
+    "deployedAt": "2026-01-03T12:42:00.000Z"
+  },
+  "upgradeGovernor": {
+    "address": "0x62F674aFa46FcC28b8964186625892E060199a30",
+    "txHash": "0xdb7b0f7e7ca20164aa1da84a48fcc5324c4dd1fc9eb3741963ba9297b6f73780",
+    "blockNumber": 1956409,
+    "gasUsed": 1447643,
+    "deployedAt": "2026-01-03T12:14:36.000Z"
+  },
+  "uriManagementModule": {
+    "address": "0xcf867A9e86930214799c19f6aDc06a92cc31e313",
+    "txHash": "0xd76ac9cd72fc4cddfaeb4f7b081db7f75f7e7694459e06c566d5844c3f94283b",
+    "blockNumber": 1956481,
+    "gasUsed": 1963305,
+    "deployedAt": "2026-01-03T12:30:36.000Z"
+  },
+  "vestingModule": {
+    "address": "0x399AcD0ef40A25d1594153f00503AEb14C2d0fb9",
+    "txHash": "0xe4c711b119a54b43d4ae43ca09b42521870607aa348fe50522f61117b419eed9",
+    "blockNumber": 1956483,
+    "gasUsed": 1666686,
+    "deployedAt": "2026-01-03T12:31:00.000Z"
+  },
+  "votesModule": {
+    "address": "0xE243cA95611712eb71E82610410dabcDE78347D7",
+    "txHash": "0x07293e3890c31482d26f51d377075279ef4b0cbc3da8d809e01ec3b681913a67",
+    "blockNumber": 1956485,
+    "gasUsed": 2020702,
+    "deployedAt": "2026-01-03T12:31:24.000Z"
+  }
+}

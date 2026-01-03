@@ -13,6 +13,7 @@ import {WadRayMath} from "../../src/trade-finance/libraries/math/WadRayMath.sol"
 import {PercentageMath} from "../../src/trade-finance/libraries/math/PercentageMath.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {ICommodityLendingPool} from "../../src/trade-finance/interfaces/ICommodityLendingPool.sol";
 
 /**
@@ -85,7 +86,17 @@ contract FullIntegrationTest is Test {
 
         // Deploy core contracts
         pool = new CommodityLendingPool();
-        haircutEngine = new HaircutEngine(riskAdmin, admin); // Fix: Added both parameters
+        
+        // Deploy HaircutEngine (UUPS upgradeable)
+        HaircutEngine haircutEngineImpl = new HaircutEngine();
+        bytes memory haircutEngineInit = abi.encodeWithSelector(
+            HaircutEngine.initialize.selector,
+            riskAdmin,
+            admin
+        );
+        ERC1967Proxy haircutEngineProxy = new ERC1967Proxy(address(haircutEngineImpl), haircutEngineInit);
+        haircutEngine = HaircutEngine(address(haircutEngineProxy));
+        
         oracle = new MockCommodityOracle(); // Using mock oracle for testing
 
         // Deploy commodity tokens

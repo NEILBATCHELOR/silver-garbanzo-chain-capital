@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
@@ -8,7 +11,7 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 
 /**
  * @title LiquidationDataProvider
- * @notice Pre-computes and tracks liquidatable positions for efficient liquidator monitoring
+ * @notice Pre-computes and tracks liquidatable positions for efficient liquidator monitoring (Upgradeable)
  * @dev Off-chain indexers can query this to identify liquidation opportunities
  * 
  * Key Features:
@@ -17,10 +20,31 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * - Liquidation profitability estimation
  * - Gas-optimized view functions
  * - Historical liquidation data
+ * - UUPS upgradeable pattern for formula updates
  */
-contract LiquidationDataProvider {
+contract LiquidationDataProvider is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     using WadRayMath for uint256;
     using PercentageMath for uint256;
+    
+    // ============ Constants ============
+    
+    uint256 public constant HEALTH_FACTOR_LIQUIDATION_THRESHOLD = 1e18;
+    uint256 public constant CLOSE_FACTOR_HF_THRESHOLD = 0.95e18;
+    uint256 public constant MAX_LIQUIDATABLE_POSITIONS = 100;
+    
+    // ============ State Variables ============
+    // Note: No immutable variables in upgradeable contracts
+    
+    ICommodityLendingPool private _pool;
+    IPriceOracleGetter private _priceOracle;
+    
+    // ============ Storage Gap ============
+    // Reserve 48 slots for future variables (50 total - 2 current)
+    uint256[48] private __gap;
     
     // ============ Structs ============
     
@@ -56,25 +80,60 @@ contract LiquidationDataProvider {
         uint256 timestamp;
     }
     
-    // ============ Immutable Variables ============
+    // ============ Events ============
     
-    ICommodityLendingPool public immutable POOL;
-    IPriceOracleGetter public immutable PRICE_ORACLE;
+    event Upgraded(address indexed newImplementation);
     
-    // ============ Constants ============
+    // ============ Errors ============
     
-    uint256 public constant HEALTH_FACTOR_LIQUIDATION_THRESHOLD = 1e18;
-    uint256 public constant CLOSE_FACTOR_HF_THRESHOLD = 0.95e18;
-    uint256 public constant MAX_LIQUIDATABLE_POSITIONS = 100;
+    error ZeroAddress();
     
     // ============ Constructor ============
     
-    constructor(address pool, address priceOracle) {
-        POOL = ICommodityLendingPool(pool);
-        PRICE_ORACLE = IPriceOracleGetter(priceOracle);
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param pool The commodity lending pool address
+     * @param priceOracle The price oracle address
+     * @param owner The owner address
+     */
+    function initialize(
+        address pool,
+        address priceOracle,
+        address owner
+    ) public initializer {
+        if (pool == address(0)) revert ZeroAddress();
+        if (priceOracle == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+        
+        _pool = ICommodityLendingPool(pool);
+        _priceOracle = IPriceOracleGetter(priceOracle);
     }
     
     // ============ Public View Functions ============
+    
+    /**
+     * @notice Get pool address
+     */
+    function getPool() external view returns (address) {
+        return address(_pool);
+    }
+    
+    /**
+     * @notice Get price oracle address
+     */
+    function getPriceOracle() external view returns (address) {
+        return address(_priceOracle);
+    }
     
     /**
      * @notice Check if a position is liquidatable
@@ -87,7 +146,7 @@ contract LiquidationDataProvider {
             ,
             ,
             uint256 healthFactor
-        ) = POOL.getUserAccountData(user);
+        ) = _pool.getUserAccountData(user);
         
         return healthFactor < HEALTH_FACTOR_LIQUIDATION_THRESHOLD;
     }
@@ -107,10 +166,10 @@ contract LiquidationDataProvider {
             uint256 currentLiquidationThreshold,
             uint256 ltv,
             uint256 healthFactor
-        ) = POOL.getUserAccountData(user);
+        ) = _pool.getUserAccountData(user);
         
         // Get user reserves
-        address[] memory reserves = POOL.getUserReserves(user);
+        address[] memory reserves = _pool.getUserReserves(user);
         uint256 collateralCount = 0;
         uint256 debtCount = 0;
         
@@ -125,7 +184,7 @@ contract LiquidationDataProvider {
                 ,
                 ,
                 ,
-            ) = POOL.getUserReserveData(reserves[i], user);
+            ) = _pool.getUserReserveData(reserves[i], user);
             
             if (currentCTokenBalance > 0) collateralCount++;
             if (currentDebtBalance > 0) debtCount++;
@@ -150,7 +209,7 @@ contract LiquidationDataProvider {
                 ,
                 ,
                 ,
-            ) = POOL.getUserReserveData(reserves[i], user);
+            ) = _pool.getUserReserveData(reserves[i], user);
             
             if (currentCTokenBalance > 0) {
                 collateralAssets[cIdx] = reserves[i];
@@ -188,12 +247,12 @@ contract LiquidationDataProvider {
         uint256 debtToCover
     ) external view returns (uint256 estimatedProfit) {
         // Get collateral and debt prices
-        uint256 collateralPrice = PRICE_ORACLE.getAssetPrice(collateralAsset);
-        uint256 debtPrice = PRICE_ORACLE.getAssetPrice(debtAsset);
+        uint256 collateralPrice = _priceOracle.getAssetPrice(collateralAsset);
+        uint256 debtPrice = _priceOracle.getAssetPrice(debtAsset);
         
         // Get liquidation bonus
         (, , , , , , , uint256 liquidationBonus, ) = 
-            POOL.getReserveData(collateralAsset);
+            _pool.getReserveData(collateralAsset);
         
         // Calculate collateral to receive (with bonus)
         uint256 collateralAmount = (debtToCover * debtPrice * (10000 + liquidationBonus)) / 
@@ -261,7 +320,7 @@ contract LiquidationDataProvider {
                     bestDebt = userData.debtAssets[j];
                     bestDebtAmount = debtToCover;
                     bestCollateralAmount = userData.collateralAmounts[i];
-                    (, , , , , , , bestBonus, ) = POOL.getReserveData(bestCollateral);
+                    (, , , , , , , bestBonus, ) = _pool.getReserveData(bestCollateral);
                 }
             }
         }
@@ -291,7 +350,7 @@ contract LiquidationDataProvider {
         
         // First pass: count liquidatable positions
         for (uint256 i = 0; i < users.length; i++) {
-            (, , , , , uint256 healthFactor) = POOL.getUserAccountData(users[i]);
+            (, , , , , uint256 healthFactor) = _pool.getUserAccountData(users[i]);
             if (healthFactor < HEALTH_FACTOR_LIQUIDATION_THRESHOLD) {
                 liquidatableCount++;
             }
@@ -303,7 +362,7 @@ contract LiquidationDataProvider {
         
         uint256 idx = 0;
         for (uint256 i = 0; i < users.length && idx < liquidatableCount; i++) {
-            (, , , , , uint256 healthFactor) = POOL.getUserAccountData(users[i]);
+            (, , , , , uint256 healthFactor) = _pool.getUserAccountData(users[i]);
             if (healthFactor < HEALTH_FACTOR_LIQUIDATION_THRESHOLD) {
                 positions[idx] = this.getLiquidatablePosition(users[i]);
                 idx++;
@@ -334,7 +393,7 @@ contract LiquidationDataProvider {
                 ,
                 ,
                 uint256 healthFactor
-            ) = POOL.getUserAccountData(users[i]);
+            ) = _pool.getUserAccountData(users[i]);
             
             if (healthFactor < HEALTH_FACTOR_LIQUIDATION_THRESHOLD) {
                 liquidatablePositions++;
@@ -352,5 +411,28 @@ contract LiquidationDataProvider {
             averageHealthFactor: users.length > 0 ? healthFactorSum / users.length : 0,
             timestamp: block.timestamp
         });
+    }
+    
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
+    }
+    
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }

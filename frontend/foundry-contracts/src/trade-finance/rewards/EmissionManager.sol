@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IEmissionManager} from "./interfaces/IEmissionManager.sol";
 import {IRewardsController} from "./interfaces/IRewardsController.sol";
 import {ITransferStrategyBase} from "./interfaces/ITransferStrategyBase.sol";
@@ -12,8 +14,19 @@ import {RewardsDataTypes} from "./libraries/RewardsDataTypes.sol";
  * @notice Manages reward emission administration for the rewards system
  * @dev Handles emission admin permissions per reward token and delegates to RewardsController
  * Supports commodity-specific emission schedules and seasonal adjustments
+ * 
+ * UPGRADEABILITY:
+ * - Pattern: UUPS (Universal Upgradeable Proxy Standard)
+ * - Upgrade Control: Only owner can upgrade
+ * - Storage: Uses storage gaps for future variables
+ * - Initialization: Uses initialize() instead of constructor
  */
-contract EmissionManager is Ownable, IEmissionManager {
+contract EmissionManager is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    IEmissionManager 
+{
     // ============ Storage ============
 
     /// @notice The rewards controller contract
@@ -25,6 +38,10 @@ contract EmissionManager is Ownable, IEmissionManager {
     /// @notice Commodity-specific emission configurations
     mapping(bytes32 => RewardsDataTypes.CommodityEmissionConfig) internal _commodityConfigs;
 
+    // ============ Storage Gap ============
+    // Reserve 47 slots for future variables (50 total - 3 current)
+    uint256[47] private __gap;
+
     // ============ Errors ============
 
     error NotEmissionAdmin();
@@ -32,6 +49,7 @@ contract EmissionManager is Ownable, IEmissionManager {
     error InvalidRewardToken();
     error InvalidEmissionAdmin();
     error InvalidInput();
+    error ZeroAddress();
 
     // ============ Events ============
 
@@ -46,6 +64,9 @@ contract EmissionManager is Ownable, IEmissionManager {
 
     /// @notice Emitted when rewards controller is updated
     event RewardsControllerUpdated(address indexed newController);
+    
+    /// @notice Emitted when contract is upgraded
+    event Upgraded(address indexed newImplementation);
 
     // ============ Modifiers ============
 
@@ -63,11 +84,23 @@ contract EmissionManager is Ownable, IEmissionManager {
 
     // ============ Constructor ============
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ Initializer ============
+
     /**
-     * @notice Constructor
+     * @notice Initialize the contract (replaces constructor)
      * @param owner_ Initial owner address
      */
-    constructor(address owner_) Ownable(owner_) {}
+    function initialize(address owner_) public initializer {
+        if (owner_ == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner_);
+        __UUPSUpgradeable_init();
+    }
 
     // ============ View Functions ============
 
@@ -233,5 +266,20 @@ contract EmissionManager is Ownable, IEmissionManager {
         }
         
         return uint88(adjusted);
+    }
+
+    // ============ Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }

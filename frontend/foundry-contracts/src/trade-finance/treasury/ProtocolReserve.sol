@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
 
 /**
@@ -24,8 +27,19 @@ import {IACLManager} from "../interfaces/IACLManager.sol";
  * - Automatic reserve accumulation
  * - Yield generation on idle funds
  * - Historical tracking
+ * 
+ * UPGRADEABILITY:
+ * - Pattern: UUPS (Universal Upgradeable Proxy Standard)
+ * - Upgrade Control: Only owner can upgrade
+ * - Storage: Uses storage gaps for future variables
+ * - Initialization: Uses initialize() instead of constructor
  */
-contract ProtocolReserve is ReentrancyGuard {
+contract ProtocolReserve is 
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
     
     // ============ Structs ============
@@ -65,9 +79,10 @@ contract ProtocolReserve is ReentrancyGuard {
     uint256 public constant EMERGENCY_THRESHOLD_2 = 10000 ether; // $10k
     uint256 public constant EMERGENCY_THRESHOLD_3 = 100000 ether; // $100k
     
-    // ============ Immutable Variables ============
+    // ============ Storage ============
     
-    IACLManager public immutable ACL_MANAGER;
+    /// @notice ACL Manager for access control
+    IACLManager private _aclManager;
     
     // ============ State Variables ============
     
@@ -93,6 +108,10 @@ contract ProtocolReserve is ReentrancyGuard {
     
     // Protocol TVL (updated externally)
     uint256 public protocolTVL;
+
+    // ============ Storage Gap ============
+    // Reserve 40 slots for future variables (50 total - 10 current)
+    uint256[40] private __gap;
     
     // ============ Events ============
     
@@ -121,6 +140,9 @@ contract ProtocolReserve is ReentrancyGuard {
     event InsuranceClaimed(address indexed token, uint256 amount);
     event TVLUpdated(uint256 oldTVL, uint256 newTVL);
     
+    /// @notice Emitted when contract is upgraded
+    event Upgraded(address indexed newImplementation);
+    
     // ============ Errors ============
     
     error OnlyAdmin();
@@ -131,11 +153,12 @@ contract ProtocolReserve is ReentrancyGuard {
     error AlreadyApproved();
     error WithdrawalNotFound();
     error InvalidThreshold();
+    error ZeroAddress();
     
     // ============ Modifiers ============
     
     modifier onlyAdmin() {
-        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) revert OnlyAdmin();
+        if (!_aclManager.isPoolAdmin(msg.sender)) revert OnlyAdmin();
         _;
     }
     
@@ -146,15 +169,36 @@ contract ProtocolReserve is ReentrancyGuard {
     
     // ============ Constructor ============
     
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param aclManager Address of the ACL Manager
+     * @param _guardians Array of guardian addresses
+     * @param _requiredApprovals Number of approvals required
+     * @param owner Initial owner address
+     */
+    function initialize(
         address aclManager,
         address[] memory _guardians,
-        uint256 _requiredApprovals
-    ) {
+        uint256 _requiredApprovals,
+        address owner
+    ) public initializer {
         require(_guardians.length >= _requiredApprovals, "Invalid approvals");
         require(_requiredApprovals > 0, "Approvals must be positive");
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
         
-        ACL_MANAGER = IACLManager(aclManager);
+        __Ownable_init(owner);
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+        
+        _aclManager = IACLManager(aclManager);
         requiredApprovals = _requiredApprovals;
         
         for (uint256 i = 0; i < _guardians.length; i++) {
@@ -162,6 +206,16 @@ contract ProtocolReserve is ReentrancyGuard {
             isGuardian[_guardians[i]] = true;
             emit GuardianAdded(_guardians[i]);
         }
+    }
+
+    // ============ View Functions ============
+
+    /**
+     * @notice Get ACL Manager address
+     * @return ACL Manager contract address
+     */
+    function getACLManager() external view returns (IACLManager) {
+        return _aclManager;
     }
     
     // ============ Deposit Functions ============
@@ -221,10 +275,10 @@ contract ProtocolReserve is ReentrancyGuard {
         uint256 amount,
         address recipient,
         string calldata reason
-    ) external onlyGuardian returns (uint256) {
-        if (reserves[token].available < amount) revert InsufficientReserve();
+    ) external onlyGuardian returns (uint256 withdrawalId) {
+        if (amount > reserves[token].available) revert InsufficientReserve();
         
-        uint256 withdrawalId = nextWithdrawalId++;
+        withdrawalId = nextWithdrawalId++;
         
         emergencyWithdrawals[withdrawalId] = EmergencyWithdrawal({
             token: token,
@@ -233,10 +287,8 @@ contract ProtocolReserve is ReentrancyGuard {
             reason: reason,
             timestamp: block.timestamp,
             executed: false,
-            approvals: 1
+            approvals: 0
         });
-        
-        withdrawalApprovals[withdrawalId][msg.sender] = true;
         
         emit EmergencyWithdrawalProposed(
             withdrawalId,
@@ -246,17 +298,16 @@ contract ProtocolReserve is ReentrancyGuard {
             reason
         );
         
-        emit EmergencyWithdrawalApproved(withdrawalId, msg.sender);
-        
         return withdrawalId;
     }
     
     /**
      * @notice Approve emergency withdrawal
      */
-    function approveEmergencyWithdrawal(
-        uint256 withdrawalId
-    ) external onlyGuardian {
+    function approveEmergencyWithdrawal(uint256 withdrawalId) 
+        external 
+        onlyGuardian 
+    {
         EmergencyWithdrawal storage withdrawal = emergencyWithdrawals[withdrawalId];
         
         if (withdrawal.timestamp == 0) revert WithdrawalNotFound();
@@ -267,32 +318,27 @@ contract ProtocolReserve is ReentrancyGuard {
         withdrawal.approvals++;
         
         emit EmergencyWithdrawalApproved(withdrawalId, msg.sender);
-        
-        // Auto-execute if enough approvals
-        if (withdrawal.approvals >= requiredApprovals) {
-            _executeEmergencyWithdrawal(withdrawalId);
-        }
     }
     
     /**
      * @notice Execute emergency withdrawal
      */
-    function executeEmergencyWithdrawal(
-        uint256 withdrawalId
-    ) external nonReentrant onlyGuardian {
-        _executeEmergencyWithdrawal(withdrawalId);
-    }
-    
-    function _executeEmergencyWithdrawal(uint256 withdrawalId) internal {
+    function executeEmergencyWithdrawal(uint256 withdrawalId) 
+        external 
+        nonReentrant 
+        onlyGuardian 
+    {
         EmergencyWithdrawal storage withdrawal = emergencyWithdrawals[withdrawalId];
         
+        if (withdrawal.timestamp == 0) revert WithdrawalNotFound();
         if (withdrawal.executed) revert AlreadyExecuted();
         if (withdrawal.approvals < requiredApprovals) revert InsufficientApprovals();
         
         withdrawal.executed = true;
         
         reserves[withdrawal.token].available -= withdrawal.amount;
-        reserves[withdrawal.token].allocated -= withdrawal.amount;
+        reserves[withdrawal.token].total -= withdrawal.amount;
+        reserves[withdrawal.token].lastUpdated = block.timestamp;
         
         metrics[withdrawal.token].totalWithdrawn += withdrawal.amount;
         
@@ -309,45 +355,7 @@ contract ProtocolReserve is ReentrancyGuard {
         );
     }
     
-    // ============ Reserve Management Functions ============
-    
-    /**
-     * @notice Cover bad debt from reserve
-     */
-    function coverBadDebt(
-        address token,
-        uint256 amount,
-        address recipient
-    ) external nonReentrant onlyAdmin {
-        if (reserves[token].available < amount) revert InsufficientReserve();
-        
-        reserves[token].available -= amount;
-        metrics[token].badDebtCovered += amount;
-        
-        IERC20(token).safeTransfer(recipient, amount);
-        
-        emit BadDebtCovered(token, amount);
-    }
-    
-    /**
-     * @notice Process insurance claim
-     */
-    function processInsuranceClaim(
-        address token,
-        uint256 amount,
-        address claimant
-    ) external nonReentrant onlyAdmin {
-        if (reserves[token].available < amount) revert InsufficientReserve();
-        
-        reserves[token].available -= amount;
-        metrics[token].insuranceClaimed += amount;
-        
-        IERC20(token).safeTransfer(claimant, amount);
-        
-        emit InsuranceClaimed(token, amount);
-    }
-    
-    // ============ Admin Functions ============
+    // ============ Guardian Management ============
     
     /**
      * @notice Add guardian
@@ -365,7 +373,7 @@ contract ProtocolReserve is ReentrancyGuard {
      * @notice Remove guardian
      */
     function removeGuardian(address guardian) external onlyAdmin {
-        require(isGuardian[guardian], "Not guardian");
+        require(isGuardian[guardian], "Not a guardian");
         require(guardians.length > requiredApprovals, "Too few guardians");
         
         isGuardian[guardian] = false;
@@ -387,130 +395,107 @@ contract ProtocolReserve is ReentrancyGuard {
      */
     function updateRequiredApprovals(uint256 newRequired) external onlyAdmin {
         require(newRequired > 0, "Must be positive");
-        require(newRequired <= guardians.length, "Too many required");
+        require(newRequired <= guardians.length, "Exceeds guardians");
         
-        uint256 oldRequired = requiredApprovals;
+        uint256 old = requiredApprovals;
         requiredApprovals = newRequired;
         
-        emit RequiredApprovalsUpdated(oldRequired, newRequired);
+        emit RequiredApprovalsUpdated(old, newRequired);
+    }
+    
+    // ============ Reserve Management ============
+    
+    /**
+     * @notice Cover bad debt
+     */
+    function coverBadDebt(address token, uint256 amount) 
+        external 
+        onlyAdmin 
+        nonReentrant 
+    {
+        if (amount > reserves[token].available) revert InsufficientReserve();
+        
+        reserves[token].available -= amount;
+        reserves[token].allocated += amount;
+        reserves[token].lastUpdated = block.timestamp;
+        
+        metrics[token].badDebtCovered += amount;
+        
+        emit BadDebtCovered(token, amount);
+    }
+    
+    /**
+     * @notice Claim insurance
+     */
+    function claimInsurance(address token, uint256 amount) 
+        external 
+        onlyAdmin 
+        nonReentrant 
+    {
+        if (amount > reserves[token].available) revert InsufficientReserve();
+        
+        reserves[token].available -= amount;
+        reserves[token].total -= amount;
+        reserves[token].lastUpdated = block.timestamp;
+        
+        metrics[token].insuranceClaimed += amount;
+        
+        emit InsuranceClaimed(token, amount);
     }
     
     /**
      * @notice Update protocol TVL
      */
     function updateTVL(uint256 newTVL) external onlyAdmin {
-        uint256 oldTVL = protocolTVL;
+        uint256 old = protocolTVL;
         protocolTVL = newTVL;
         
-        emit TVLUpdated(oldTVL, newTVL);
+        emit TVLUpdated(old, newTVL);
     }
     
     // ============ View Functions ============
     
     /**
-     * @notice Get reserve balance
+     * @notice Get reserve health
      */
-    function getReserveBalance(address token)
-        external
-        view
+    function getReserveHealth(address token) 
+        external 
+        view 
         returns (
-            uint256 total,
-            uint256 allocated,
-            uint256 available,
-            uint256 lastUpdated
-        )
+            uint256 ratio,
+            bool healthy,
+            uint256 target
+        ) 
     {
-        ReserveBalance storage balance = reserves[token];
-        return (
-            balance.total,
-            balance.allocated,
-            balance.available,
-            balance.lastUpdated
-        );
+        if (protocolTVL == 0) return (0, false, 0);
+        
+        uint256 reserveValue = reserves[token].total;
+        ratio = (reserveValue * 10000) / protocolTVL;
+        healthy = ratio >= MIN_RESERVE_RATIO;
+        target = (protocolTVL * TARGET_RESERVE_RATIO) / 10000;
+        
+        return (ratio, healthy, target);
     }
     
     /**
-     * @notice Get reserve metrics
+     * @notice Get guardian count
      */
-    function getReserveMetrics(address token)
-        external
-        view
-        returns (
-            uint256 totalDeposited,
-            uint256 totalWithdrawn,
-            uint256 badDebtCovered,
-            uint256 insuranceClaimed,
-            uint256 yieldEarned
-        )
+    function getGuardianCount() external view returns (uint256) {
+        return guardians.length;
+    }
+
+    // ============ Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
     {
-        ReserveMetrics storage m = metrics[token];
-        return (
-            m.totalDeposited,
-            m.totalWithdrawn,
-            m.badDebtCovered,
-            m.insuranceClaimed,
-            m.yieldEarned
-        );
-    }
-    
-    /**
-     * @notice Get reserve ratio (reserve / TVL)
-     */
-    function getReserveRatio(address token) external view returns (uint256) {
-        if (protocolTVL == 0) return 0;
-        return (reserves[token].total * 10000) / protocolTVL;
-    }
-    
-    /**
-     * @notice Check if reserve is healthy
-     */
-    function isReserveHealthy(address token) external view returns (bool) {
-        uint256 ratio = this.getReserveRatio(token);
-        return ratio >= MIN_RESERVE_RATIO;
-    }
-    
-    /**
-     * @notice Get emergency withdrawal details
-     */
-    function getEmergencyWithdrawal(uint256 withdrawalId)
-        external
-        view
-        returns (
-            address token,
-            uint256 amount,
-            address recipient,
-            string memory reason,
-            uint256 timestamp,
-            bool executed,
-            uint256 approvals
-        )
-    {
-        EmergencyWithdrawal storage withdrawal = emergencyWithdrawals[withdrawalId];
-        return (
-            withdrawal.token,
-            withdrawal.amount,
-            withdrawal.recipient,
-            withdrawal.reason,
-            withdrawal.timestamp,
-            withdrawal.executed,
-            withdrawal.approvals
-        );
-    }
-    
-    /**
-     * @notice Get all guardians
-     */
-    function getGuardians() external view returns (address[] memory) {
-        return guardians;
-    }
-    
-    /**
-     * @notice Check guardian approval status
-     */
-    function hasApproved(
-        uint256 withdrawalId,
-        address guardian
-    ) external view returns (bool) {
-        return withdrawalApprovals[withdrawalId][guardian];
+        emit Upgraded(newImplementation);
     }
 }

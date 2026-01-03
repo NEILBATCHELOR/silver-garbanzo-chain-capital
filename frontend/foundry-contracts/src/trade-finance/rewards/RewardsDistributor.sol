@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IScaledBalanceToken} from "../interfaces/IScaledBalanceToken.sol";
 import {IRewardsDistributor} from "./interfaces/IRewardsDistributor.sol";
@@ -9,16 +12,24 @@ import {RewardsDataTypes} from "./libraries/RewardsDataTypes.sol";
 /**
  * @title RewardsDistributor
  * @notice Accounting contract for managing multiple reward distributions
- * @dev Abstract base contract handling reward index calculations and user accruals
+ * @dev Upgradeable contract handling reward index calculations and user accruals
  * Supports multiple reward tokens per asset for flexible liquidity mining programs
+ * 
+ * UPGRADEABILITY:
+ * - UUPS upgradeable pattern
+ * - Owner can authorize upgrades
+ * - Storage gaps for future variables
  */
-abstract contract RewardsDistributor is IRewardsDistributor {
-    // ============ Immutables ============
+contract RewardsDistributor is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    IRewardsDistributor 
+{
+    // ============ Storage ============
 
     /// @notice The emission manager address (can configure rewards)
-    address public immutable EMISSION_MANAGER;
-
-    // ============ Storage ============
+    address private _emissionManager;
 
     /// @notice Asset address => asset reward data
     mapping(address => RewardsDataTypes.AssetData) internal _assets;
@@ -32,28 +43,64 @@ abstract contract RewardsDistributor is IRewardsDistributor {
     /// @notice List of all incentivized assets
     address[] internal _assetsList;
 
+    // ============ Storage Gap ============
+    // Reserve 45 slots for future variables (50 total - 5 current)
+    uint256[45] private __gap;
+
     // ============ Errors ============
 
     error OnlyEmissionManager();
     error InvalidInput();
     error DistributionDoesNotExist();
     error IndexOverflow();
+    error ZeroAddress();
+
+    // ============ Events ============
+
+    event Upgraded(address indexed newImplementation);
 
     // ============ Modifiers ============
 
     modifier onlyEmissionManager() {
-        if (msg.sender != EMISSION_MANAGER) revert OnlyEmissionManager();
+        if (msg.sender != _emissionManager) revert OnlyEmissionManager();
         _;
     }
 
     // ============ Constructor ============
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ Initializer ============
+
     /**
-     * @notice Constructor
+     * @notice Initialize the rewards distributor
+     * @param emissionManager Address of the emission manager
+     * @param owner Address of the contract owner
+     */
+    function initialize(
+        address emissionManager,
+        address owner
+    ) public virtual initializer {
+        if (emissionManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+
+        _emissionManager = emissionManager;
+    }
+
+    /**
+     * @notice Internal initializer for child contracts (if needed)
+     * @dev Can be called by child contracts in their initialize function
      * @param emissionManager Address of the emission manager
      */
-    constructor(address emissionManager) {
-        EMISSION_MANAGER = emissionManager;
+    function __RewardsDistributor_init(address emissionManager) internal onlyInitializing {
+        if (emissionManager == address(0)) revert ZeroAddress();
+        _emissionManager = emissionManager;
     }
 
     // ============ View Functions ============
@@ -183,7 +230,7 @@ abstract contract RewardsDistributor is IRewardsDistributor {
 
     /// @inheritdoc IRewardsDistributor
     function getEmissionManager() external view override returns (address) {
-        return EMISSION_MANAGER;
+        return _emissionManager;
     }
 
     // ============ External Functions ============
@@ -571,7 +618,7 @@ abstract contract RewardsDistributor is IRewardsDistributor {
     }
 
     /**
-     * @dev Get user asset balances - must be implemented by child
+     * @dev Get user asset balances
      * @param assets Array of asset addresses
      * @param user User address
      * @return Array of user asset balances
@@ -579,7 +626,20 @@ abstract contract RewardsDistributor is IRewardsDistributor {
     function _getUserAssetBalances(
         address[] calldata assets,
         address user
-    ) internal view virtual returns (RewardsDataTypes.UserAssetBalance[] memory);
+    ) internal view virtual returns (RewardsDataTypes.UserAssetBalance[] memory) {
+        RewardsDataTypes.UserAssetBalance[] memory balances = 
+            new RewardsDataTypes.UserAssetBalance[](assets.length);
+        
+        for (uint256 i = 0; i < assets.length; i++) {
+            balances[i] = RewardsDataTypes.UserAssetBalance({
+                asset: assets[i],
+                userBalance: IScaledBalanceToken(assets[i]).scaledBalanceOf(user),
+                totalSupply: IScaledBalanceToken(assets[i]).scaledTotalSupply()
+            });
+        }
+        
+        return balances;
+    }
 
     /**
      * @dev Get asset decimals
@@ -588,6 +648,22 @@ abstract contract RewardsDistributor is IRewardsDistributor {
      */
     function _getAssetDecimals(address asset) internal view returns (uint8) {
         return IERC20Metadata(asset).decimals();
+    }
+
+    // ============ Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        virtual
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }
 

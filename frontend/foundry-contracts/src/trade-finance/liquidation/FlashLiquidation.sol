@@ -3,7 +3,10 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IPoolAddressesProvider} from "../interfaces/IPoolAddressesProvider.sol";
 import {IFlashLoanSimpleReceiver} from "../interfaces/IFlashLoanSimpleReceiver.sol";
@@ -13,7 +16,7 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 
 /**
  * @title FlashLiquidation
- * @notice Flash loan assisted liquidation for efficient capital usage
+ * @notice Flash loan assisted liquidation for efficient capital usage (Upgradeable)
  * @dev Enables liquidators to execute liquidations without upfront capital
  * 
  * Key Features:
@@ -23,6 +26,7 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * - Multi-hop liquidation (collateral → debt → profit)
  * - Gas-optimized execution paths
  * - Profit calculation and distribution
+ * - UUPS upgradeable pattern for future improvements
  * 
  * Flow:
  * 1. Liquidator initiates flash liquidation
@@ -32,7 +36,13 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * 5. Flash loan repaid with premium
  * 6. Remaining profit sent to liquidator
  */
-contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
+contract FlashLiquidation is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable,
+    IFlashLoanSimpleReceiver
+{
     using SafeERC20 for IERC20;
     using WadRayMath for uint256;
     using PercentageMath for uint256;
@@ -42,11 +52,12 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
     uint256 public constant LIQUIDATION_CLOSE_FACTOR_PERCENT = 5000; // 50%
     uint256 public constant MIN_PROFIT_BPS = 50; // 0.5% minimum profit
     
-    // ============ Immutable Variables ============
+    // ============ State Variables ============
+    // Note: No immutable variables in upgradeable contracts
     
-    IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
-    ICommodityLendingPool public immutable POOL;
-    IACLManager public immutable ACL_MANAGER;
+    IPoolAddressesProvider private _addressesProvider;
+    ICommodityLendingPool private _pool;
+    IACLManager private _aclManager;
     
     // ============ Structs ============
     
@@ -70,7 +81,7 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         uint256 timestamp;             // Execution timestamp
     }
     
-    // ============ State Variables ============
+    // ============ State Variables (continued) ============
     
     // Track liquidation history for analytics
     mapping(uint256 => LiquidationExecution) public liquidationHistory;
@@ -81,6 +92,10 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
     
     // Minimum profit per liquidator (can be customized)
     mapping(address => uint256) public customMinProfit;
+    
+    // ============ Storage Gap ============
+    // Reserve 43 slots for future variables (50 total - 7 current)
+    uint256[43] private __gap;
     
     // ============ Events ============
     
@@ -105,6 +120,8 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         uint256 minProfit
     );
     
+    event Upgraded(address indexed newImplementation);
+    
     // ============ Errors ============
     
     error OnlyPool();
@@ -113,18 +130,19 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
     error InvalidRouter();
     error SwapFailed();
     error FlashLoanFailed();
+    error ZeroAddress();
     
     // ============ Modifiers ============
     
     modifier onlyPool() {
-        if (msg.sender != address(POOL)) {
+        if (msg.sender != address(_pool)) {
             revert OnlyPool();
         }
         _;
     }
     
     modifier onlyPoolAdmin() {
-        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) {
+        if (!_aclManager.isPoolAdmin(msg.sender)) {
             revert OnlyPoolAdmin();
         }
         _;
@@ -132,13 +150,55 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
     
     // ============ Constructor ============
     
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param addressesProvider The addresses provider address
+     * @param aclManager The ACL manager address
+     * @param owner The owner address
+     */
+    function initialize(
         address addressesProvider,
-        address aclManager
-    ) {
-        ADDRESSES_PROVIDER = IPoolAddressesProvider(addressesProvider);
-        POOL = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
-        ACL_MANAGER = IACLManager(aclManager);
+        address aclManager,
+        address owner
+    ) public initializer {
+        if (addressesProvider == address(0)) revert ZeroAddress();
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        
+        _addressesProvider = IPoolAddressesProvider(addressesProvider);
+        _pool = ICommodityLendingPool(_addressesProvider.getPool());
+        _aclManager = IACLManager(aclManager);
+        
+        liquidationCount = 0;
+    }
+    
+    // ============ Interface Implementations ============
+    
+    /**
+     * @notice Get addresses provider (IFlashLoanSimpleReceiver requirement)
+     * @return The addresses provider interface
+     */
+    function ADDRESSES_PROVIDER() external view override returns (IPoolAddressesProvider) {
+        return _addressesProvider;
+    }
+    
+    /**
+     * @notice Get pool (IFlashLoanSimpleReceiver requirement)
+     * @return The lending pool interface
+     */
+    function POOL() external view override returns (ICommodityLendingPool) {
+        return _pool;
     }
     
     // ============ Configuration Functions ============
@@ -166,7 +226,7 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         uint256 minProfit
     ) external {
         require(
-            msg.sender == liquidator || ACL_MANAGER.isPoolAdmin(msg.sender),
+            msg.sender == liquidator || _aclManager.isPoolAdmin(msg.sender),
             "Unauthorized"
         );
         
@@ -198,7 +258,7 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         
         // Execute flash loan
         // Note: Implement actual flash loan call
-        // POOL.flashLoanSimple(
+        // _pool.flashLoanSimple(
         //     address(this),
         //     params.debtAsset,
         //     params.debtToCover,
@@ -233,11 +293,11 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         ) = abi.decode(params, (FlashLiquidationParams, address, uint256));
         
         // Step 1: Approve pool to take flash loan funds
-        IERC20(asset).forceApprove(address(POOL), amount);
+        IERC20(asset).forceApprove(address(_pool), amount);
         
         // Step 2: Execute liquidation
         // Note: Implement actual liquidation call
-        // (uint256 collateralReceived, uint256 debtCovered) = POOL.liquidationCall(
+        // (uint256 collateralReceived, uint256 debtCovered) = _pool.liquidationCall(
         //     liquidationParams.collateralAsset,
         //     liquidationParams.debtAsset,
         //     liquidationParams.user,
@@ -280,7 +340,7 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         }
         
         // Step 5: Repay flash loan
-        IERC20(asset).forceApprove(address(POOL), totalCost);
+        IERC20(asset).forceApprove(address(_pool), totalCost);
         
         // Step 6: Send profit to liquidator
         IERC20(asset).safeTransfer(liquidator, profit);
@@ -358,6 +418,27 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
     // ============ View Functions ============
     
     /**
+     * @notice Get addresses provider
+     */
+    function getAddressesProvider() external view returns (address) {
+        return address(_addressesProvider);
+    }
+    
+    /**
+     * @notice Get pool address
+     */
+    function getPool() external view returns (address) {
+        return address(_pool);
+    }
+    
+    /**
+     * @notice Get ACL manager address
+     */
+    function getACLManager() external view returns (address) {
+        return address(_aclManager);
+    }
+    
+    /**
      * @notice Calculate expected profit from liquidation
      * @param user The borrower to liquidate
      * @param collateralAsset The collateral asset
@@ -425,5 +506,26 @@ contract FlashLiquidation is ReentrancyGuard, IFlashLoanSimpleReceiver {
         return liquidationHistory[liquidationId];
     }
     
-    // Note: ADDRESSES_PROVIDER getter is auto-generated from public immutable declaration
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
+    }
+    
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
+    }
 }

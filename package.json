@@ -52,7 +52,10 @@
     "contracts:verify-all-60": "cd frontend/foundry-contracts && chmod +x scripts/verify-all-60-hoodi-contracts.sh && ./scripts/verify-all-60-hoodi-contracts.sh",
     "contracts:verify-proxies": "chmod +x scripts/verify-proxy-implementations.sh && ./scripts/verify-proxy-implementations.sh",
     "contracts:verify-3-impls": "chmod +x scripts/verify-3-implementations.sh && ./scripts/verify-3-implementations.sh",
-    "contracts:deploy-remaining": "cd frontend/foundry-contracts && ~/.foundry/bin/forge script script/DeployHoodiRemaining.s.sol --rpc-url https://ethereum-hoodi-rpc.publicnode.com/ --chain-id 560048 --broadcast --verify -vvv"
+    "contracts:deploy-remaining": "cd frontend/foundry-contracts && ~/.foundry/bin/forge script script/DeployHoodiRemaining.s.sol --rpc-url https://ethereum-hoodi-rpc.publicnode.com/ --chain-id 560048 --broadcast --verify -vvv",
+    "contracts:backfill-tx-hashes": "tsx scripts/backfill-hoodi-deployment-hashes.ts",
+    "contracts:extract-tx-hashes": "tsx scripts/extract-deployment-tx-hashes.ts",
+    "contracts:update-tx-hashes": "tsx scripts/update-db-with-deployment-hashes.ts"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

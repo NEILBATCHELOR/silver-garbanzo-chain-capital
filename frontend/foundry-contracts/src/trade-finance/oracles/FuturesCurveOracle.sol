@@ -2,7 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {IFuturesCurveOracle} from "../interfaces/IFuturesCurveOracle.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title FuturesCurveOracle
@@ -10,8 +12,18 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  * @dev Provides contango/backwardation signals and regional basis data
  *      for commodity interest rate adjustments. Data is updated by
  *      authorized data providers (off-chain oracles or keeper bots)
+ * 
+ * PHASE 2 UPGRADE: Converted to UUPS upgradeable pattern
+ * - Owner-controlled upgrades
+ * - Storage gap for future enhancements
+ * - Initialize-based deployment instead of constructor
  */
-contract FuturesCurveOracle is IFuturesCurveOracle, Ownable {
+contract FuturesCurveOracle is 
+    IFuturesCurveOracle,
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     
     // ============ Constants ============
     
@@ -37,6 +49,11 @@ contract FuturesCurveOracle is IFuturesCurveOracle, Ownable {
     // Authorized data providers
     mapping(address => bool) public dataProviders;
     
+    // ============ Storage Gap ============
+    
+    /// @dev Reserve 47 slots for future variables (50 total - 3 current)
+    uint256[47] private __gap;
+    
     // ============ Region Constants ============
     
     bytes32 public constant REGION_LME = keccak256("LME");      // London Metal Exchange
@@ -49,18 +66,59 @@ contract FuturesCurveOracle is IFuturesCurveOracle, Ownable {
     // ============ Events ============
     
     event DataProviderUpdated(address indexed provider, bool authorized);
+    event Upgraded(address indexed newImplementation);
+    
+    // ============ Errors ============
+    
+    error ZeroAddress();
+    error InvalidProvider();
+    error InvalidSpotPrice();
+    error InvalidNearMonthPrice();
+    error NearMonthExpired();
+    error BasisOutOfRange();
+    error NotAuthorized();
+    
+    // ============ Constructor ============
+    
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ Initialization ============
+    
+    /**
+     * @notice Initialize the FuturesCurveOracle (replaces constructor)
+     * @param owner The owner address
+     */
+    function initialize(address owner) external initializer {
+        if (owner == address(0)) revert ZeroAddress();
+
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+    }
+
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
+    }
     
     // ============ Modifiers ============
     
     modifier onlyDataProvider() {
-        require(dataProviders[msg.sender] || msg.sender == owner(), "Not authorized");
+        if (!dataProviders[msg.sender] && msg.sender != owner()) revert NotAuthorized();
         _;
     }
-    
-    // ============ Constructor ============
-    
-    constructor() Ownable(msg.sender) {}
-
     
     // ============ Admin Functions ============
     
@@ -70,7 +128,7 @@ contract FuturesCurveOracle is IFuturesCurveOracle, Ownable {
      * @param authorized Whether the provider is authorized
      */
     function setDataProvider(address provider, bool authorized) external onlyOwner {
-        require(provider != address(0), "Invalid provider");
+        if (provider == address(0)) revert InvalidProvider();
         dataProviders[provider] = authorized;
         emit DataProviderUpdated(provider, authorized);
     }
@@ -94,11 +152,10 @@ contract FuturesCurveOracle is IFuturesCurveOracle, Ownable {
         uint256 nearMonthExpiry,
         uint256 farMonthExpiry
     ) external onlyDataProvider {
-        require(commodity != address(0), "Invalid commodity");
-        require(spotPrice > 0, "Invalid spot price");
-
-        require(nearMonthPrice > 0, "Invalid near month price");
-        require(nearMonthExpiry > block.timestamp, "Near month expired");
+        if (commodity == address(0)) revert ZeroAddress();
+        if (spotPrice == 0) revert InvalidSpotPrice();
+        if (nearMonthPrice == 0) revert InvalidNearMonthPrice();
+        if (nearMonthExpiry <= block.timestamp) revert NearMonthExpired();
         
         // Calculate contango/backwardation
         bool isContangoState = nearMonthPrice > spotPrice;
@@ -143,11 +200,8 @@ contract FuturesCurveOracle is IFuturesCurveOracle, Ownable {
         bytes32 region,
         int256 premiumBps
     ) external onlyDataProvider {
-        require(commodity != address(0), "Invalid commodity");
-        require(
-            premiumBps >= MIN_BASIS_BPS && premiumBps <= MAX_BASIS_BPS,
-            "Basis out of range"
-        );
+        if (commodity == address(0)) revert ZeroAddress();
+        if (premiumBps < MIN_BASIS_BPS || premiumBps > MAX_BASIS_BPS) revert BasisOutOfRange();
         
         _regionalBasis[commodity][region] = RegionalBasis({
             region: region,

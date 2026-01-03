@@ -391,11 +391,26 @@ contract DeployInjectiveComplete is Script {
         contractCount++;
         console.log(unicode"  ✔ UpgradeGovernor:", deployed.upgradeGovernor);
 
-        // HaircutEngine
-        deployed.haircutEngine = address(new HaircutEngine(deployer, deployed.upgradeGovernor));
-        require(deployed.haircutEngine != address(0), "HaircutEngine failed");
+        // HaircutEngine - Upgradeable via UUPS
+        HaircutEngine haircutImpl = new HaircutEngine();
         contractCount++;
-        console.log(unicode"  ✔ HaircutEngine:", deployed.haircutEngine);
+        
+        bytes memory haircutInitData = abi.encodeWithSelector(
+            HaircutEngine.initialize.selector,
+            deployer,  // risk admin
+            deployed.upgradeGovernor  // governance (also gets upgrader role)
+        );
+        
+        ERC1967Proxy haircutProxy = new ERC1967Proxy(
+            address(haircutImpl),
+            haircutInitData
+        );
+        contractCount++;
+        
+        deployed.haircutEngine = address(haircutProxy);
+        require(deployed.haircutEngine != address(0), "HaircutEngine failed");
+        console.log(unicode"  ✔ HaircutEngine Implementation:", address(haircutImpl));
+        console.log(unicode"  ✔ HaircutEngine Proxy:", deployed.haircutEngine);
 
         // ExtensionRegistry
         address extensionRegistryImpl = address(new ExtensionRegistry());

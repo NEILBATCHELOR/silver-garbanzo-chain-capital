@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {RewardsDistributor} from "./RewardsDistributor.sol";
 import {IRewardsController} from "./interfaces/IRewardsController.sol";
 import {ITransferStrategyBase} from "./interfaces/ITransferStrategyBase.sol";
@@ -12,8 +15,17 @@ import {RewardsDataTypes} from "./libraries/RewardsDataTypes.sol";
  * @notice Main contract for managing reward distribution and claiming
  * @dev Extends RewardsDistributor with claim functionality and authorized claimers
  * Supports multiple reward tokens per asset for flexible liquidity mining
+ * 
+ * UPGRADEABILITY:
+ * - Pattern: UUPS (Universal Upgradeable Proxy Standard)
+ * - Upgrade Control: Only owner can upgrade
+ * - Storage: Uses storage gaps for future variables
+ * - Initialization: Uses initialize() instead of constructor
  */
-contract RewardsController is RewardsDistributor, IRewardsController {
+contract RewardsController is 
+    RewardsDistributor,
+    IRewardsController 
+{
     // ============ Storage ============
 
     /// @notice Mapping of users to their authorized claimers
@@ -24,6 +36,10 @@ contract RewardsController is RewardsDistributor, IRewardsController {
 
     /// @notice Mapping of reward tokens to their price oracles
     mapping(address => address) internal _rewardOracle;
+
+    // ============ Storage Gap ============
+    // Reserve 47 slots for future variables (50 total - 3 current)
+    uint256[47] private __gap;
 
     // ============ Errors ============
 
@@ -44,11 +60,25 @@ contract RewardsController is RewardsDistributor, IRewardsController {
 
     // ============ Constructor ============
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ Initializer ============
+
     /**
-     * @notice Constructor
+     * @notice Initialize the contract (replaces constructor)
      * @param emissionManager Address of the emission manager
+     * @param owner Initial owner address
      */
-    constructor(address emissionManager) RewardsDistributor(emissionManager) {}
+    function initialize(
+        address emissionManager,
+        address owner
+    ) public override initializer {
+        // Call parent initializer which handles Ownable and UUPS setup
+        super.initialize(emissionManager, owner);
+    }
 
     // ============ View Functions ============
 
@@ -369,6 +399,29 @@ contract RewardsController is RewardsDistributor, IRewardsController {
         
         return userAssetBalances;
     }
+
+    // ============ Version ============
+
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
+    }
+
+    // ============ Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {}
 }
 
 /**

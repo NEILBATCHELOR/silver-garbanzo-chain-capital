@@ -3,7 +3,8 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {Multicall} from "@openzeppelin/contracts/utils/Multicall.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {DataTypes} from "../libraries/types/DataTypes.sol";
 import {SupplyLogic} from "../libraries/logic/SupplyLogic.sol";
 import {BorrowLogic} from "../libraries/logic/BorrowLogic.sol";
@@ -19,16 +20,35 @@ import {IERC20WithPermit} from "../interfaces/IERC20WithPermit.sol";
  * @title CommodityLendingPool
  * @author Chain Capital
  * @notice Main entry point for commodity trade finance lending protocol
- * @dev WEEK 2 ENHANCEMENT: Added Multicall support for batch operations
+ * @dev Upgradeable via UUPS pattern
+ * 
+ * WEEK 2 ENHANCEMENT: Added Multicall support for batch operations
  * Users can now execute multiple operations in a single transaction:
  * - Supply collateral + Set E-Mode + Borrow
  * - Supply multiple assets in one tx
  * - Approve delegation + Supply + Set position manager
+ * 
+ * PHASE 2 UPGRADE: Converted to UUPS upgradeable pattern
+ * - Role-based access control for upgrades and administration
+ * - Storage gap for future enhancements
+ * - Initialize-based deployment instead of constructor
  */
-contract CommodityLendingPool is Initializable, Multicall {
+contract CommodityLendingPool is 
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable
+{
     using ReserveLogic for DataTypes.CommodityReserveData;
     using ReserveConfiguration for DataTypes.CommodityConfigurationMap;
     using UserConfiguration for DataTypes.UserConfigurationMap;
+
+    // ============================================
+    // ROLES
+    // ============================================
+
+    bytes32 public constant POOL_ADMIN_ROLE = keccak256("POOL_ADMIN_ROLE");
+    bytes32 public constant EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
     // ============================================
     // STATE VARIABLES
@@ -45,8 +65,8 @@ contract CommodityLendingPool is Initializable, Multicall {
     address internal _priceOracleSentinel;
     bool internal _paused;
     
-    address public admin;
-    address public emergencyAdmin;
+    address public admin; // Kept for backwards compatibility
+    address public emergencyAdmin; // Kept for backwards compatibility
 
     // Flash loan configuration
     uint128 internal _flashLoanPremiumTotal;      // Total premium (e.g., 9 bps = 0.09%)
@@ -57,6 +77,13 @@ contract CommodityLendingPool is Initializable, Multicall {
     // Position Manager - CRITICAL FEATURE FROM AAVE V3 HORIZON
     // Enables institutional use cases: trading firms managing positions, automated bots, etc.
     mapping(address user => mapping(address manager => bool)) internal _positionManagers;
+
+    // ============================================
+    // STORAGE GAP
+    // ============================================
+    
+    /// @dev Reserve 34 slots for future variables (50 total - 16 current)
+    uint256[34] private __gap;
 
     // ============================================
     // EVENTS
@@ -115,6 +142,84 @@ contract CommodityLendingPool is Initializable, Multicall {
         bool approved
     );
 
+    event Upgraded(address indexed newImplementation);
+
+    // ============================================
+    // ERRORS
+    // ============================================
+
+    error ZeroAddress();
+    error InvalidAddressesProvider();
+    error InvalidOracle();
+
+    // ============================================
+    // CONSTRUCTOR
+    // ============================================
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    /**
+     * @notice Initialize the CommodityLendingPool (replaces constructor)
+     * @param addressesProvider The addresses provider address
+     * @param priceOracle The price oracle address
+     * @param priceOracleSentinel The price oracle sentinel address
+     * @param poolAdmin The pool administrator address
+     */
+    function initialize(
+        address addressesProvider,
+        address priceOracle,
+        address priceOracleSentinel,
+        address poolAdmin
+    ) external initializer {
+        if (addressesProvider == address(0)) revert InvalidAddressesProvider();
+        if (priceOracle == address(0)) revert InvalidOracle();
+        if (poolAdmin == address(0)) revert ZeroAddress();
+
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        
+        // Set up roles
+        _grantRole(DEFAULT_ADMIN_ROLE, poolAdmin);
+        _grantRole(POOL_ADMIN_ROLE, poolAdmin);
+        _grantRole(EMERGENCY_ADMIN_ROLE, poolAdmin);
+        _grantRole(UPGRADER_ROLE, poolAdmin);
+        
+        // Initialize state
+        _addressesProvider = addressesProvider;
+        _priceOracle = priceOracle;
+        _priceOracleSentinel = priceOracleSentinel;
+        admin = poolAdmin; // Backwards compatibility
+        emergencyAdmin = poolAdmin; // Backwards compatibility
+        
+        // Default flash loan premiums: 0.09% total, 30% to protocol
+        _flashLoanPremiumTotal = 9; // 9 basis points = 0.09%
+        _flashLoanPremiumToProtocol = 3000; // 30% of premium goes to protocol
+    }
+
+    // ============================================
+    // UPGRADE AUTHORIZATION
+    // ============================================
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only UPGRADER_ROLE can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyRole(UPGRADER_ROLE)
+    {
+        emit Upgraded(newImplementation);
+    }
+
     // ============================================
     // MODIFIERS
     // ============================================
@@ -125,12 +230,12 @@ contract CommodityLendingPool is Initializable, Multicall {
     }
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, Errors.CALLER_NOT_POOL_ADMIN);
+        require(hasRole(POOL_ADMIN_ROLE, msg.sender), Errors.CALLER_NOT_POOL_ADMIN);
         _;
     }
 
     modifier onlyEmergencyAdmin() {
-        require(msg.sender == emergencyAdmin, Errors.CALLER_NOT_EMERGENCY_ADMIN);
+        require(hasRole(EMERGENCY_ADMIN_ROLE, msg.sender), Errors.CALLER_NOT_EMERGENCY_ADMIN);
         _;
     }
 
@@ -145,27 +250,6 @@ contract CommodityLendingPool is Initializable, Multicall {
         );
         _;
     }
-
-    // ============================================
-    // INITIALIZATION
-    // ============================================
-
-    function initialize(
-        address addressesProvider,
-        address priceOracle,
-        address priceOracleSentinel
-    ) external initializer {
-        _addressesProvider = addressesProvider;
-        _priceOracle = priceOracle;
-        _priceOracleSentinel = priceOracleSentinel;
-        admin = msg.sender;
-        emergencyAdmin = msg.sender;
-        
-        // Default flash loan premiums: 0.09% total, 30% to protocol
-        _flashLoanPremiumTotal = 9; // 9 basis points = 0.09%
-        _flashLoanPremiumToProtocol = 3000; // 30% of premium goes to protocol
-    }
-
     // ============================================
     // POSITION MANAGER FUNCTIONS
     // ============================================
@@ -773,11 +857,6 @@ contract CommodityLendingPool is Initializable, Multicall {
             flashParams
         );
     }
-
-    /**
-     * @dev Internal helper to build FlashloanParams struct - REMOVED (caused stack too deep)
-     * Build inline instead like flashLoanSimple
-     */
 
     /**
      * @notice Allows smartcontracts to access the liquidity of ONE reserve within one transaction

@@ -2,7 +2,9 @@
 pragma solidity ^0.8.20;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
@@ -12,8 +14,17 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @author Chain Capital
  * @notice Main price oracle for commodity valuations with quality and age adjustments
  * @dev Integrates with Chainlink price feeds and applies commodity-specific discounts
+ * 
+ * PHASE 2 UPGRADE: Converted to UUPS upgradeable pattern
+ * - Owner-controlled upgrades
+ * - Storage gap for future enhancements
+ * - Initialize-based deployment instead of constructor
  */
-contract CommodityOracle is Ownable {
+contract CommodityOracle is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     using WadRayMath for uint256;
     using PercentageMath for uint256;
 
@@ -64,16 +75,27 @@ contract CommodityOracle is Ownable {
 
     /// @notice Maximum age depreciation per day (basis points) for perishables
     /// @dev Default: 10 bps/day = 0.1% per day
-    uint256 public maxAgeDepreciationRate = 10; // 0.1% per day
+    uint256 public maxAgeDepreciationRate;
 
     /// @notice Liquidity score threshold for additional discount (0-10000)
-    uint256 public liquidityThreshold = 5000; // 50%
+    uint256 public liquidityThreshold;
 
     /// @notice Additional discount for low liquidity (basis points)
-    uint256 public liquidityDiscountBps = 100; // 1%
+    uint256 public liquidityDiscountBps;
+
+    // ============================================
+    // CONSTANTS
+    // ============================================
 
     /// @notice Maximum total discount cap (basis points)
     uint256 public constant MAX_TOTAL_DISCOUNT = 5000; // 50% max
+
+    // ============================================
+    // STORAGE GAP
+    // ============================================
+    
+    /// @dev Reserve 44 slots for future variables (50 total - 6 current)
+    uint256[44] private __gap;
 
     // ============================================
     // EVENTS
@@ -100,6 +122,8 @@ contract CommodityOracle is Ownable {
         uint256 timestamp
     );
 
+    event Upgraded(address indexed newImplementation);
+
     // ============================================
     // ERRORS
     // ============================================
@@ -110,12 +134,54 @@ contract CommodityOracle is Ownable {
     error InvalidQualityGrade();
     error InvalidCommodityToken();
     error DiscountTooHigh();
+    error ZeroAddress();
+    error RateTooHigh();
 
     // ============================================
     // CONSTRUCTOR
     // ============================================
 
-    constructor() Ownable(msg.sender) {}
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
+    /**
+     * @notice Initialize the CommodityOracle (replaces constructor)
+     * @param owner The owner address
+     */
+    function initialize(address owner) external initializer {
+        if (owner == address(0)) revert ZeroAddress();
+
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+        
+        // Set default values
+        maxAgeDepreciationRate = 10; // 0.1% per day
+        liquidityThreshold = 5000; // 50%
+        liquidityDiscountBps = 100; // 1%
+    }
+
+    // ============================================
+    // UPGRADE AUTHORIZATION
+    // ============================================
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
+    }
 
     // ============================================
     // ADMIN FUNCTIONS
@@ -136,8 +202,8 @@ contract CommodityOracle is Ownable {
         uint256 heartbeat,
         CommodityType commodityType
     ) external onlyOwner {
-        require(commodity != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-        require(feedAddress != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
+        if (commodity == address(0)) revert ZeroAddress();
+        if (feedAddress == address(0)) revert ZeroAddress();
         
         priceFeeds[commodity] = PriceFeedConfig({
             feedAddress: feedAddress,
@@ -169,7 +235,7 @@ contract CommodityOracle is Ownable {
         string memory grade,
         uint256 discountBps
     ) external onlyOwner {
-        require(discountBps <= MAX_TOTAL_DISCOUNT, "Discount too high");
+        if (discountBps > MAX_TOTAL_DISCOUNT) revert DiscountTooHigh();
         
         bytes32 gradeHash = keccak256(abi.encodePacked(grade));
         qualityDiscounts[commodityType][gradeHash] = discountBps;
@@ -192,10 +258,9 @@ contract CommodityOracle is Ownable {
      * @param ratePerDay Depreciation rate in basis points per day
      */
     function setAgeDepreciationRate(uint256 ratePerDay) external onlyOwner {
-        require(ratePerDay <= 100, "Rate too high"); // Max 1% per day
+        if (ratePerDay > 100) revert RateTooHigh(); // Max 1% per day
         maxAgeDepreciationRate = ratePerDay;
     }
-
     // ============================================
     // VIEW FUNCTIONS - CORE PRICING
     // ============================================

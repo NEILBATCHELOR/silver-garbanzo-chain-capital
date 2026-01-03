@@ -434,10 +434,21 @@ contract DeployUniversalComplete is Script {
         contractCount++;
         console.log(unicode"  ✔ UpgradeGovernor:", deployed.upgradeGovernor);
 
-        // HaircutEngine
-        deployed.haircutEngine = address(new HaircutEngine(deployer, deployed.upgradeGovernor));
-        trackTransaction("HaircutEngine");
-        require(deployed.haircutEngine != address(0), "HaircutEngine failed");
+        // HaircutEngine (UUPS upgradeable)
+        HaircutEngine haircutEngineImpl = new HaircutEngine();
+        trackTransaction("HaircutEngine Implementation");
+        require(address(haircutEngineImpl) != address(0), "HaircutEngine impl failed");
+        
+        bytes memory haircutEngineInit = abi.encodeWithSelector(
+            HaircutEngine.initialize.selector,
+            deployer, // risk admin
+            deployed.upgradeGovernor // governance
+        );
+        
+        ERC1967Proxy haircutEngineProxy = new ERC1967Proxy(address(haircutEngineImpl), haircutEngineInit);
+        trackTransaction("HaircutEngine Proxy");
+        deployed.haircutEngine = address(haircutEngineProxy);
+        require(deployed.haircutEngine != address(0), "HaircutEngine proxy failed");
         contractCount++;
         console.log(unicode"  ✔ HaircutEngine:", deployed.haircutEngine);
 

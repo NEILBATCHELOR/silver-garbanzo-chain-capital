@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {Errors} from "../libraries/helpers/Errors.sol";
 
@@ -11,15 +13,25 @@ import {Errors} from "../libraries/helpers/Errors.sol";
  * @notice Protects against unfair liquidations during L2 sequencer downtime
  * @dev Implements grace period after sequencer recovery before liquidations resume
  * Based on Chain Capital V3 PriceOracleSentinel
+ * 
+ * PHASE 2 UPGRADE: Converted to UUPS upgradeable pattern
+ * - Owner-controlled upgrades
+ * - Storage gap for future enhancements
+ * - Initialize-based deployment instead of constructor
+ * - Converted immutable SEQUENCER_ORACLE to regular storage for upgradeability
  */
-contract PriceOracleSentinel is Ownable {
+contract PriceOracleSentinel is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable
+{
     
     // ============================================
     // STATE VARIABLES
     // ============================================
 
-    /// @notice Chainlink sequencer uptime feed
-    AggregatorV3Interface public immutable SEQUENCER_ORACLE;
+    /// @notice Chainlink sequencer uptime feed (converted from immutable)
+    AggregatorV3Interface private _sequencerOracle;
 
     /// @notice Grace period after sequencer comes back online (in seconds)
     /// @dev Prevents immediate liquidations when users couldn't act
@@ -27,6 +39,13 @@ contract PriceOracleSentinel is Ownable {
 
     /// @notice Whether the sentinel is enabled
     bool public isActive;
+
+    // ============================================
+    // STORAGE GAP
+    // ============================================
+    
+    /// @dev Reserve 47 slots for future variables (50 total - 3 current)
+    uint256[47] private __gap;
 
     // ============================================
     // CONSTANTS
@@ -44,6 +63,7 @@ contract PriceOracleSentinel is Ownable {
 
     event GracePeriodUpdated(uint256 newGracePeriod);
     event SentinelStatusUpdated(bool isActive);
+    event Upgraded(address indexed newImplementation);
 
     // ============================================
     // ERRORS
@@ -52,26 +72,59 @@ contract PriceOracleSentinel is Ownable {
     error SequencerDown();
     error GracePeriodNotFinished();
     error InvalidGracePeriod();
+    error ZeroAddress();
 
     // ============================================
     // CONSTRUCTOR
     // ============================================
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+
     /**
-     * @notice Constructor
+     * @notice Initialize the PriceOracleSentinel (replaces constructor)
      * @param sequencerOracle The Chainlink sequencer uptime feed address
      * @param initialGracePeriod The initial grace period in seconds
+     * @param owner The owner address
      */
-    constructor(
+    function initialize(
         address sequencerOracle,
-        uint256 initialGracePeriod
-    ) Ownable(msg.sender) {
-        require(sequencerOracle != address(0), Errors.ZERO_ADDRESS_NOT_VALID);
-        require(initialGracePeriod > 0 && initialGracePeriod <= 24 hours, "Invalid grace period");
+        uint256 initialGracePeriod,
+        address owner
+    ) external initializer {
+        if (sequencerOracle == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        if (initialGracePeriod == 0 || initialGracePeriod > 24 hours) revert InvalidGracePeriod();
 
-        SEQUENCER_ORACLE = AggregatorV3Interface(sequencerOracle);
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+
+        _sequencerOracle = AggregatorV3Interface(sequencerOracle);
         gracePeriod = initialGracePeriod;
         isActive = true;
+    }
+
+    // ============================================
+    // UPGRADE AUTHORIZATION
+    // ============================================
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 
     // ============================================
@@ -83,7 +136,7 @@ contract PriceOracleSentinel is Ownable {
      * @param newGracePeriod The new grace period in seconds
      */
     function setGracePeriod(uint256 newGracePeriod) external onlyOwner {
-        require(newGracePeriod > 0 && newGracePeriod <= 24 hours, "Invalid grace period");
+        if (newGracePeriod == 0 || newGracePeriod > 24 hours) revert InvalidGracePeriod();
         gracePeriod = newGracePeriod;
         emit GracePeriodUpdated(newGracePeriod);
     }
@@ -95,6 +148,18 @@ contract PriceOracleSentinel is Ownable {
     function setSentinelStatus(bool active) external onlyOwner {
         isActive = active;
         emit SentinelStatusUpdated(active);
+    }
+
+    // ============================================
+    // GETTER FUNCTIONS
+    // ============================================
+
+    /**
+     * @notice Get the sequencer oracle address
+     * @return The sequencer oracle address
+     */
+    function getSequencerOracle() external view returns (address) {
+        return address(_sequencerOracle);
     }
 
     // ============================================
@@ -114,7 +179,7 @@ contract PriceOracleSentinel is Ownable {
             return true;
         }
 
-        try SEQUENCER_ORACLE.latestRoundData() returns (
+        try _sequencerOracle.latestRoundData() returns (
             uint80,
             int256 answer,
             uint256 startedAt,
@@ -151,7 +216,7 @@ contract PriceOracleSentinel is Ownable {
             return true;
         }
 
-        try SEQUENCER_ORACLE.latestRoundData() returns (
+        try _sequencerOracle.latestRoundData() returns (
             uint80,
             int256 answer,
             uint256,
@@ -173,7 +238,7 @@ contract PriceOracleSentinel is Ownable {
      * @return timeSinceUp Seconds since sequencer came back online (0 if down)
      */
     function getSequencerStatus() external view returns (bool isUp, uint256 timeSinceUp) {
-        try SEQUENCER_ORACLE.latestRoundData() returns (
+        try _sequencerOracle.latestRoundData() returns (
             uint80,
             int256 answer,
             uint256 startedAt,
@@ -205,7 +270,7 @@ contract PriceOracleSentinel is Ownable {
             return (false, 0);
         }
 
-        try SEQUENCER_ORACLE.latestRoundData() returns (
+        try _sequencerOracle.latestRoundData() returns (
             uint80,
             int256 answer,
             uint256 startedAt,
@@ -244,7 +309,7 @@ contract PriceOracleSentinel is Ownable {
      * @return isUp True if sequencer is up
      */
     function checkSequencer() external view returns (bool success, bool isUp) {
-        try SEQUENCER_ORACLE.latestRoundData() returns (
+        try _sequencerOracle.latestRoundData() returns (
             uint80,
             int256 answer,
             uint256,

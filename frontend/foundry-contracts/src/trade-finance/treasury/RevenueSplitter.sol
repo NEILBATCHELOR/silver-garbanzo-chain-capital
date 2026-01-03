@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
 
 /**
@@ -24,8 +27,19 @@ import {IACLManager} from "../interfaces/IACLManager.sol";
  * - Batch distribution optimization
  * - Pull payment pattern for gas efficiency
  * - Historical tracking
+ * 
+ * UPGRADEABILITY:
+ * - Pattern: UUPS (Universal Upgradeable Proxy Standard)
+ * - Upgrade Control: Only owner can upgrade
+ * - Storage: Uses storage gaps for future variables
+ * - Initialization: Uses initialize() instead of constructor
  */
-contract RevenueSplitter is ReentrancyGuard {
+contract RevenueSplitter is 
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
     
     // ============ Structs ============
@@ -42,9 +56,10 @@ contract RevenueSplitter is ReentrancyGuard {
         mapping(address => uint256) released;
     }
     
-    // ============ Immutable Variables ============
+    // ============ Storage ============
     
-    IACLManager public immutable ACL_MANAGER;
+    /// @notice ACL Manager for access control
+    IACLManager private _aclManager;
     
     // ============ State Variables ============
     
@@ -62,6 +77,10 @@ contract RevenueSplitter is ReentrancyGuard {
     
     // Whether an account is a beneficiary
     mapping(address => bool) private _isBeneficiary;
+
+    // ============ Storage Gap ============
+    // Reserve 44 slots for future variables (50 total - 6 current)
+    uint256[44] private __gap;
     
     // ============ Events ============
     
@@ -71,6 +90,9 @@ contract RevenueSplitter is ReentrancyGuard {
     event PaymentReleased(address indexed to, address indexed token, uint256 amount);
     event PaymentReceived(address indexed from, uint256 amount);
     
+    /// @notice Emitted when contract is upgraded
+    event Upgraded(address indexed newImplementation);
+    
     // ============ Errors ============
     
     error OnlyAdmin();
@@ -79,29 +101,61 @@ contract RevenueSplitter is ReentrancyGuard {
     error AlreadyBeneficiary();
     error NotBeneficiary();
     error NoPaymentDue();
+    error ZeroAddress();
     
     // ============ Modifiers ============
     
     modifier onlyAdmin() {
-        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) revert OnlyAdmin();
+        if (!_aclManager.isPoolAdmin(msg.sender)) revert OnlyAdmin();
         _;
     }
     
     // ============ Constructor ============
     
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param aclManager Address of the ACL Manager
+     * @param accounts Array of beneficiary addresses
+     * @param shares Array of share amounts
+     * @param owner Initial owner address
+     */
+    function initialize(
         address aclManager,
         address[] memory accounts,
-        uint256[] memory shares
-    ) {
+        uint256[] memory shares,
+        address owner
+    ) public initializer {
         require(accounts.length == shares.length, "Length mismatch");
         require(accounts.length > 0, "No beneficiaries");
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
         
-        ACL_MANAGER = IACLManager(aclManager);
+        __Ownable_init(owner);
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+        
+        _aclManager = IACLManager(aclManager);
         
         for (uint256 i = 0; i < accounts.length; i++) {
             _addBeneficiary(payable(accounts[i]), shares[i]);
         }
+    }
+
+    // ============ View Functions ============
+
+    /**
+     * @notice Get ACL Manager address
+     * @return ACL Manager contract address
+     */
+    function getACLManager() external view returns (IACLManager) {
+        return _aclManager;
     }
     
     // ============ Admin Functions ============
@@ -343,5 +397,20 @@ contract RevenueSplitter is ReentrancyGuard {
     
     receive() external payable {
         emit PaymentReceived(msg.sender, msg.value);
+    }
+
+    // ============ Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }

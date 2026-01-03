@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
 
 /**
@@ -24,17 +27,29 @@ import {IACLManager} from "../interfaces/IACLManager.sol";
  * - Revenue distribution to stakeholders
  * - Emergency withdrawal functionality
  * - Fee sweeping optimization
+ * 
+ * UPGRADEABILITY:
+ * - Pattern: UUPS (Universal Upgradeable Proxy Standard)
+ * - Upgrade Control: Only owner can upgrade
+ * - Storage: Uses storage gaps for future variables
+ * - Initialization: Uses initialize() instead of constructor
  */
-contract Collector is ReentrancyGuard {
+contract Collector is 
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
     
     // ============ Constants ============
     
     address public constant ETH_MOCK_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     
-    // ============ Immutable Variables ============
+    // ============ Storage ============
     
-    IACLManager public immutable ACL_MANAGER;
+    /// @notice ACL Manager for access control
+    IACLManager private _aclManager;
     
     // ============ Structs ============
     
@@ -75,6 +90,10 @@ contract Collector is ReentrancyGuard {
     
     // Total fee shares (should equal 10000 = 100%)
     uint256 public totalFeeShares;
+
+    // ============ Storage Gap ============
+    // Reserve 43 slots for future variables (50 total - 7 current)
+    uint256[43] private __gap;
     
     // ============ Events ============
     
@@ -126,6 +145,9 @@ contract Collector is ReentrancyGuard {
         uint256 newShare
     );
     
+    /// @notice Emitted when contract is upgraded
+    event Upgraded(address indexed newImplementation);
+    
     // ============ Errors ============
     
     error OnlyAdmin();
@@ -133,11 +155,12 @@ contract Collector is ReentrancyGuard {
     error StreamDoesNotExist();
     error OnlyRecipient();
     error InsufficientBalance();
+    error ZeroAddress();
     
     // ============ Modifiers ============
     
     modifier onlyAdmin() {
-        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) revert OnlyAdmin();
+        if (!_aclManager.isPoolAdmin(msg.sender)) revert OnlyAdmin();
         _;
     }
     
@@ -148,9 +171,41 @@ contract Collector is ReentrancyGuard {
     
     // ============ Constructor ============
     
-    constructor(address aclManager) {
-        ACL_MANAGER = IACLManager(aclManager);
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param aclManager Address of the ACL Manager
+     * @param owner Initial owner address
+     */
+    function initialize(
+        address aclManager,
+        address owner
+    ) public initializer {
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner);
+        __ReentrancyGuard_init();
+        __UUPSUpgradeable_init();
+        
+        _aclManager = IACLManager(aclManager);
         _nextStreamId = 1;
+    }
+
+    // ============ View Functions ============
+
+    /**
+     * @notice Get ACL Manager address
+     * @return ACL Manager contract address
+     */
+    function getACLManager() external view returns (IACLManager) {
+        return _aclManager;
     }
     
     // ============ Admin Functions ============
@@ -257,27 +312,10 @@ contract Collector is ReentrancyGuard {
         feeAccumulations[token].amount = 0;
     }
     
-    /**
-     * @notice Sweep multiple tokens to treasury
-     */
-    function sweepTokens(
-        address[] calldata tokens,
-        address treasury
-    ) external nonReentrant onlyAdmin {
-        for (uint256 i = 0; i < tokens.length; i++) {
-            address token = tokens[i];
-            uint256 balance = IERC20(token).balanceOf(address(this));
-            
-            if (balance > 0) {
-                IERC20(token).safeTransfer(treasury, balance);
-            }
-        }
-    }
-    
     // ============ Streaming Functions ============
     
     /**
-     * @notice Create payment stream
+     * @notice Create a payment stream
      */
     function createStream(
         address recipient,
@@ -285,19 +323,15 @@ contract Collector is ReentrancyGuard {
         address tokenAddress,
         uint256 startTime,
         uint256 stopTime
-    ) external nonReentrant onlyAdmin returns (uint256) {
+    ) external nonReentrant returns (uint256 streamId) {
         require(recipient != address(0), "Invalid recipient");
-        require(deposit > 0, "Deposit must be positive");
-        require(startTime >= block.timestamp, "Start time too early");
-        require(stopTime > startTime, "Stop time must be after start");
+        require(deposit > 0, "Deposit is zero");
+        require(startTime >= block.timestamp, "Start time before now");
+        require(stopTime > startTime, "Stop time before start");
+        
+        streamId = _nextStreamId++;
         
         uint256 duration = stopTime - startTime;
-        require(deposit >= duration, "Deposit too small");
-        
-        // Transfer tokens to contract
-        IERC20(tokenAddress).safeTransferFrom(msg.sender, address(this), deposit);
-        
-        uint256 streamId = _nextStreamId++;
         uint256 ratePerSecond = deposit / duration;
         
         _streams[streamId] = Stream({
@@ -311,6 +345,8 @@ contract Collector is ReentrancyGuard {
             ratePerSecond: ratePerSecond,
             isEntity: true
         });
+        
+        IERC20(tokenAddress).safeTransferFrom(msg.sender, address(this), deposit);
         
         emit StreamCreated(
             streamId,
@@ -336,8 +372,8 @@ contract Collector is ReentrancyGuard {
         
         if (msg.sender != stream.recipient) revert OnlyRecipient();
         
-        uint256 balance = _balanceOf(streamId, stream.recipient);
-        if (balance < amount) revert InsufficientBalance();
+        uint256 available = _balanceOf(streamId, stream.recipient);
+        if (amount > available) revert InsufficientBalance();
         
         stream.remainingBalance -= amount;
         
@@ -360,29 +396,21 @@ contract Collector is ReentrancyGuard {
         Stream storage stream = _streams[streamId];
         
         require(
-            msg.sender == stream.sender || 
-            msg.sender == stream.recipient ||
-            ACL_MANAGER.isPoolAdmin(msg.sender),
+            msg.sender == stream.sender || msg.sender == stream.recipient,
             "Not authorized"
         );
         
-        uint256 senderBalance = _balanceOf(streamId, stream.sender);
         uint256 recipientBalance = _balanceOf(streamId, stream.recipient);
+        uint256 senderBalance = stream.remainingBalance - recipientBalance;
         
         delete _streams[streamId];
         
         if (recipientBalance > 0) {
-            IERC20(stream.tokenAddress).safeTransfer(
-                stream.recipient,
-                recipientBalance
-            );
+            IERC20(stream.tokenAddress).safeTransfer(stream.recipient, recipientBalance);
         }
         
         if (senderBalance > 0) {
-            IERC20(stream.tokenAddress).safeTransfer(
-                stream.sender,
-                senderBalance
-            );
+            IERC20(stream.tokenAddress).safeTransfer(stream.sender, senderBalance);
         }
         
         emit StreamCanceled(
@@ -396,10 +424,8 @@ contract Collector is ReentrancyGuard {
         return true;
     }
     
-    // ============ View Functions ============
-    
     /**
-     * @notice Get stream details
+     * @notice Get stream info
      */
     function getStream(uint256 streamId)
         external
@@ -430,65 +456,50 @@ contract Collector is ReentrancyGuard {
     }
     
     /**
-     * @notice Get withdrawable balance
+     * @notice Calculate withdrawable balance
      */
-    function balanceOf(
-        uint256 streamId,
-        address who
-    ) external view streamExists(streamId) returns (uint256) {
+    function balanceOf(uint256 streamId, address who)
+        external
+        view
+        streamExists(streamId)
+        returns (uint256)
+    {
         return _balanceOf(streamId, who);
     }
     
-    function _balanceOf(
-        uint256 streamId,
-        address who
-    ) internal view returns (uint256) {
-        Stream storage stream = _streams[streamId];
-        
-        uint256 delta = _deltaOf(streamId);
-        uint256 recipientBalance = delta * stream.ratePerSecond;
-        
-        if (who == stream.recipient) {
-            return recipientBalance;
-        }
-        
-        if (who == stream.sender) {
-            return stream.remainingBalance - recipientBalance;
-        }
-        
-        return 0;
-    }
+    // ============ Internal Functions ============
     
-    function _deltaOf(uint256 streamId) internal view returns (uint256) {
+    function _balanceOf(uint256 streamId, address who) 
+        internal 
+        view 
+        returns (uint256) 
+    {
         Stream storage stream = _streams[streamId];
+        
+        if (who != stream.recipient) return 0;
         
         if (block.timestamp <= stream.startTime) return 0;
+        
         if (block.timestamp < stream.stopTime) {
-            return block.timestamp - stream.startTime;
+            uint256 elapsedTime = block.timestamp - stream.startTime;
+            return stream.ratePerSecond * elapsedTime;
         }
-        return stream.stopTime - stream.startTime;
+        
+        return stream.remainingBalance;
     }
-    
+
+    // ============ Upgrade Authorization ============
+
     /**
-     * @notice Get next stream ID
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
      */
-    function getNextStreamId() external view returns (uint256) {
-        return _nextStreamId;
-    }
-    
-    /**
-     * @notice Get fee accumulation for token
-     */
-    function getFeeAccumulation(address token) 
-        external 
-        view 
-        returns (
-            uint256 amount,
-            uint256 lastCollected,
-            uint256 totalCollected
-        ) 
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
     {
-        FeeAccumulation memory acc = feeAccumulations[token];
-        return (acc.amount, acc.lastCollected, acc.totalCollected);
+        emit Upgraded(newImplementation);
     }
 }

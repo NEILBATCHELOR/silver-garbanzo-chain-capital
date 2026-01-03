@@ -3,7 +3,10 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
@@ -44,7 +47,7 @@ interface IUniswapV3Router {
 
 /**
  * @title DEXLiquidationAdapter
- * @notice Generic DEX integration for liquidation swaps
+ * @notice Generic DEX integration for liquidation swaps (Upgradeable)
  * @dev Supports Uniswap V2/V3, Sushiswap, and similar AMMs
  * 
  * Key Features:
@@ -53,8 +56,14 @@ interface IUniswapV3Router {
  * - Multi-hop swap paths
  * - Gas-optimized execution
  * - Flash loan integration
+ * - UUPS upgradeable pattern for future DEX integrations
  */
-contract DEXLiquidationAdapter is ReentrancyGuard {
+contract DEXLiquidationAdapter is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
     using WadRayMath for uint256;
     
@@ -63,12 +72,11 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
     uint256 public constant MAX_SLIPPAGE_BPS = 500; // 5% max slippage
     uint256 public constant DEFAULT_DEADLINE_DELAY = 15 minutes;
     
-    // ============ Immutable Variables ============
-    
-    ICommodityLendingPool public immutable POOL;
-    IACLManager public immutable ACL_MANAGER;
-    
     // ============ State Variables ============
+    // Note: No immutable variables in upgradeable contracts
+    
+    ICommodityLendingPool private _pool;
+    IACLManager private _aclManager;
     
     // Approved DEX routers
     mapping(address => bool) public approvedRouters;
@@ -78,6 +86,10 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
     
     // DEX type: 0 = UniswapV2, 1 = UniswapV3, 2 = Other
     mapping(address => uint8) public routerType;
+    
+    // ============ Storage Gap ============
+    // Reserve 45 slots for future variables (50 total - 5 current)
+    uint256[45] private __gap;
     
     // ============ Structs ============
     
@@ -111,6 +123,7 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
         uint256 swappedAmount,
         uint256 profit
     );
+    event Upgraded(address indexed newImplementation);
     
     // ============ Errors ============
     
@@ -118,12 +131,38 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
     error SlippageTooHigh();
     error SwapFailed();
     error InsufficientProfit();
+    error ZeroAddress();
     
     // ============ Constructor ============
     
-    constructor(address pool, address aclManager) {
-        POOL = ICommodityLendingPool(pool);
-        ACL_MANAGER = IACLManager(aclManager);
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param pool The commodity lending pool address
+     * @param aclManager The ACL manager address
+     * @param owner The owner address
+     */
+    function initialize(
+        address pool,
+        address aclManager,
+        address owner
+    ) public initializer {
+        if (pool == address(0)) revert ZeroAddress();
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        
+        _pool = ICommodityLendingPool(pool);
+        _aclManager = IACLManager(aclManager);
     }
     
     // ============ Admin Functions ============
@@ -136,7 +175,7 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
         bool approved,
         uint8 _routerType
     ) external {
-        require(ACL_MANAGER.isPoolAdmin(msg.sender), "Not admin");
+        require(_aclManager.isPoolAdmin(msg.sender), "Not admin");
         require(_routerType <= 2, "Invalid router type");
         
         approvedRouters[router] = approved;
@@ -216,10 +255,10 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
         uint256 debtToCover
     ) internal returns (uint256 collateralReceived) {
         // Approve pool to take debt tokens
-        IERC20(debtAsset).approve(address(POOL), debtToCover);
+        IERC20(debtAsset).approve(address(_pool), debtToCover);
         
         // Execute liquidation
-        collateralReceived = POOL.liquidationCall(
+        collateralReceived = _pool.liquidationCall(
             collateralAsset,
             debtAsset,
             user,
@@ -298,6 +337,20 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
     // ============ View Functions ============
     
     /**
+     * @notice Get pool address
+     */
+    function getPool() external view returns (address) {
+        return address(_pool);
+    }
+    
+    /**
+     * @notice Get ACL manager address
+     */
+    function getACLManager() external view returns (address) {
+        return address(_aclManager);
+    }
+    
+    /**
      * @notice Get expected swap output for V2 router
      */
     function getExpectedSwapOutput(
@@ -325,5 +378,28 @@ contract DEXLiquidationAdapter is ReentrancyGuard {
         if (slippage == 0) slippage = 100; // 1% default
         
         return expectedOutput * (10000 - slippage) / 10000;
+    }
+    
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
+    }
+    
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }

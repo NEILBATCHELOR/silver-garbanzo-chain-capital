@@ -3,14 +3,17 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
 import {WadRayMath} from "../libraries/math/WadRayMath.sol";
 
 /**
  * @title GracefulLiquidation
- * @notice Soft liquidation mechanism with grace periods and margin calls
+ * @notice Soft liquidation mechanism with grace periods and margin calls (Upgradeable)
  * @dev Provides time for borrowers to add collateral before forced liquidation
  * 
  * Key Features:
@@ -20,6 +23,7 @@ import {WadRayMath} from "../libraries/math/WadRayMath.sol";
  * - Partial liquidation to restore health
  * - Borrower-initiated top-up during grace period
  * - Insurance claim integration for quality degradation
+ * - UUPS upgradeable pattern for future improvements
  * 
  * Health Factor Tiers:
  * - HF >= 1.05: Healthy (no action)
@@ -27,7 +31,12 @@ import {WadRayMath} from "../libraries/math/WadRayMath.sol";
  * - 0.95 <= HF < 1.00: Margin call (grace period starts)
  * - HF < 0.95: Liquidation (immediate)
  */
-contract GracefulLiquidation is ReentrancyGuard {
+contract GracefulLiquidation is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
     using WadRayMath for uint256;
     
@@ -40,10 +49,11 @@ contract GracefulLiquidation is ReentrancyGuard {
     uint256 public constant MAX_GRACE_PERIOD = 7 days;
     uint256 public constant MIN_GRACE_PERIOD = 1 hours;
     
-    // ============ Immutable Variables ============
+    // ============ State Variables ============
+    // Note: No immutable variables in upgradeable contracts
     
-    ICommodityLendingPool public immutable POOL;
-    IACLManager public immutable ACL_MANAGER;
+    ICommodityLendingPool private _pool;
+    IACLManager private _aclManager;
     
     // ============ Structs ============
     
@@ -65,7 +75,7 @@ contract GracefulLiquidation is ReentrancyGuard {
         bool liquidated;               // Whether position was liquidated
     }
     
-    // ============ State Variables ============
+    // ============ State Variables (continued) ============
     
     // Commodity type => grace period configuration
     mapping(bytes32 => GracePeriodConfig) public gracePeriodConfigs;
@@ -77,7 +87,11 @@ contract GracefulLiquidation is ReentrancyGuard {
     mapping(address => uint256) public lastWarningTimestamp;
     
     // Minimum time between warnings (to avoid spam)
-    uint256 public warningCooldown = 1 hours;
+    uint256 public warningCooldown;
+    
+    // ============ Storage Gap ============
+    // Reserve 44 slots for future variables (50 total - 6 current)
+    uint256[44] private __gap;
     
     // ============ Events ============
     
@@ -120,6 +134,8 @@ contract GracefulLiquidation is ReentrancyGuard {
         uint256 claimAmount
     );
     
+    event Upgraded(address indexed newImplementation);
+    
     // ============ Errors ============
     
     error OnlyPoolAdmin();
@@ -129,11 +145,12 @@ contract GracefulLiquidation is ReentrancyGuard {
     error GracePeriodExpired();
     error HealthFactorTooLow();
     error InsufficientCollateral();
+    error ZeroAddress();
     
     // ============ Modifiers ============
     
     modifier onlyPoolAdmin() {
-        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) {
+        if (!_aclManager.isPoolAdmin(msg.sender)) {
             revert OnlyPoolAdmin();
         }
         _;
@@ -141,12 +158,36 @@ contract GracefulLiquidation is ReentrancyGuard {
     
     // ============ Constructor ============
     
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param pool The commodity lending pool address
+     * @param aclManager The ACL manager address
+     * @param owner The owner address
+     */
+    function initialize(
         address pool,
-        address aclManager
-    ) {
-        POOL = ICommodityLendingPool(pool);
-        ACL_MANAGER = IACLManager(aclManager);
+        address aclManager,
+        address owner
+    ) public initializer {
+        if (pool == address(0)) revert ZeroAddress();
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        
+        _pool = ICommodityLendingPool(pool);
+        _aclManager = IACLManager(aclManager);
+        
+        warningCooldown = 1 hours;
     }
     
     // ============ Configuration Functions ============
@@ -185,6 +226,14 @@ contract GracefulLiquidation is ReentrancyGuard {
             duration,
             maxPartialLiquidation
         );
+    }
+    
+    /**
+     * @notice Update warning cooldown period
+     * @param newCooldown New cooldown duration in seconds
+     */
+    function setWarningCooldown(uint256 newCooldown) external onlyPoolAdmin {
+        warningCooldown = newCooldown;
     }
     
     // ============ Margin Call Functions ============
@@ -258,13 +307,13 @@ contract GracefulLiquidation is ReentrancyGuard {
         // Transfer collateral from user
         IERC20(collateralAsset).safeTransferFrom(
             msg.sender,
-            address(POOL),
+            address(_pool),
             amount
         );
         
         // Supply collateral to pool on behalf of user
         // Note: Implement actual supply call
-        // POOL.supply(collateralAsset, amount, msg.sender, 0);
+        // _pool.supply(collateralAsset, amount, msg.sender, 0);
         
         // Check new health factor
         // Note: Implement actual health factor check
@@ -315,7 +364,7 @@ contract GracefulLiquidation is ReentrancyGuard {
         
         // Execute liquidation through pool
         // Note: Implement actual liquidation call
-        // (collateralLiquidated, debtCovered) = POOL.liquidationCall(
+        // (collateralLiquidated, debtCovered) = _pool.liquidationCall(
         //     collateralAsset,
         //     debtAsset,
         //     user,
@@ -399,6 +448,20 @@ contract GracefulLiquidation is ReentrancyGuard {
     // ============ View Functions ============
     
     /**
+     * @notice Get pool address
+     */
+    function getPool() external view returns (address) {
+        return address(_pool);
+    }
+    
+    /**
+     * @notice Get ACL manager address
+     */
+    function getACLManager() external view returns (address) {
+        return address(_aclManager);
+    }
+    
+    /**
      * @notice Check if user has active margin call
      * @param user The borrower address
      * @return Whether margin call is active
@@ -437,5 +500,28 @@ contract GracefulLiquidation is ReentrancyGuard {
         bytes32 commodityType
     ) external view returns (GracePeriodConfig memory) {
         return gracePeriodConfigs[commodityType];
+    }
+    
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
+    }
+    
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }

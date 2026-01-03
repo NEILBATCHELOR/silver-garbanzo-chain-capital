@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {IPoolAddressesProvider} from "../interfaces/IPoolAddressesProvider.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
@@ -12,14 +15,36 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * @title PoolConfigurator
  * @notice Configuration manager for the lending pool
  * @dev Manages reserve parameters, risk settings, and asset listings
+ * 
+ * UPGRADEABILITY:
+ * - Pattern: UUPS (Universal Upgradeable Proxy Standard)
+ * - Upgrade Control: Only UPGRADER_ROLE can upgrade
+ * - Storage: Uses storage gaps for future variables
+ * - Initialization: Uses initialize() instead of constructor
  */
-contract PoolConfigurator {
+contract PoolConfigurator is
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable
+{
     using ReserveConfiguration for DataTypes.CommodityConfigurationMap;
     using PercentageMath for uint256;
 
-    IPoolAddressesProvider public immutable ADDRESSES_PROVIDER;
+    // ============ Roles ============
+    
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
 
-    // Events
+    // ============ State Variables ============
+    
+    // Changed from immutable to storage variable for upgradeability
+    IPoolAddressesProvider private _addressesProvider;
+    
+    // ============ Storage Gap ============
+    // Reserve 49 slots for future variables (50 total - 1 current)
+    uint256[49] private __gap;
+
+    // ============ Events ============
+    
     event ReserveInitialized(
         address indexed asset,
         address indexed cToken,
@@ -62,13 +87,48 @@ contract PoolConfigurator {
         uint256 oldFlashloanPremiumToProtocol,
         uint256 newFlashloanPremiumToProtocol
     );
-
+    event Upgraded(address indexed newImplementation);
+    
+    // ============ Errors ============
+    
+    error ZeroAddress();
+    
+    // ============ Constructor ============
+    
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
     /**
-     * @dev Constructor
+     * @notice Initialize the contract (replaces constructor)
      * @param provider The address of the PoolAddressesProvider
+     * @param admin The default admin address
      */
-    constructor(IPoolAddressesProvider provider) {
-        ADDRESSES_PROVIDER = provider;
+    function initialize(
+        IPoolAddressesProvider provider,
+        address admin
+    ) public initializer {
+        if (address(provider) == address(0)) revert ZeroAddress();
+        if (admin == address(0)) revert ZeroAddress();
+        
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        
+        _addressesProvider = provider;
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        _grantRole(UPGRADER_ROLE, admin);
+    }
+    
+    // ============ Getters ============
+    
+    /**
+     * @notice Returns the addresses provider
+     */
+    function ADDRESSES_PROVIDER() external view returns (IPoolAddressesProvider) {
+        return _addressesProvider;
     }
 
     // ============ Modifiers ============
@@ -122,7 +182,7 @@ contract PoolConfigurator {
     }
 
     function _hasRole(bytes32 role) internal view returns (bool) {
-        address aclManager = ADDRESSES_PROVIDER.getACLManager();
+        address aclManager = _addressesProvider.getACLManager();
         return IACLManager(aclManager).hasRole(role, msg.sender);
     }
 
@@ -134,7 +194,7 @@ contract PoolConfigurator {
      * @param enabled True to enable borrowing, false otherwise
      */
     function setReserveBorrowing(address asset, bool enabled) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         currentConfig.setBorrowingEnabled(enabled);
@@ -160,7 +220,7 @@ contract PoolConfigurator {
         uint256 liquidationThreshold,
         uint256 liquidationBonus
     ) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         require(ltv <= liquidationThreshold, "PoolConfigurator: Invalid risk parameters");
@@ -179,7 +239,7 @@ contract PoolConfigurator {
      * @param asset The address of the underlying asset
      */
     function setReserveActive(address asset, bool active) external onlyPoolAdmin {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         currentConfig.setActive(active);
@@ -198,7 +258,7 @@ contract PoolConfigurator {
      * @param freeze True to freeze, false to unfreeze
      */
     function setReserveFreeze(address asset, bool freeze) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         currentConfig.setFrozen(freeze);
@@ -217,7 +277,7 @@ contract PoolConfigurator {
      * @param paused True to pause, false to unpause
      */
     function setReservePause(address asset, bool paused) external onlyEmergencyAdmin {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         currentConfig.setPaused(paused);
@@ -238,7 +298,7 @@ contract PoolConfigurator {
     function setReserveFactor(address asset, uint256 newReserveFactor) external onlyRiskOrPoolAdmins {
         require(newReserveFactor <= PercentageMath.PERCENTAGE_FACTOR, "PoolConfigurator: Invalid reserve factor");
 
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         uint256 oldReserveFactor = currentConfig.getReserveFactor();
@@ -254,7 +314,7 @@ contract PoolConfigurator {
      * @param newBorrowCap The new borrow cap
      */
     function setBorrowCap(address asset, uint256 newBorrowCap) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         uint256 oldBorrowCap = currentConfig.getBorrowCap();
@@ -270,7 +330,7 @@ contract PoolConfigurator {
      * @param newSupplyCap The new supply cap
      */
     function setSupplyCap(address asset, uint256 newSupplyCap) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         uint256 oldSupplyCap = currentConfig.getSupplyCap();
@@ -286,7 +346,7 @@ contract PoolConfigurator {
      * @param newDebtCeiling The new debt ceiling
      */
     function setDebtCeiling(address asset, uint256 newDebtCeiling) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         uint256 oldDebtCeiling = currentConfig.getDebtCeiling();
@@ -302,7 +362,7 @@ contract PoolConfigurator {
      * @param newSiloed True to enable siloed borrowing, false otherwise
      */
     function setSiloedBorrowing(address asset, bool newSiloed) external onlyRiskOrPoolAdmins {
-        ICommodityLendingPool pool = ICommodityLendingPool(ADDRESSES_PROVIDER.getPool());
+        ICommodityLendingPool pool = ICommodityLendingPool(_addressesProvider.getPool());
         DataTypes.CommodityConfigurationMap memory currentConfig = pool.getConfiguration(asset);
 
         bool oldSiloed = currentConfig.getSiloedBorrowing();
@@ -310,5 +370,20 @@ contract PoolConfigurator {
         pool.setConfiguration(asset, currentConfig);
 
         emit SiloedBorrowingChanged(asset, oldSiloed, newSiloed);
+    }
+    
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only UPGRADER_ROLE can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyRole(UPGRADER_ROLE)
+    {
+        emit Upgraded(newImplementation);
     }
 }

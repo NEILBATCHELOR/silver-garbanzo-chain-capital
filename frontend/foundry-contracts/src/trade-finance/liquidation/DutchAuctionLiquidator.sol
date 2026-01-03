@@ -3,7 +3,10 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ICommodityLendingPool} from "../interfaces/ICommodityLendingPool.sol";
 import {IACLManager} from "../interfaces/IACLManager.sol";
 import {IPriceOracleGetter} from "../interfaces/IPriceOracleGetter.sol";
@@ -12,7 +15,7 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
 
 /**
  * @title DutchAuctionLiquidator
- * @notice MEV-resistant liquidation via Dutch auction mechanism
+ * @notice MEV-resistant liquidation via Dutch auction mechanism (Upgradeable)
  * @dev Implements gradual price discovery to prevent MEV extraction
  * 
  * Key Features:
@@ -21,6 +24,7 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * - Minimum liquidation threshold
  * - Commodity-specific auction parameters
  * - Physical delivery option for physical commodities
+ * - UUPS upgradeable pattern for future improvements
  * 
  * Architecture:
  * - Integrates with CommodityLendingPool for liquidations
@@ -28,7 +32,12 @@ import {PercentageMath} from "../libraries/math/PercentageMath.sol";
  * - Linear or exponential price decay curves
  * - Configurable auction duration per commodity type
  */
-contract DutchAuctionLiquidator is ReentrancyGuard {
+contract DutchAuctionLiquidator is 
+    Initializable,
+    OwnableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardUpgradeable
+{
     using SafeERC20 for IERC20;
     using WadRayMath for uint256;
     using PercentageMath for uint256;
@@ -40,11 +49,12 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
     uint256 public constant MAX_DISCOUNT_BPS = 2000; // 20%
     uint256 public constant PRECISION = 1e18;
     
-    // ============ Immutable Variables ============
+    // ============ State Variables ============
+    // Note: No immutable variables in upgradeable contracts
     
-    ICommodityLendingPool public immutable POOL;
-    IACLManager public immutable ACL_MANAGER;
-    IPriceOracleGetter public immutable PRICE_ORACLE;
+    ICommodityLendingPool private _pool;
+    IACLManager private _aclManager;
+    IPriceOracleGetter private _priceOracle;
     
     // ============ Structs ============
     
@@ -72,7 +82,7 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
         bool physicalDeliveryRequested; // Physical delivery flag
     }
     
-    // ============ State Variables ============
+    // ============ State Variables (continued) ============
     
     // Commodity type => auction configuration
     mapping(bytes32 => AuctionConfig) public auctionConfigs;
@@ -84,7 +94,11 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
     uint256 public nextAuctionId;
     
     // Minimum health factor to trigger auction (below 1e18)
-    uint256 public minHealthFactorForAuction = 0.95e18;
+    uint256 public minHealthFactorForAuction;
+    
+    // ============ Storage Gap ============
+    // Reserve 43 slots for future variables (50 total - 7 current)
+    uint256[43] private __gap;
     
     // ============ Events ============
     
@@ -117,6 +131,8 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
         address indexed user
     );
     
+    event Upgraded(address indexed newImplementation);
+    
     // ============ Errors ============
     
     error InvalidDuration();
@@ -126,11 +142,12 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
     error InsufficientPayment();
     error HealthFactorTooHigh();
     error OnlyPoolAdmin();
+    error ZeroAddress();
     
     // ============ Modifiers ============
     
     modifier onlyPoolAdmin() {
-        if (!ACL_MANAGER.isPoolAdmin(msg.sender)) {
+        if (!_aclManager.isPoolAdmin(msg.sender)) {
             revert OnlyPoolAdmin();
         }
         _;
@@ -138,14 +155,42 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
     
     // ============ Constructor ============
     
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ Initializer ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param pool The commodity lending pool address
+     * @param aclManager The ACL manager address
+     * @param priceOracle The price oracle address
+     * @param owner The owner address
+     */
+    function initialize(
         address pool,
         address aclManager,
-        address priceOracle
-    ) {
-        POOL = ICommodityLendingPool(pool);
-        ACL_MANAGER = IACLManager(aclManager);
-        PRICE_ORACLE = IPriceOracleGetter(priceOracle);
+        address priceOracle,
+        address owner
+    ) public initializer {
+        if (pool == address(0)) revert ZeroAddress();
+        if (aclManager == address(0)) revert ZeroAddress();
+        if (priceOracle == address(0)) revert ZeroAddress();
+        if (owner == address(0)) revert ZeroAddress();
+        
+        __Ownable_init(owner);
+        __UUPSUpgradeable_init();
+        __ReentrancyGuard_init();
+        
+        _pool = ICommodityLendingPool(pool);
+        _aclManager = IACLManager(aclManager);
+        _priceOracle = IPriceOracleGetter(priceOracle);
+        
+        // Set default values
+        minHealthFactorForAuction = 0.95e18;
+        nextAuctionId = 0;
     }
     
     // ============ Configuration Functions ============
@@ -190,6 +235,14 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
         );
     }
     
+    /**
+     * @notice Update minimum health factor for auction
+     * @param newMinHealthFactor New minimum health factor
+     */
+    function setMinHealthFactorForAuction(uint256 newMinHealthFactor) external onlyPoolAdmin {
+        minHealthFactorForAuction = newMinHealthFactor;
+    }
+    
     // ============ Liquidation Functions ============
     
     /**
@@ -208,7 +261,7 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
     ) external nonReentrant returns (uint256) {
         // Verify user is liquidatable
         // Note: Implement actual health factor check against POOL
-        // uint256 healthFactor = POOL.getUserHealthFactor(user);
+        // uint256 healthFactor = _pool.getUserHealthFactor(user);
         // if (healthFactor >= minHealthFactorForAuction) {
         //     revert HealthFactorTooHigh();
         // }
@@ -223,7 +276,7 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
         uint256 debtAmount = 800e18; // Placeholder
         
         // Get oracle price
-        uint256 startPrice = PRICE_ORACLE.getAssetPrice(collateralAsset);
+        uint256 startPrice = _priceOracle.getAssetPrice(collateralAsset);
         
         uint256 auctionId = nextAuctionId++;
         
@@ -349,6 +402,27 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
     // ============ View Functions ============
     
     /**
+     * @notice Get pool address
+     */
+    function getPool() external view returns (address) {
+        return address(_pool);
+    }
+    
+    /**
+     * @notice Get ACL manager address
+     */
+    function getACLManager() external view returns (address) {
+        return address(_aclManager);
+    }
+    
+    /**
+     * @notice Get price oracle address
+     */
+    function getPriceOracle() external view returns (address) {
+        return address(_priceOracle);
+    }
+    
+    /**
      * @notice Get current auction price
      * @param auctionId The auction ID
      * @return Current discounted price
@@ -364,6 +438,14 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
      */
     function getAuction(uint256 auctionId) external view returns (Auction memory) {
         return auctions[auctionId];
+    }
+    
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
     }
     
     // ============ Internal Functions ============
@@ -398,5 +480,20 @@ contract DutchAuctionLiquidator is ReentrancyGuard {
         
         // Apply discount to oracle price
         return auction.startPrice.percentMul(10000 - discountBps);
+    }
+    
+    // ============ Upgrade Authorization ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only owner can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyOwner
+    {
+        emit Upgraded(newImplementation);
     }
 }

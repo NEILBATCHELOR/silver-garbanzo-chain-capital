@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "../libraries/math/WadRayMath.sol";
 import "../libraries/math/PercentageMath.sol";
 
@@ -8,6 +11,7 @@ import "../libraries/math/PercentageMath.sol";
  * @title HaircutEngine
  * @notice Statistical haircut calculation engine for commodity collateral
  * @dev Uses historical price volatility, drawdown, and correlation analysis
+ * @dev Upgradeable via UUPS pattern - admin controls upgrades
  * 
  * Key Features:
  * - Flexible historical data loading (any time interval)
@@ -19,9 +23,19 @@ import "../libraries/math/PercentageMath.sol";
  * - Off-chain: Heavy statistical calculations (TypeScript)
  * - On-chain: Storage, validation, application of haircuts
  */
-contract HaircutEngine {
+contract HaircutEngine is 
+    Initializable,
+    AccessControlUpgradeable,
+    UUPSUpgradeable
+{
     using WadRayMath for uint256;
     using PercentageMath for uint256;
+    
+    // ============ ROLES ============
+    
+    bytes32 public constant RISK_ADMIN_ROLE = keccak256("RISK_ADMIN_ROLE");
+    bytes32 public constant GOVERNANCE_ROLE = keccak256("GOVERNANCE_ROLE");
+    bytes32 public constant UPGRADER_ROLE = keccak256("UPGRADER_ROLE");
     
     // ============ TYPES ============
     
@@ -109,14 +123,14 @@ contract HaircutEngine {
     // Historical price data (commodity => price history)
     mapping(CommodityType => PricePoint[]) public priceHistory;
     
-    // Access control
-    address public riskAdmin;
-    address public governance;
-    
-    // Configuration
+    // Configuration constants
     uint256 public constant BASIS_POINTS = 10000;
     uint256 public constant VOLATILITY_MULTIPLIER = 5000; // 0.5x volatility = haircut
     uint256 public constant DRAWDOWN_MULTIPLIER = 3000;   // 0.3x max drawdown = haircut
+    
+    // ============ STORAGE GAP ============
+    // Reserve 40 slots for future variables (50 total - 10 current mappings/state)
+    uint256[40] private __gap;
     
     // ============ EVENTS ============
     
@@ -149,23 +163,46 @@ contract HaircutEngine {
         uint256 adjustedValue
     );
     
-    // ============ MODIFIERS ============
+    event Upgraded(address indexed newImplementation);
     
-    modifier onlyRiskAdmin() {
-        require(msg.sender == riskAdmin, "Only risk admin");
-        _;
-    }
+    // ============ ERRORS ============
     
-    modifier onlyGovernance() {
-        require(msg.sender == governance, "Only governance");
-        _;
-    }
+    error NoPriceData();
+    error PricesNotChronological();
+    error NoDataPoints();
+    error InvalidVolatility();
+    error InvalidDrawdown();
+    error InvalidMinMax();
+    error MaxHaircutTooHigh();
     
     // ============ CONSTRUCTOR ============
     
-    constructor(address _riskAdmin, address _governance) {
-        riskAdmin = _riskAdmin;
-        governance = _governance;
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+    
+    // ============ INITIALIZER ============
+    
+    /**
+     * @notice Initialize the contract (replaces constructor)
+     * @param _riskAdmin Address to grant RISK_ADMIN_ROLE
+     * @param _governance Address to grant GOVERNANCE_ROLE and UPGRADER_ROLE
+     */
+    function initialize(
+        address _riskAdmin,
+        address _governance
+    ) public initializer {
+        require(_riskAdmin != address(0), "Zero address: risk admin");
+        require(_governance != address(0), "Zero address: governance");
+        
+        __AccessControl_init();
+        __UUPSUpgradeable_init();
+        
+        _grantRole(DEFAULT_ADMIN_ROLE, _governance);
+        _grantRole(RISK_ADMIN_ROLE, _riskAdmin);
+        _grantRole(GOVERNANCE_ROLE, _governance);
+        _grantRole(UPGRADER_ROLE, _governance);
         
         _initializeDefaultConfigs();
     }
@@ -181,15 +218,14 @@ contract HaircutEngine {
     function loadPriceData(
         CommodityType commodityType,
         PricePoint[] calldata prices
-    ) external onlyRiskAdmin {
-        require(prices.length > 0, "No price data");
+    ) external onlyRole(RISK_ADMIN_ROLE) {
+        if (prices.length == 0) revert NoPriceData();
         
         // Validate timestamps are in order
         for (uint256 i = 1; i < prices.length; i++) {
-            require(
-                prices[i].timestamp > prices[i-1].timestamp,
-                "Prices must be chronological"
-            );
+            if (prices[i].timestamp <= prices[i-1].timestamp) {
+                revert PricesNotChronological();
+            }
         }
         
         // Clear existing data
@@ -217,10 +253,10 @@ contract HaircutEngine {
     function updateRiskMetrics(
         CommodityType commodityType,
         RiskMetrics calldata metrics
-    ) external onlyRiskAdmin {
-        require(metrics.dataPoints > 0, "No data points");
-        require(metrics.volatility > 0, "Invalid volatility");
-        require(metrics.maxDrawdown > 0, "Invalid drawdown");
+    ) external onlyRole(RISK_ADMIN_ROLE) {
+        if (metrics.dataPoints == 0) revert NoDataPoints();
+        if (metrics.volatility == 0) revert InvalidVolatility();
+        if (metrics.maxDrawdown == 0) revert InvalidDrawdown();
         
         riskMetrics[commodityType] = metrics;
         
@@ -343,10 +379,10 @@ contract HaircutEngine {
         uint256 baseHaircut,
         uint256 minHaircut,
         uint256 maxHaircut
-    ) external onlyGovernance {
-        require(minHaircut <= baseHaircut, "Min > base");
-        require(baseHaircut <= maxHaircut, "Base > max");
-        require(maxHaircut <= 5000, "Max haircut > 50%");
+    ) external onlyRole(GOVERNANCE_ROLE) {
+        if (minHaircut > baseHaircut) revert InvalidMinMax();
+        if (baseHaircut > maxHaircut) revert InvalidMinMax();
+        if (maxHaircut > 5000) revert MaxHaircutTooHigh();
         
         HaircutConfig storage config = haircutConfigs[commodityType];
         config.baseHaircut = baseHaircut;
@@ -373,7 +409,7 @@ contract HaircutEngine {
         CommodityType commodityType,
         string memory quality,
         uint256 discount
-    ) external onlyRiskAdmin {
+    ) external onlyRole(RISK_ADMIN_ROLE) {
         bytes32 qualityHash = keccak256(abi.encodePacked(quality));
         haircutConfigs[commodityType].qualityDiscounts[qualityHash] = discount;
     }
@@ -388,8 +424,8 @@ contract HaircutEngine {
         CommodityType commodityType,
         uint256 ratePerDay,
         uint256 maxDiscount
-    ) external onlyRiskAdmin {
-        require(maxDiscount <= 5000, "Max discount > 50%");
+    ) external onlyRole(RISK_ADMIN_ROLE) {
+        if (maxDiscount > 5000) revert MaxHaircutTooHigh();
         HaircutConfig storage config = haircutConfigs[commodityType];
         config.ageDepreciationRate = ratePerDay;
         config.maxAgeDiscount = maxDiscount;
@@ -561,5 +597,28 @@ contract HaircutEngine {
         config.maxHaircut = max;
         config.lastUpdated = block.timestamp;
         config.updatedBy = address(this);
+    }
+    
+    // ============ UPGRADE AUTHORIZATION ============
+    
+    /**
+     * @notice Authorize contract upgrades
+     * @dev Only addresses with UPGRADER_ROLE can upgrade
+     * @param newImplementation New implementation address
+     */
+    function _authorizeUpgrade(address newImplementation)
+        internal
+        override
+        onlyRole(UPGRADER_ROLE)
+    {
+        emit Upgraded(newImplementation);
+    }
+    
+    /**
+     * @notice Get contract version
+     * @return version string
+     */
+    function version() external pure returns (string memory) {
+        return "v1.0.0";
     }
 }
