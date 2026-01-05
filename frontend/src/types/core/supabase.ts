@@ -6491,6 +6491,104 @@ export type Database = {
           deprecated_at: string | null
           environment: string
           id: string
+          implementation_address: string | null
+          initial_owner: string | null
+          is_active: boolean | null
+          is_template: boolean | null
+          network: string
+          proxy_address: string | null
+          updated_at: string | null
+          upgrade_history: Json | null
+          verification_error: string | null
+          verification_status: string | null
+          verification_url: string | null
+          verified_at: string | null
+          version: string
+        }
+        Insert: {
+          abi?: Json | null
+          abi_hash?: string | null
+          abi_version?: string
+          contract_address: string
+          contract_details?: Json | null
+          contract_type: string
+          created_at?: string | null
+          deployed_at?: string | null
+          deployed_by?: string | null
+          deployment_data?: Json | null
+          deployment_tx_hash?: string | null
+          deprecated_at?: string | null
+          environment: string
+          id?: string
+          implementation_address?: string | null
+          initial_owner?: string | null
+          is_active?: boolean | null
+          is_template?: boolean | null
+          network: string
+          proxy_address?: string | null
+          updated_at?: string | null
+          upgrade_history?: Json | null
+          verification_error?: string | null
+          verification_status?: string | null
+          verification_url?: string | null
+          verified_at?: string | null
+          version?: string
+        }
+        Update: {
+          abi?: Json | null
+          abi_hash?: string | null
+          abi_version?: string
+          contract_address?: string
+          contract_details?: Json | null
+          contract_type?: string
+          created_at?: string | null
+          deployed_at?: string | null
+          deployed_by?: string | null
+          deployment_data?: Json | null
+          deployment_tx_hash?: string | null
+          deprecated_at?: string | null
+          environment?: string
+          id?: string
+          implementation_address?: string | null
+          initial_owner?: string | null
+          is_active?: boolean | null
+          is_template?: boolean | null
+          network?: string
+          proxy_address?: string | null
+          updated_at?: string | null
+          upgrade_history?: Json | null
+          verification_error?: string | null
+          verification_status?: string | null
+          verification_url?: string | null
+          verified_at?: string | null
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_masters_deployed_by_fkey"
+            columns: ["deployed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_masters_backup: {
+        Row: {
+          abi: Json | null
+          abi_hash: string | null
+          abi_version: string
+          contract_address: string
+          contract_details: Json | null
+          contract_type: string
+          created_at: string | null
+          deployed_at: string | null
+          deployed_by: string | null
+          deployment_data: Json | null
+          deployment_tx_hash: string | null
+          deprecated_at: string | null
+          environment: string
+          id: string
           initial_owner: string | null
           is_active: boolean | null
           is_template: boolean | null
@@ -6556,7 +6654,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "contract_masters_deployed_by_fkey"
+            foreignKeyName: "contract_masters_backup_deployed_by_fkey"
             columns: ["deployed_by"]
             isOneToOne: false
             referencedRelation: "users"

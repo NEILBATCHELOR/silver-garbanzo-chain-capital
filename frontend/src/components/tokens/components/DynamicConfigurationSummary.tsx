@@ -11,15 +11,25 @@ import { Separator } from '@/components/ui/separator';
 import { Info, CheckCircle, Shield, FileText, Clock, Zap, Users, Coins } from 'lucide-react';
 import type { ExtensionModuleConfigs } from './ExtensionModulesSection';
 import type { TokenConfig } from './TokenDeploymentFormProjectWalletIntegrated';
+import type { NetworkEnvironment } from '@/infrastructure/web3/ProviderManager';
+import type { GasConfiguration } from '@/hooks/useGasEstimation';
 
 interface DynamicConfigurationSummaryProps {
   tokenConfig: TokenConfig;
+  blockchain: string;
+  environment: NetworkEnvironment;
   moduleConfigs: ExtensionModuleConfigs;
+  gasConfig: GasConfiguration;
+  optimizationEnabled: boolean;
 }
 
 export const DynamicConfigurationSummary: React.FC<DynamicConfigurationSummaryProps> = ({
   tokenConfig,
+  blockchain,
+  environment,
   moduleConfigs,
+  gasConfig,
+  optimizationEnabled,
 }) => {
   // Count enabled modules
   const enabledModules = Object.entries(moduleConfigs)

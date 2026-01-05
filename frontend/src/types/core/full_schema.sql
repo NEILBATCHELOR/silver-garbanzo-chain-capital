@@ -9529,7 +9529,7 @@ CREATE TABLE public.bond_amortization_schedule (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT bond_amortization_schedule_beginning_balance_check CHECK ((beginning_balance > (0)::numeric)),
     CONSTRAINT bond_amortization_schedule_ending_balance_check CHECK ((ending_balance >= (0)::numeric)),
-    CONSTRAINT bond_amortization_schedule_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['scheduled'::character varying, 'paid'::character varying, 'prepaid'::character varying, 'missed'::character varying])::text[]))),
+    CONSTRAINT bond_amortization_schedule_payment_status_check CHECK (((payment_status)::text = ANY (ARRAY[('scheduled'::character varying)::text, ('paid'::character varying)::text, ('prepaid'::character varying)::text, ('missed'::character varying)::text]))),
     CONSTRAINT bond_amortization_schedule_principal_payment_check CHECK ((principal_payment > (0)::numeric)),
     CONSTRAINT bond_amortization_valid_balance CHECK ((ending_balance = (beginning_balance - principal_payment)))
 );
@@ -9555,8 +9555,8 @@ CREATE TABLE public.bond_call_put_schedules (
     CONSTRAINT bond_call_put_put_price_required CHECK (((((option_type)::text = 'put'::text) AND (put_price IS NOT NULL)) OR ((option_type)::text <> 'put'::text))),
     CONSTRAINT bond_call_put_schedules_call_price_check CHECK ((call_price > (0)::numeric)),
     CONSTRAINT bond_call_put_schedules_notice_days_check CHECK ((notice_days >= 0)),
-    CONSTRAINT bond_call_put_schedules_option_style_check CHECK (((option_style)::text = ANY ((ARRAY['american'::character varying, 'european'::character varying, 'bermudan'::character varying, 'make_whole'::character varying])::text[]))),
-    CONSTRAINT bond_call_put_schedules_option_type_check CHECK (((option_type)::text = ANY ((ARRAY['call'::character varying, 'put'::character varying])::text[]))),
+    CONSTRAINT bond_call_put_schedules_option_style_check CHECK (((option_style)::text = ANY (ARRAY[('american'::character varying)::text, ('european'::character varying)::text, ('bermudan'::character varying)::text, ('make_whole'::character varying)::text]))),
+    CONSTRAINT bond_call_put_schedules_option_type_check CHECK (((option_type)::text = ANY (ARRAY[('call'::character varying)::text, ('put'::character varying)::text]))),
     CONSTRAINT bond_call_put_schedules_put_price_check CHECK ((put_price > (0)::numeric))
 );
 
@@ -9580,7 +9580,7 @@ CREATE TABLE public.bond_coupon_payments (
     CONSTRAINT bond_coupon_paid_requires_actual_date CHECK (((((payment_status)::text = 'paid'::text) AND (actual_payment_date IS NOT NULL)) OR ((payment_status)::text <> 'paid'::text))),
     CONSTRAINT bond_coupon_payments_coupon_amount_check CHECK ((coupon_amount > (0)::numeric)),
     CONSTRAINT bond_coupon_payments_days_in_period_check CHECK (((days_in_period > 0) AND (days_in_period <= 366))),
-    CONSTRAINT bond_coupon_payments_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['scheduled'::character varying, 'paid'::character varying, 'missed'::character varying, 'deferred'::character varying])::text[]))),
+    CONSTRAINT bond_coupon_payments_payment_status_check CHECK (((payment_status)::text = ANY (ARRAY[('scheduled'::character varying)::text, ('paid'::character varying)::text, ('missed'::character varying)::text, ('deferred'::character varying)::text]))),
     CONSTRAINT bond_coupon_reasonable_payment_date CHECK ((abs(EXTRACT(day FROM ((payment_date)::timestamp without time zone - (accrual_end_date)::timestamp without time zone))) <= (7)::numeric)),
     CONSTRAINT bond_coupon_valid_accrual_period CHECK ((accrual_start_date < accrual_end_date))
 );
@@ -9616,9 +9616,9 @@ CREATE TABLE public.bond_covenants (
     compliance_status character varying(20),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT bond_covenants_compliance_status_check CHECK (((compliance_status)::text = ANY ((ARRAY['compliant'::character varying, 'breach'::character varying, 'waived'::character varying, 'cured'::character varying])::text[]))),
-    CONSTRAINT bond_covenants_covenant_type_check CHECK (((covenant_type)::text = ANY ((ARRAY['financial_ratio'::character varying, 'negative_pledge'::character varying, 'cross_default'::character varying, 'change_of_control'::character varying, 'restricted_payments'::character varying])::text[]))),
-    CONSTRAINT bond_covenants_test_frequency_check CHECK (((test_frequency)::text = ANY ((ARRAY['quarterly'::character varying, 'annually'::character varying, 'event_driven'::character varying])::text[])))
+    CONSTRAINT bond_covenants_compliance_status_check CHECK (((compliance_status)::text = ANY (ARRAY[('compliant'::character varying)::text, ('breach'::character varying)::text, ('waived'::character varying)::text, ('cured'::character varying)::text]))),
+    CONSTRAINT bond_covenants_covenant_type_check CHECK (((covenant_type)::text = ANY (ARRAY[('financial_ratio'::character varying)::text, ('negative_pledge'::character varying)::text, ('cross_default'::character varying)::text, ('change_of_control'::character varying)::text, ('restricted_payments'::character varying)::text]))),
+    CONSTRAINT bond_covenants_test_frequency_check CHECK (((test_frequency)::text = ANY (ARRAY[('quarterly'::character varying)::text, ('annually'::character varying)::text, ('event_driven'::character varying)::text])))
 );
 
 
@@ -9636,9 +9636,9 @@ CREATE TABLE public.bond_credit_ratings (
     previous_rating character varying(10),
     rating_action character varying(20),
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT bond_credit_ratings_rating_action_check CHECK (((rating_action)::text = ANY ((ARRAY['upgrade'::character varying, 'downgrade'::character varying, 'affirmed'::character varying, 'withdrawn'::character varying])::text[]))),
-    CONSTRAINT bond_credit_ratings_rating_agency_check CHECK (((rating_agency)::text = ANY ((ARRAY['SP'::character varying, 'Moodys'::character varying, 'Fitch'::character varying, 'DBRS'::character varying])::text[]))),
-    CONSTRAINT bond_credit_ratings_rating_outlook_check CHECK (((rating_outlook)::text = ANY ((ARRAY['positive'::character varying, 'stable'::character varying, 'negative'::character varying, 'developing'::character varying])::text[])))
+    CONSTRAINT bond_credit_ratings_rating_action_check CHECK (((rating_action)::text = ANY (ARRAY[('upgrade'::character varying)::text, ('downgrade'::character varying)::text, ('affirmed'::character varying)::text, ('withdrawn'::character varying)::text]))),
+    CONSTRAINT bond_credit_ratings_rating_agency_check CHECK (((rating_agency)::text = ANY (ARRAY[('SP'::character varying)::text, ('Moodys'::character varying)::text, ('Fitch'::character varying)::text, ('DBRS'::character varying)::text]))),
+    CONSTRAINT bond_credit_ratings_rating_outlook_check CHECK (((rating_outlook)::text = ANY (ARRAY[('positive'::character varying)::text, ('stable'::character varying)::text, ('negative'::character varying)::text, ('developing'::character varying)::text])))
 );
 
 
@@ -9657,7 +9657,7 @@ CREATE TABLE public.bond_events (
     requires_revaluation boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT bond_events_announcement_before_event CHECK (((announcement_date IS NULL) OR (announcement_date <= event_date))),
-    CONSTRAINT bond_events_event_type_check CHECK (((event_type)::text = ANY ((ARRAY['tender_offer'::character varying, 'exchange_offer'::character varying, 'defeasance'::character varying, 'covenant_modification'::character varying, 'rating_change'::character varying, 'default'::character varying, 'restructuring'::character varying, 'merger'::character varying, 'spinoff'::character varying])::text[])))
+    CONSTRAINT bond_events_event_type_check CHECK (((event_type)::text = ANY (ARRAY[('tender_offer'::character varying)::text, ('exchange_offer'::character varying)::text, ('defeasance'::character varying)::text, ('covenant_modification'::character varying)::text, ('rating_change'::character varying)::text, ('default'::character varying)::text, ('restructuring'::character varying)::text, ('merger'::character varying)::text, ('spinoff'::character varying)::text])))
 );
 
 
@@ -9684,7 +9684,7 @@ CREATE TABLE public.bond_market_prices (
     CONSTRAINT bond_market_prices_check CHECK ((dirty_price >= clean_price)),
     CONSTRAINT bond_market_prices_check1 CHECK ((ask_price >= bid_price)),
     CONSTRAINT bond_market_prices_clean_price_check CHECK ((clean_price > (0)::numeric)),
-    CONSTRAINT bond_market_prices_data_source_check CHECK (((data_source)::text = ANY ((ARRAY['bloomberg'::character varying, 'reuters'::character varying, 'ice'::character varying, 'tradeweb'::character varying, 'markit'::character varying, 'internal_pricing'::character varying, 'vendor'::character varying])::text[]))),
+    CONSTRAINT bond_market_prices_data_source_check CHECK (((data_source)::text = ANY (ARRAY[('bloomberg'::character varying)::text, ('reuters'::character varying)::text, ('ice'::character varying)::text, ('tradeweb'::character varying)::text, ('markit'::character varying)::text, ('internal_pricing'::character varying)::text, ('vendor'::character varying)::text]))),
     CONSTRAINT bond_market_prices_ytm_check CHECK ((ytm > (0)::numeric))
 );
 
@@ -9774,7 +9774,7 @@ CREATE TABLE public.bond_sinking_fund (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT bond_sinking_fund_check CHECK ((actual_amount >= required_amount)),
-    CONSTRAINT bond_sinking_fund_payment_status_check CHECK (((payment_status)::text = ANY ((ARRAY['pending'::character varying, 'completed'::character varying, 'deferred'::character varying, 'waived'::character varying])::text[]))),
+    CONSTRAINT bond_sinking_fund_payment_status_check CHECK (((payment_status)::text = ANY (ARRAY[('pending'::character varying)::text, ('completed'::character varying)::text, ('deferred'::character varying)::text, ('waived'::character varying)::text]))),
     CONSTRAINT bond_sinking_fund_redemption_price_check CHECK ((redemption_price > (0)::numeric)),
     CONSTRAINT bond_sinking_fund_required_amount_check CHECK ((required_amount > (0)::numeric))
 );
@@ -9937,7 +9937,7 @@ CREATE TABLE public.carbon_market_prices (
     CONSTRAINT carbon_market_prices_current_price_check CHECK ((current_price >= (0)::numeric)),
     CONSTRAINT carbon_market_prices_future_price_check CHECK ((future_price >= (0)::numeric)),
     CONSTRAINT carbon_market_prices_liquidity_score_check CHECK (((liquidity_score >= (0)::numeric) AND (liquidity_score <= (1)::numeric))),
-    CONSTRAINT carbon_market_prices_market_type_check CHECK (((market_type)::text = ANY ((ARRAY['voluntary'::character varying, 'compliance'::character varying, 'hybrid'::character varying])::text[]))),
+    CONSTRAINT carbon_market_prices_market_type_check CHECK (((market_type)::text = ANY (ARRAY[('voluntary'::character varying)::text, ('compliance'::character varying)::text, ('hybrid'::character varying)::text]))),
     CONSTRAINT carbon_market_prices_voluntary_market_price_check CHECK ((voluntary_market_price >= (0)::numeric))
 );
 
@@ -10628,7 +10628,7 @@ CREATE TABLE public.climate_risk_calculations (
     CONSTRAINT climate_risk_calculations_composite_risk_score_check CHECK (((composite_risk_score >= (0)::numeric) AND (composite_risk_score <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_credit_risk_confidence_check CHECK (((credit_risk_confidence >= (0)::numeric) AND (credit_risk_confidence <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_credit_risk_score_check CHECK (((credit_risk_score >= (0)::numeric) AND (credit_risk_score <= (1)::numeric))),
-    CONSTRAINT climate_risk_calculations_data_completeness_check CHECK (((data_completeness)::text = ANY ((ARRAY['basic'::character varying, 'enhanced'::character varying, 'comprehensive'::character varying])::text[]))),
+    CONSTRAINT climate_risk_calculations_data_completeness_check CHECK (((data_completeness)::text = ANY (ARRAY[('basic'::character varying)::text, ('enhanced'::character varying)::text, ('comprehensive'::character varying)::text]))),
     CONSTRAINT climate_risk_calculations_policy_risk_confidence_check CHECK (((policy_risk_confidence >= (0)::numeric) AND (policy_risk_confidence <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_policy_risk_score_check CHECK (((policy_risk_score >= (0)::numeric) AND (policy_risk_score <= (1)::numeric))),
     CONSTRAINT climate_risk_calculations_production_risk_confidence_check CHECK (((production_risk_confidence >= (0)::numeric) AND (production_risk_confidence <= (1)::numeric))),
@@ -10716,7 +10716,7 @@ CREATE TABLE public.tokens (
     ratio numeric,
     parity numeric,
     product_type character varying(50),
-    CONSTRAINT tokens_product_type_check CHECK (((product_type)::text = ANY ((ARRAY['asset_backed'::character varying, 'bond'::character varying, 'collectible'::character varying, 'commodity'::character varying, 'digital_tokenized_fund'::character varying, 'energy'::character varying, 'equity'::character varying, 'fund'::character varying, 'mmf'::character varying, 'infrastructure'::character varying, 'private_debt'::character varying, 'private_equity'::character varying, 'quant_strategy'::character varying, 'real_estate'::character varying, 'stablecoin'::character varying, 'structured_product'::character varying])::text[])))
+    CONSTRAINT tokens_product_type_check CHECK (((product_type)::text = ANY (ARRAY[('asset_backed'::character varying)::text, ('bond'::character varying)::text, ('collectible'::character varying)::text, ('commodity'::character varying)::text, ('digital_tokenized_fund'::character varying)::text, ('energy'::character varying)::text, ('equity'::character varying)::text, ('fund'::character varying)::text, ('mmf'::character varying)::text, ('infrastructure'::character varying)::text, ('private_debt'::character varying)::text, ('private_equity'::character varying)::text, ('quant_strategy'::character varying)::text, ('real_estate'::character varying)::text, ('stablecoin'::character varying)::text, ('structured_product'::character varying)::text])))
 );
 
 
@@ -10786,7 +10786,7 @@ CREATE TABLE public.climate_user_data_cache (
     data_quality_score numeric(3,2) DEFAULT 0.5,
     created_at timestamp with time zone DEFAULT now(),
     CONSTRAINT climate_user_data_cache_data_quality_score_check CHECK (((data_quality_score >= (0)::numeric) AND (data_quality_score <= 1.0))),
-    CONSTRAINT climate_user_data_cache_data_type_check CHECK (((data_type)::text = ANY ((ARRAY['credit_score'::character varying, 'financial_metrics'::character varying, 'payment_history'::character varying])::text[])))
+    CONSTRAINT climate_user_data_cache_data_type_check CHECK (((data_type)::text = ANY (ARRAY[('credit_score'::character varying)::text, ('financial_metrics'::character varying)::text, ('payment_history'::character varying)::text])))
 );
 
 
@@ -10820,11 +10820,11 @@ CREATE TABLE public.climate_user_data_sources (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT climate_user_data_sources_data_format_check CHECK (((data_format)::text = ANY ((ARRAY['csv'::character varying, 'xlsx'::character varying, 'json'::character varying, 'xml'::character varying, 'pdf'::character varying])::text[]))),
+    CONSTRAINT climate_user_data_sources_data_format_check CHECK (((data_format)::text = ANY (ARRAY[('csv'::character varying)::text, ('xlsx'::character varying)::text, ('json'::character varying)::text, ('xml'::character varying)::text, ('pdf'::character varying)::text]))),
     CONSTRAINT climate_user_data_sources_file_size_check CHECK ((file_size > 0)),
-    CONSTRAINT climate_user_data_sources_processing_status_check CHECK (((processing_status)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'error'::character varying])::text[]))),
-    CONSTRAINT climate_user_data_sources_refresh_frequency_check CHECK (((refresh_frequency)::text = ANY ((ARRAY['manual'::character varying, 'daily'::character varying, 'weekly'::character varying, 'monthly'::character varying])::text[]))),
-    CONSTRAINT climate_user_data_sources_source_type_check CHECK (((source_type)::text = ANY ((ARRAY['credit_report'::character varying, 'financial_statement'::character varying, 'market_data'::character varying, 'custom'::character varying])::text[])))
+    CONSTRAINT climate_user_data_sources_processing_status_check CHECK (((processing_status)::text = ANY (ARRAY[('pending'::character varying)::text, ('processing'::character varying)::text, ('completed'::character varying)::text, ('error'::character varying)::text]))),
+    CONSTRAINT climate_user_data_sources_refresh_frequency_check CHECK (((refresh_frequency)::text = ANY (ARRAY[('manual'::character varying)::text, ('daily'::character varying)::text, ('weekly'::character varying)::text, ('monthly'::character varying)::text]))),
+    CONSTRAINT climate_user_data_sources_source_type_check CHECK (((source_type)::text = ANY (ARRAY[('credit_report'::character varying)::text, ('financial_statement'::character varying)::text, ('market_data'::character varying)::text, ('custom'::character varying)::text])))
 );
 
 
@@ -11805,6 +11805,9 @@ CREATE TABLE public.contract_masters (
     verified_at timestamp with time zone,
     verification_url text,
     verification_error text,
+    proxy_address text,
+    implementation_address text,
+    upgrade_history jsonb DEFAULT '[]'::jsonb,
     CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text, 'local'::text])))
 );
 
@@ -11813,7 +11816,12 @@ CREATE TABLE public.contract_masters (
 -- Name: TABLE contract_masters; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON TABLE public.contract_masters IS 'Master contract templates and deployed infrastructure contracts. Records must have deployment_tx_hash for Hoodi network (enforced by sync scripts).';
+COMMENT ON TABLE public.contract_masters IS 'Stores deployed contract information. For UUPS upgradeable contracts:
+- contract_address = proxy address (main interface)
+- deployment_data.proxy_address = same as contract_address
+- deployment_data.implementation_address = implementation contract
+- contract_details.upgrade_history = array of past upgrades
+- deployment_data.initialization_params = initialize() parameters';
 
 
 --
@@ -11849,6 +11857,81 @@ COMMENT ON COLUMN public.contract_masters.is_active IS 'Whether this is the curr
 --
 
 COMMENT ON COLUMN public.contract_masters.deployment_data IS 'JSONB field for additional metadata: source_file, implementation_address, features, category, etherscan_link, etc.';
+
+
+--
+-- Name: contract_masters_backup; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.contract_masters_backup (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    network text NOT NULL,
+    environment text NOT NULL,
+    contract_type text NOT NULL,
+    contract_address text NOT NULL,
+    version text DEFAULT '1.0.0'::text NOT NULL,
+    abi_version text DEFAULT '1.0.0'::text NOT NULL,
+    abi json,
+    abi_hash text,
+    deployed_at timestamp with time zone DEFAULT now(),
+    deployed_by uuid,
+    deployment_tx_hash text,
+    is_active boolean DEFAULT true,
+    deprecated_at timestamp with time zone,
+    deployment_data jsonb DEFAULT '{}'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    contract_details jsonb,
+    initial_owner text,
+    is_template boolean DEFAULT false,
+    verification_status text DEFAULT 'unverified'::text,
+    verified_at timestamp with time zone,
+    verification_url text,
+    verification_error text,
+    CONSTRAINT contract_masters_environment_check CHECK ((environment = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text, 'local'::text])))
+);
+
+
+--
+-- Name: TABLE contract_masters_backup; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.contract_masters_backup IS 'This is a backup of contract_masters';
+
+
+--
+-- Name: COLUMN contract_masters_backup.network; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters_backup.network IS 'Blockchain network identifier - no enum constraint to allow new networks. Examples: ethereum, polygon, arbitrum, hoodi, base, optimism, avalanche, bsc, etc.';
+
+
+--
+-- Name: COLUMN contract_masters_backup.contract_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters_backup.contract_type IS 'Contract type identifier - no enum constraint to allow flexibility for new contract types. Examples: erc20_master, erc721_beacon, compliance_module, policy_engine, multi_sig_wallet, etc.';
+
+
+--
+-- Name: COLUMN contract_masters_backup.abi_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters_backup.abi_hash IS 'SHA-256 hash of ABI for verification and change detection';
+
+
+--
+-- Name: COLUMN contract_masters_backup.is_active; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters_backup.is_active IS 'Whether this is the currently active version (for upgrades)';
+
+
+--
+-- Name: COLUMN contract_masters_backup.deployment_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.contract_masters_backup.deployment_data IS 'JSONB field for additional metadata: source_file, implementation_address, features, category, etherscan_link, etc.';
 
 
 --
@@ -14349,7 +14432,7 @@ CREATE TABLE public.fund_products (
     registration_status character varying(50),
     CONSTRAINT chk_fund_expense_ratio CHECK (((expense_ratio IS NULL) OR ((expense_ratio >= (0)::numeric) AND (expense_ratio <= 0.50)))),
     CONSTRAINT chk_fund_nav_positive CHECK (((net_asset_value IS NULL) OR (net_asset_value > (0)::numeric))),
-    CONSTRAINT chk_fund_status_valid CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'liquidated'::character varying, 'suspended'::character varying, 'Open'::character varying])::text[]))),
+    CONSTRAINT chk_fund_status_valid CHECK (((status)::text = ANY (ARRAY[('active'::character varying)::text, ('inactive'::character varying)::text, ('liquidated'::character varying)::text, ('suspended'::character varying)::text, ('Open'::character varying)::text]))),
     CONSTRAINT chk_share_class_has_parent CHECK ((((share_class_name IS NULL) AND (parent_fund_id IS NULL)) OR ((share_class_name IS NOT NULL) AND (parent_fund_id IS NOT NULL))))
 );
 
@@ -16524,10 +16607,10 @@ CREATE TABLE public.mmf_fees_gates (
     updated_at timestamp with time zone DEFAULT now(),
     created_by uuid,
     CONSTRAINT mmf_fees_gates_fee_percentage_check CHECK (((fee_percentage >= (0)::numeric) AND (fee_percentage <= (2)::numeric))),
-    CONSTRAINT mmf_fees_gates_fee_type_check CHECK (((fee_type)::text = ANY ((ARRAY['none'::character varying, 'mandatory'::character varying, 'discretionary'::character varying])::text[]))),
+    CONSTRAINT mmf_fees_gates_fee_type_check CHECK (((fee_type)::text = ANY (ARRAY[('none'::character varying)::text, ('mandatory'::character varying)::text, ('discretionary'::character varying)::text]))),
     CONSTRAINT mmf_fees_gates_gate_duration_days_check CHECK ((gate_duration_days >= 0)),
-    CONSTRAINT mmf_fees_gates_gate_status_check CHECK (((gate_status)::text = ANY ((ARRAY['none'::character varying, 'imposed'::character varying, 'lifted'::character varying])::text[]))),
-    CONSTRAINT mmf_fees_gates_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'lifted'::character varying, 'expired'::character varying])::text[])))
+    CONSTRAINT mmf_fees_gates_gate_status_check CHECK (((gate_status)::text = ANY (ARRAY[('none'::character varying)::text, ('imposed'::character varying)::text, ('lifted'::character varying)::text]))),
+    CONSTRAINT mmf_fees_gates_status_check CHECK (((status)::text = ANY (ARRAY[('active'::character varying)::text, ('lifted'::character varying)::text, ('expired'::character varying)::text])))
 );
 
 
@@ -19422,7 +19505,7 @@ CREATE VIEW public.problematic_token_deployments AS
         END AS recommended_action
    FROM (public.tokens t
      LEFT JOIN public.token_deployments td ON ((td.token_id = t.id)))
-  WHERE (((t.deployment_status)::text = ANY ((ARRAY['FAILED_INITIALIZATION'::character varying, 'failed'::character varying])::text[])) OR (td.status = 'FAILED_INITIALIZATION'::text));
+  WHERE (((t.deployment_status)::text = ANY (ARRAY[('FAILED_INITIALIZATION'::character varying)::text, ('failed'::character varying)::text])) OR (td.status = 'FAILED_INITIALIZATION'::text));
 
 
 --
@@ -19609,9 +19692,9 @@ CREATE TABLE public.projects (
     currency text DEFAULT 'USD'::text,
     regulatory_exemptions jsonb[],
     authorized_shares bigint,
-    CONSTRAINT projects_investment_status_check CHECK (((investment_status)::text = ANY ((ARRAY['Open'::character varying, 'Closed'::character varying])::text[]))),
+    CONSTRAINT projects_investment_status_check CHECK (((investment_status)::text = ANY (ARRAY[('Open'::character varying)::text, ('Closed'::character varying)::text]))),
     CONSTRAINT projects_project_type_check CHECK ((project_type = ANY (ARRAY['structured_products'::text, 'equity'::text, 'commodities'::text, 'funds_etfs_etps'::text, 'bonds'::text, 'quantitative_investment_strategies'::text, 'private_equity'::text, 'private_debt'::text, 'real_estate'::text, 'energy'::text, 'infrastructure'::text, 'collectibles'::text, 'receivables'::text, 'solar_wind_climate'::text, 'digital_tokenised_fund'::text, 'fiat_backed_stablecoin'::text, 'crypto_backed_stablecoin'::text, 'commodity_backed_stablecoin'::text, 'algorithmic_stablecoin'::text, 'rebasing_stablecoin'::text]))),
-    CONSTRAINT projects_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'completed'::character varying, 'draft'::character varying])::text[])))
+    CONSTRAINT projects_status_check CHECK (((status)::text = ANY (ARRAY[('active'::character varying)::text, ('inactive'::character varying)::text, ('completed'::character varying)::text, ('draft'::character varying)::text])))
 );
 
 
@@ -21929,8 +22012,8 @@ CREATE TABLE public.ripple_dex_orders (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT ripple_dex_orders_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
-    CONSTRAINT ripple_dex_orders_status_check CHECK (((status)::text = ANY ((ARRAY['open'::character varying, 'filled'::character varying, 'partially_filled'::character varying, 'cancelled'::character varying, 'expired'::character varying])::text[])))
+    CONSTRAINT ripple_dex_orders_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text]))),
+    CONSTRAINT ripple_dex_orders_status_check CHECK (((status)::text = ANY (ARRAY[('open'::character varying)::text, ('filled'::character varying)::text, ('partially_filled'::character varying)::text, ('cancelled'::character varying)::text, ('expired'::character varying)::text])))
 );
 
 
@@ -21964,8 +22047,8 @@ CREATE TABLE public.ripple_escrows (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT ripple_escrows_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
-    CONSTRAINT ripple_escrows_status_check CHECK (((status)::text = ANY ((ARRAY['created'::character varying, 'held'::character varying, 'finished'::character varying, 'cancelled'::character varying])::text[])))
+    CONSTRAINT ripple_escrows_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text]))),
+    CONSTRAINT ripple_escrows_status_check CHECK (((status)::text = ANY (ARRAY[('created'::character varying)::text, ('held'::character varying)::text, ('finished'::character varying)::text, ('cancelled'::character varying)::text])))
 );
 
 
@@ -21992,7 +22075,7 @@ CREATE TABLE public.ripple_issuers (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT ripple_issuers_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_issuers_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text]))),
     CONSTRAINT ripple_issuers_trust_level_check CHECK (((trust_level >= 0) AND (trust_level <= 10)))
 );
 
@@ -22022,7 +22105,7 @@ CREATE TABLE public.ripple_multisig_accounts (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT ripple_multisig_accounts_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_multisig_accounts_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text]))),
     CONSTRAINT ripple_multisig_accounts_quorum_check CHECK ((quorum > 0))
 );
 
@@ -22055,8 +22138,8 @@ CREATE TABLE public.ripple_multisig_proposals (
     updated_at timestamp with time zone DEFAULT now(),
     executed_at timestamp with time zone,
     cancelled_at timestamp with time zone,
-    CONSTRAINT ripple_multisig_proposals_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
-    CONSTRAINT ripple_multisig_proposals_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'ready'::character varying, 'executed'::character varying, 'cancelled'::character varying, 'expired'::character varying])::text[])))
+    CONSTRAINT ripple_multisig_proposals_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text]))),
+    CONSTRAINT ripple_multisig_proposals_status_check CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('ready'::character varying)::text, ('executed'::character varying)::text, ('cancelled'::character varying)::text, ('expired'::character varying)::text])))
 );
 
 
@@ -22098,7 +22181,7 @@ CREATE TABLE public.ripple_payments (
     network_type character varying(20) DEFAULT 'mainnet'::character varying NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb,
     validated_at timestamp with time zone,
-    CONSTRAINT ripple_payments_network_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[]))),
+    CONSTRAINT ripple_payments_network_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text]))),
     CONSTRAINT ripple_payments_payment_type_check CHECK ((payment_type = ANY (ARRAY['standard'::text, 'cross_border'::text, 'domestic'::text]))),
     CONSTRAINT ripple_payments_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'validated'::text, 'failed'::text])))
 );
@@ -22128,7 +22211,7 @@ CREATE TABLE public.ripple_tokens (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT ripple_tokens_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[])))
+    CONSTRAINT ripple_tokens_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text])))
 );
 
 
@@ -22160,7 +22243,7 @@ CREATE TABLE public.ripple_trust_lines (
     metadata jsonb DEFAULT '{}'::jsonb,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    CONSTRAINT ripple_trust_lines_network_type_check CHECK (((network_type)::text = ANY ((ARRAY['mainnet'::character varying, 'testnet'::character varying, 'devnet'::character varying])::text[])))
+    CONSTRAINT ripple_trust_lines_network_type_check CHECK (((network_type)::text = ANY (ARRAY[('mainnet'::character varying)::text, ('testnet'::character varying)::text, ('devnet'::character varying)::text])))
 );
 
 
@@ -26371,7 +26454,7 @@ CREATE TABLE public.trade_finance_fee_collections (
     transaction_hash character varying(66),
     block_number bigint,
     collected_at timestamp without time zone DEFAULT now(),
-    CONSTRAINT trade_finance_fee_collections_fee_source_check CHECK (((fee_source)::text = ANY ((ARRAY['INTEREST_SPREAD'::character varying, 'FLASH_LOAN'::character varying, 'LIQUIDATION_BONUS'::character varying, 'ORACLE_SUBSCRIPTION'::character varying, 'POSITION_MANAGEMENT'::character varying, 'OTHER'::character varying])::text[])))
+    CONSTRAINT trade_finance_fee_collections_fee_source_check CHECK (((fee_source)::text = ANY (ARRAY[('INTEREST_SPREAD'::character varying)::text, ('FLASH_LOAN'::character varying)::text, ('LIQUIDATION_BONUS'::character varying)::text, ('ORACLE_SUBSCRIPTION'::character varying)::text, ('POSITION_MANAGEMENT'::character varying)::text, ('OTHER'::character varying)::text])))
 );
 
 
@@ -26425,7 +26508,7 @@ CREATE TABLE public.trade_finance_health_warnings (
     warning_type character varying(20) NOT NULL,
     issued_at timestamp without time zone DEFAULT now(),
     acknowledged boolean DEFAULT false,
-    CONSTRAINT trade_finance_health_warnings_warning_type_check CHECK (((warning_type)::text = ANY ((ARRAY['LOW'::character varying, 'CRITICAL'::character varying, 'MARGIN_CALL'::character varying])::text[])))
+    CONSTRAINT trade_finance_health_warnings_warning_type_check CHECK (((warning_type)::text = ANY (ARRAY[('LOW'::character varying)::text, ('CRITICAL'::character varying)::text, ('MARGIN_CALL'::character varying)::text])))
 );
 
 
@@ -26443,7 +26526,7 @@ CREATE TABLE public.trade_finance_insurance_claims (
     initiated_at timestamp without time zone DEFAULT now(),
     resolved_at timestamp without time zone,
     payout_amount numeric(78,0),
-    CONSTRAINT trade_finance_insurance_claims_status_check CHECK (((status)::text = ANY ((ARRAY['PENDING'::character varying, 'APPROVED'::character varying, 'REJECTED'::character varying, 'PAID'::character varying])::text[])))
+    CONSTRAINT trade_finance_insurance_claims_status_check CHECK (((status)::text = ANY (ARRAY[('PENDING'::character varying)::text, ('APPROVED'::character varying)::text, ('REJECTED'::character varying)::text, ('PAID'::character varying)::text])))
 );
 
 
@@ -26604,7 +26687,7 @@ CREATE TABLE public.trade_finance_reserve_transactions (
     transaction_hash character varying(66),
     block_number bigint,
     executed_at timestamp without time zone DEFAULT now(),
-    CONSTRAINT trade_finance_reserve_transactions_transaction_type_check CHECK (((transaction_type)::text = ANY ((ARRAY['DEPOSIT'::character varying, 'WITHDRAWAL'::character varying, 'ALLOCATION'::character varying, 'DEALLOCATION'::character varying])::text[])))
+    CONSTRAINT trade_finance_reserve_transactions_transaction_type_check CHECK (((transaction_type)::text = ANY (ARRAY[('DEPOSIT'::character varying)::text, ('WITHDRAWAL'::character varying)::text, ('ALLOCATION'::character varying)::text, ('DEALLOCATION'::character varying)::text])))
 );
 
 
@@ -26623,7 +26706,7 @@ CREATE TABLE public.trade_finance_revenue_recipients (
     created_at timestamp without time zone DEFAULT now(),
     updated_at timestamp without time zone DEFAULT now(),
     CONSTRAINT trade_finance_revenue_recipients_fee_share_bps_check CHECK (((fee_share_bps >= 0) AND (fee_share_bps <= 10000))),
-    CONSTRAINT trade_finance_revenue_recipients_recipient_type_check CHECK (((recipient_type)::text = ANY ((ARRAY['TREASURY'::character varying, 'TEAM'::character varying, 'INSURANCE_FUND'::character varying, 'DEVELOPMENT_FUND'::character varying, 'COMMUNITY'::character varying, 'OPERATIONS'::character varying])::text[])))
+    CONSTRAINT trade_finance_revenue_recipients_recipient_type_check CHECK (((recipient_type)::text = ANY (ARRAY[('TREASURY'::character varying)::text, ('TEAM'::character varying)::text, ('INSURANCE_FUND'::character varying)::text, ('DEVELOPMENT_FUND'::character varying)::text, ('COMMUNITY'::character varying)::text, ('OPERATIONS'::character varying)::text])))
 );
 
 
@@ -29109,6 +29192,22 @@ ALTER TABLE ONLY public.contract_master_versions
 
 ALTER TABLE ONLY public.contract_master_versions
     ADD CONSTRAINT contract_master_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: contract_masters_backup contract_masters_backup_network_environment_contract_addres_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_masters_backup
+    ADD CONSTRAINT contract_masters_backup_network_environment_contract_addres_key UNIQUE (network, environment, contract_address);
+
+
+--
+-- Name: contract_masters_backup contract_masters_backup_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_masters_backup
+    ADD CONSTRAINT contract_masters_backup_pkey PRIMARY KEY (id);
 
 
 --
@@ -34606,6 +34705,48 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: contract_masters_backup_contract_address_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contract_masters_backup_contract_address_idx ON public.contract_masters_backup USING btree (contract_address);
+
+
+--
+-- Name: contract_masters_backup_contract_type_is_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contract_masters_backup_contract_type_is_active_idx ON public.contract_masters_backup USING btree (contract_type, is_active);
+
+
+--
+-- Name: contract_masters_backup_is_active_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contract_masters_backup_is_active_idx ON public.contract_masters_backup USING btree (is_active) WHERE (is_active = true);
+
+
+--
+-- Name: contract_masters_backup_is_template_network_environment_is__idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contract_masters_backup_is_template_network_environment_is__idx ON public.contract_masters_backup USING btree (is_template, network, environment, is_active);
+
+
+--
+-- Name: contract_masters_backup_network_environment_contract_type_i_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contract_masters_backup_network_environment_contract_type_i_idx ON public.contract_masters_backup USING btree (network, environment, contract_type, is_active) WHERE (is_active = true);
+
+
+--
+-- Name: contract_masters_backup_network_environment_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX contract_masters_backup_network_environment_idx ON public.contract_masters_backup USING btree (network, environment);
+
+
+--
 -- Name: idx_abs_cash_flows_abs_product; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -36353,6 +36494,20 @@ CREATE INDEX idx_contract_masters_active ON public.contract_masters USING btree 
 --
 
 CREATE INDEX idx_contract_masters_address ON public.contract_masters USING btree (contract_address);
+
+
+--
+-- Name: idx_contract_masters_contract_details_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_contract_details_category ON public.contract_masters USING gin (contract_details);
+
+
+--
+-- Name: idx_contract_masters_deployment_data_proxy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_contract_masters_deployment_data_proxy ON public.contract_masters USING gin (deployment_data);
 
 
 --
@@ -47018,6 +47173,14 @@ ALTER TABLE ONLY public.compliance_violations
 
 
 --
+-- Name: contract_masters_backup contract_masters_backup_deployed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.contract_masters_backup
+    ADD CONSTRAINT contract_masters_backup_deployed_by_fkey FOREIGN KEY (deployed_by) REFERENCES public.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: contract_masters contract_masters_deployed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -53944,6 +54107,16 @@ GRANT ALL ON TABLE public.contract_masters TO anon;
 GRANT ALL ON TABLE public.contract_masters TO authenticated;
 GRANT ALL ON TABLE public.contract_masters TO service_role;
 GRANT ALL ON TABLE public.contract_masters TO prisma;
+
+
+--
+-- Name: TABLE contract_masters_backup; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.contract_masters_backup TO anon;
+GRANT ALL ON TABLE public.contract_masters_backup TO authenticated;
+GRANT ALL ON TABLE public.contract_masters_backup TO service_role;
+GRANT ALL ON TABLE public.contract_masters_backup TO prisma;
 
 
 --

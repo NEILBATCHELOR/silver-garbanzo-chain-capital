@@ -83,6 +83,30 @@ export interface TransactionBuilderConfig {
 // EVM TRANSACTION BUILDER (Real ethers.js implementation)
 // ============================================================================
 
+// Network-specific transaction confirmation timeouts (in milliseconds)
+const NETWORK_TIMEOUTS: Record<string, number> = {
+  // Mainnets: Fast block times
+  'ethereum': 180000,      // 3 minutes
+  'base': 120000,          // 2 minutes
+  'optimism': 120000,      // 2 minutes
+  'arbitrum': 120000,      // 2 minutes
+  'polygon': 180000,       // 3 minutes
+  'avalanche': 120000,     // 2 minutes
+  'bsc': 180000,           // 3 minutes
+  'bnb': 180000,           // 3 minutes (alias for BSC)
+  
+  // Testnets: Slower, congested
+  'hoodi': 600000,         // 10 minutes
+  'sepolia': 300000,       // 5 minutes
+  'base-sepolia': 300000,  // 5 minutes
+  'optimism-sepolia': 300000, // 5 minutes
+  'arbitrum-sepolia': 300000, // 5 minutes
+  'polygon-amoy': 300000,  // 5 minutes
+  'avalanche-fuji': 300000, // 5 minutes
+  'bsc-testnet': 300000,   // 5 minutes
+  'bnb-testnet': 300000    // 5 minutes
+};
+
 export class EVMTransactionBuilder {
   private provider: ethers.JsonRpcProvider | null = null;
   private readonly config: TransactionBuilderConfig;
@@ -322,12 +346,42 @@ export class EVMTransactionBuilder {
   }
 
   /**
+   * Get appropriate timeout for this network
+   */
+  private getNetworkTimeout(): number {
+    // Use config timeout if explicitly set
+    if (this.config.timeout) {
+      return this.config.timeout;
+    }
+
+    // Look up by chain name
+    const chainKey = this.config.chainName.toLowerCase();
+    if (NETWORK_TIMEOUTS[chainKey]) {
+      return NETWORK_TIMEOUTS[chainKey];
+    }
+
+    // Default based on network type
+    if (this.config.networkType === 'testnet' || this.config.networkType === 'devnet') {
+      return 300000; // 5 minutes for testnets
+    }
+    
+    return 180000; // 3 minutes for mainnets
+  }
+
+  /**
    * Wait for transaction confirmation
    */
-  async waitForConfirmation(txHash: string, confirmations = 1, timeout = 120000): Promise<ethers.TransactionReceipt | null> {
+  async waitForConfirmation(txHash: string, confirmations = 1, timeout?: number): Promise<ethers.TransactionReceipt | null> {
     if (!this.provider) {
       throw new Error('Provider not initialized');
     }
+
+    // Use provided timeout or get network-specific default
+    const actualTimeout = timeout || this.getNetworkTimeout();
+    const timeoutSeconds = Math.floor(actualTimeout / 1000);
+    
+    console.log(`⏳ Waiting for ${confirmations} confirmation(s) on ${this.config.chainName}...`);
+    console.log(`   Timeout: ${timeoutSeconds}s (${Math.floor(timeoutSeconds / 60)} minutes)`);
 
     try {
       const tx = await this.provider.getTransaction(txHash);
@@ -335,7 +389,7 @@ export class EVMTransactionBuilder {
         throw new Error(`Transaction ${txHash} not found`);
       }
 
-      return await tx.wait(confirmations, timeout);
+      return await tx.wait(confirmations, actualTimeout);
     } catch (error) {
       console.error(`Failed to wait for confirmation on ${this.config.chainName}:`, error);
       return null;

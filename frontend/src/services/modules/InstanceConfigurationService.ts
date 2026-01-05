@@ -775,6 +775,7 @@ export class InstanceConfigurationService {
           await this.configureDocumentModule(module, config, txHashes);
           break;
         case 'policyEngine':
+        case 'policy_engine':  // snake_case variation
           await this.configurePolicyEngineModule(module, config, txHashes);
           break;
         
@@ -782,8 +783,9 @@ export class InstanceConfigurationService {
         case 'compliance':
           await this.configureComplianceModule(module, config, txHashes);
           break;
-        case 'fees':
-          await this.configureFeesModule(module, config, txHashes);
+        case 'fee':
+        case 'fees': // Handle both singular and plural naming
+          await this.configureFeeModule(module, config, txHashes);
           break;
         case 'timelock':
           await this.configureTimelockModule(module, config, txHashes);
@@ -795,15 +797,18 @@ export class InstanceConfigurationService {
           await this.configureSnapshotModule(module, config, txHashes);
           break;
         case 'flashMint':
+        case 'flash_mint':  // snake_case variation
           await this.configureFlashMintModule(module, config, txHashes);
           break;
         case 'votes':
           await this.configureVotesModule(module, config, txHashes);
           break;
         case 'temporaryApproval':
+        case 'temporary_approval':  // snake_case variation
           await this.configureTemporaryApprovalModule(module, config, txHashes);
           break;
         case 'payableToken':
+        case 'payable':  // Alternate naming
           await this.configurePayableTokenModule(module, config, txHashes);
           break;
         
@@ -818,68 +823,95 @@ export class InstanceConfigurationService {
           await this.configureConsecutiveModule(module, config, txHashes);
           break;
         case 'fractionalization':
+        case 'fraction':  // Database uses "fraction_module"
           await this.configureFractionalizationModule(module, config, txHashes);
           break;
         case 'soulbound':
           await this.configureSoulboundModule(module, config, txHashes);
           break;
         case 'metadataEvents':
+        case 'metadata_events':  // snake_case variation
           await this.configureMetadataEventsModule(module, config, txHashes);
           break;
         
         // ============ ERC1155 MODULES ============
         case 'supplyCap':
+        case 'supply_cap':  // snake_case variation
           await this.configureSupplyCapModule(module, config, txHashes);
           break;
         case 'uriManagement':
+        case 'uri_management':  // snake_case variation
           await this.configureURIManagementModule(module, config, txHashes);
           break;
         case 'granularApproval':
+        case 'granular_approval':  // snake_case variation
           await this.configureGranularApprovalModule(module, config, txHashes);
           break;
         
         // ============ ERC3525 MODULES ============
         case 'slotManager':
+        case 'slot_manager':  // snake_case variation
+        case 'erc3525_slot_manager':  // Full database name
           await this.configureSlotManagerModule(module, config, txHashes);
           break;
         case 'slotApprovable':
+        case 'slot_approvable':  // snake_case variation
+        case 'erc3525_slot_approvable':  // Full database name
           await this.configureSlotApprovableModule(module, config, txHashes);
           break;
         case 'valueExchange':
+        case 'value_exchange':  // snake_case variation
+        case 'erc3525_value_exchange':  // Full database name
           await this.configureValueExchangeModule(module, config, txHashes);
           break;
         
         // ============ ERC4626 MODULES ============
         case 'asyncVault':
+        case 'async_vault':  // snake_case variation
+        case 'erc4626_async_vault':  // Full database name
           await this.configureAsyncVaultModule(module, config, txHashes);
           break;
         case 'feeStrategy':
+        case 'fee_strategy':  // snake_case variation
+        case 'erc4626_fee_strategy':  // Full database name
           await this.configureFeeStrategyModule(module, config, txHashes);
           break;
         case 'nativeVault':
+        case 'native_vault':  // snake_case variation
+        case 'erc4626_native_vault':  // Full database name
           await this.configureNativeVaultModule(module, config, txHashes);
           break;
         case 'router':
+        case 'erc4626_router':  // Full database name
           await this.configureRouterModule(module, config, txHashes);
           break;
         case 'withdrawalQueue':
+        case 'withdrawal_queue':  // snake_case variation
+        case 'erc4626_withdrawal_queue':  // Full database name
           await this.configureWithdrawalQueueModule(module, config, txHashes);
           break;
         case 'yieldStrategy':
+        case 'yield_strategy':  // snake_case variation
+        case 'erc4626_yield_strategy':  // Full database name
           await this.configureYieldStrategyModule(module, config, txHashes);
           break;
         case 'multiAssetVault':
+        case 'multi_asset_vault':  // snake_case variation
           await this.configureMultiAssetVaultModule(module, config, txHashes);
           break;
         
         // ============ ERC1400 MODULES ============
         case 'transferRestrictions':
+        case 'transfer_restrictions':  // snake_case variation
+        case 'erc1400_transfer_restrictions':  // Full database name
           await this.configureTransferRestrictionsModule(module, config, txHashes);
           break;
         case 'controller':
+        case 'erc1400_controller':  // Full database name
           await this.configureControllerModule(module, config, txHashes);
           break;
         case 'erc1400Document':
+        case 'erc1400_document':  // snake_case variation
           await this.configureERC1400DocumentModule(module, config, txHashes);
           break;
         
@@ -1047,8 +1079,8 @@ export class InstanceConfigurationService {
     }
   }
 
-  private static async configureFeesModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring fees module');
+  private static async configureFeeModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('Configuring fee module');
     if (config.transferFeeBps !== undefined) {
       const tx = await module.setTransferFee(config.transferFeeBps);
       txHashes.push((await tx.wait()).transactionHash);
@@ -1695,15 +1727,107 @@ export class InstanceConfigurationService {
   }
 
   private static async getModuleABI(moduleType: string): Promise<any> {
+    // Comprehensive mapping: Code module names (camelCase) → Database contract_type (snake_case)
+    // Covers all ERC standards: ERC20, ERC721, ERC1155, ERC3525, ERC4626, ERC1400
+    const moduleTypeMap: Record<string, string> = {
+      // ============ UNIVERSAL MODULES (All Standards) ============
+      'vesting': 'vesting_module',
+      'document': 'document_module',
+      'policyEngine': 'policy_engine_module',
+      'policy_engine': 'policy_engine_module',
+      'compliance': 'compliance_module',
+      
+      // ============ ERC20 MODULES ============
+      'fees': 'fee_module',                           // Plural variation
+      'fee': 'fee_module',
+      'timelock': 'timelock_module',
+      'permit': 'permit_module',
+      'snapshot': 'snapshot_module',
+      'flashMint': 'flash_mint_module',
+      'flash_mint': 'flash_mint_module',
+      'votes': 'votes_module',
+      'temporaryApproval': 'temporary_approval_module',
+      'temporary_approval': 'temporary_approval_module',
+      'payableToken': 'payable_module',               // Code uses "payableToken", DB uses "payable_module"
+      'payable': 'payable_module',
+      
+      // ============ ERC721 MODULES ============
+      'royalty': 'erc721_royalty_module',
+      'erc721_royalty': 'erc721_royalty_module',
+      'rental': 'rental_module',
+      'consecutive': 'consecutive_module',
+      'fractionalization': 'fraction_module',         // Code uses "fractionalization", DB uses "fraction_module"
+      'fraction': 'fraction_module',
+      'soulbound': 'soulbound_module',
+      'metadataEvents': 'metadata_events_module',
+      'metadata_events': 'metadata_events_module',
+      
+      // ============ ERC1155 MODULES ============
+      'supplyCap': 'supply_cap_module',
+      'supply_cap': 'supply_cap_module',
+      'uriManagement': 'uri_management_module',
+      'uri_management': 'uri_management_module',
+      'granularApproval': 'granular_approval_module',
+      'granular_approval': 'granular_approval_module',
+      'erc1155_royalty': 'erc1155_royalty_module',    // ERC1155 specific royalty
+      
+      // ============ ERC3525 MODULES (Semi-Fungible) ============
+      'slotManager': 'erc3525_slot_manager_module',
+      'slot_manager': 'erc3525_slot_manager_module',
+      'erc3525_slot_manager': 'erc3525_slot_manager_module',
+      'slotApprovable': 'erc3525_slot_approvable_module',
+      'slot_approvable': 'erc3525_slot_approvable_module',
+      'erc3525_slot_approvable': 'erc3525_slot_approvable_module',
+      'valueExchange': 'erc3525_value_exchange_module',
+      'value_exchange': 'erc3525_value_exchange_module',
+      'erc3525_value_exchange': 'erc3525_value_exchange_module',
+      
+      // ============ ERC4626 MODULES (Tokenized Vaults) ============
+      'asyncVault': 'erc4626_async_vault_module',
+      'async_vault': 'erc4626_async_vault_module',
+      'erc4626_async_vault': 'erc4626_async_vault_module',
+      'feeStrategy': 'erc4626_fee_strategy_module',
+      'fee_strategy': 'erc4626_fee_strategy_module',
+      'erc4626_fee_strategy': 'erc4626_fee_strategy_module',
+      'nativeVault': 'erc4626_native_vault_module',
+      'native_vault': 'erc4626_native_vault_module',
+      'erc4626_native_vault': 'erc4626_native_vault_module',
+      'router': 'erc4626_router_module',
+      'erc4626_router': 'erc4626_router_module',
+      'withdrawalQueue': 'erc4626_withdrawal_queue_module',
+      'withdrawal_queue': 'erc4626_withdrawal_queue_module',
+      'erc4626_withdrawal_queue': 'erc4626_withdrawal_queue_module',
+      'yieldStrategy': 'erc4626_yield_strategy_module',
+      'yield_strategy': 'erc4626_yield_strategy_module',
+      'erc4626_yield_strategy': 'erc4626_yield_strategy_module',
+      'multiAssetVault': 'multi_asset_vault_module',
+      'multi_asset_vault': 'multi_asset_vault_module',
+      
+      // ============ ERC1400 MODULES (Security Tokens) ============
+      'transferRestrictions': 'erc1400_transfer_restrictions_module',
+      'transfer_restrictions': 'erc1400_transfer_restrictions_module',
+      'erc1400_transfer_restrictions': 'erc1400_transfer_restrictions_module',
+      'controller': 'erc1400_controller_module',
+      'erc1400_controller': 'erc1400_controller_module',
+      'erc1400Document': 'erc1400_document_module',
+      'erc1400_document': 'erc1400_document_module'
+    };
+
+    const contractType = moduleTypeMap[moduleType] || `${moduleType}_module`;
+    
     const { data, error } = await supabase
       .from('contract_masters')
       .select('abi')
-      .eq('contract_type', `${moduleType}_module`)
+      .eq('contract_type', contractType)
       .eq('is_template', true)
       .eq('is_active', true)
       .single();
     
-    if (error || !data) throw new Error(`ABI not found for ${moduleType} module`);
+    if (error || !data) {
+      console.error(`❌ ABI lookup failed for module type "${moduleType}" (contract_type: "${contractType}")`, error);
+      throw new Error(`ABI not found for ${moduleType} module (contract_type: ${contractType})`);
+    }
+    
     return data.abi;
   }
 }

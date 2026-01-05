@@ -83,8 +83,30 @@ const getBytecode = (artifact: any): string => {
  */
 
 // ✅ FIX #11: Network-specific transaction confirmation timeouts (in milliseconds)
-// Simple 2-minute timeout for all networks
-const TRANSACTION_TIMEOUT_MS = 120000; // 2 minutes
+// Testnets are slower and more congested - need longer timeouts
+const TRANSACTION_TIMEOUT_MS: Record<string, number> = {
+  // Mainnets: Fast block times, expensive gas = faster confirmation
+  'ethereum': 180000,      // 3 minutes (12s blocks)
+  'base': 120000,          // 2 minutes (2s blocks)
+  'optimism': 120000,      // 2 minutes (2s blocks)
+  'arbitrum': 120000,      // 2 minutes (sub-second blocks)
+  'polygon': 180000,       // 3 minutes (2s blocks but can lag)
+  'avalanche': 120000,     // 2 minutes (1s blocks)
+  'bsc': 180000,           // 3 minutes (3s blocks)
+  
+  // Testnets: Free gas, congested, slower validators = much longer timeouts
+  'hoodi': 600000,         // 10 minutes (very slow testnet)
+  'sepolia': 300000,       // 5 minutes (congested testnet)
+  'base-sepolia': 300000,  // 5 minutes
+  'optimism-sepolia': 300000, // 5 minutes
+  'arbitrum-sepolia': 300000, // 5 minutes
+  'polygon-amoy': 300000,  // 5 minutes
+  'avalanche-fuji': 300000, // 5 minutes
+  'bsc-testnet': 300000    // 5 minutes
+};
+
+// Default timeout for unknown networks
+const DEFAULT_TIMEOUT_MS = 180000; // 3 minutes
 
 export class FoundryDeploymentService {
   /**
@@ -1276,9 +1298,15 @@ export class FoundryDeploymentService {
     }
     console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`);
 
-    // Simple 2-minute timeout for all networks
-    const timeoutSeconds = 120;
-    console.log(`⏳ Waiting for transaction confirmation... (timeout: ${timeoutSeconds}s)`);
+    // Get network-specific timeout
+    const blockchainKey = params.blockchain.toLowerCase();
+    const timeoutMs = TRANSACTION_TIMEOUT_MS[blockchainKey] || DEFAULT_TIMEOUT_MS;
+    const timeoutSeconds = Math.floor(timeoutMs / 1000);
+    
+    console.log(`⏳ Waiting for transaction confirmation...`);
+    console.log(`   Network: ${params.blockchain}`);
+    console.log(`   Timeout: ${timeoutSeconds}s (${Math.floor(timeoutSeconds / 60)} minutes)`);
+    console.log(`   ${blockchainKey.includes('sepolia') || blockchainKey.includes('testnet') || blockchainKey === 'hoodi' ? '🐌 Testnet - longer timeout for slower block times' : '⚡ Mainnet - optimized timeout'}`);
     
     // Build explorer URL based on blockchain
     const explorerUrls: Record<string, string> = {
@@ -1307,7 +1335,7 @@ export class FoundryDeploymentService {
       receipt = await Promise.race([
         tx.wait(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`Transaction confirmation timeout after ${timeoutSeconds} seconds`)), TRANSACTION_TIMEOUT_MS)
+          setTimeout(() => reject(new Error(`Transaction confirmation timeout after ${timeoutSeconds} seconds`)), timeoutMs)
         )
       ]);
     } catch (error: any) {
@@ -1437,8 +1465,8 @@ export class FoundryDeploymentService {
       case 'EnhancedERC20': {
         const config = params.config as FoundryERC20Config;
         const owner = config.initialOwner;
-        const maxSupply = config.maxSupply || '0'; // 0 = unlimited
-        const initialSupply = config.initialSupply || '0';
+        const maxSupply = config.maxSupply ? ethers.parseUnits(config.maxSupply, config.decimals) : '0'; // 0 = unlimited
+        const initialSupply = config.initialSupply ? ethers.parseUnits(config.initialSupply, config.decimals) : '0';
         
         return [
           config.name,
@@ -1517,7 +1545,7 @@ export class FoundryDeploymentService {
       case 'ERC20Rebasing': {
         const config = params.config as FoundryERC20Config;
         const owner = config.initialOwner;
-        const initialSupply = config.initialSupply || '0';
+        const initialSupply = config.initialSupply ? ethers.parseUnits(config.initialSupply, config.decimals) : '0';
         
         return [
           config.name,

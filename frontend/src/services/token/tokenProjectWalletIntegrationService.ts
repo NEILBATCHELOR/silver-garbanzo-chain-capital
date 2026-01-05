@@ -43,8 +43,11 @@ const NETWORK_MAPPING: Record<string, string> = {
   // Ethereum testnets
   'sepolia': 'ethereum',
   'holesky': 'ethereum',
-  'hoodi': 'ethereum', // ✅ FIX #9: Add hoodi testnet support
   'goerli': 'ethereum', // Deprecated but still included for compatibility
+  
+  // Hoodi Network (separate network, not Ethereum)
+  'hoodi': 'hoodi',
+  'hooditestnet': 'hoodi',
   
   // Layer 2 Networks - Arbitrum
   'arbitrum': 'arbitrum',

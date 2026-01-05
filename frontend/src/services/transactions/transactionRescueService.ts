@@ -138,66 +138,174 @@ export class TransactionRescueService {
       gasPriceMultiplier?: number;
       /** Manual gas price in gwei */
       manualGasPrice?: string;
+      /** Force clearing of specific nonces even if blockchain shows no gap */
+      forceNonces?: number[];
     }
   ): Promise<ethers.TransactionResponse[]> {
     const gasPriceMultiplier = options?.gasPriceMultiplier || 1.5;
     
     console.log(`🚨 [Rescue] Clearing all stuck transactions for ${wallet.address}...`);
     
-    // Get nonce information
+    // Get current nonce information
     const latestNonce = await wallet.provider.getTransactionCount(wallet.address, 'latest');
     const pendingNonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
     
-    console.log(`📊 [Rescue] Nonce status:`);
+    console.log(`📊 [Rescue] Current nonce status:`);
     console.log(`   - Latest (mined): ${latestNonce}`);
     console.log(`   - Pending: ${pendingNonce}`);
-    console.log(`   - Stuck transactions: ${pendingNonce - latestNonce}`);
+    console.log(`   - Current stuck: ${pendingNonce - latestNonce}`);
     
-    if (pendingNonce === latestNonce) {
-      console.log(`✅ [Rescue] No stuck transactions found`);
+    // Determine which nonces to clear
+    let noncesToClear: number[] = [];
+    
+    if (options?.forceNonces && options.forceNonces.length > 0) {
+      // Use forced nonces from locked UI state
+      noncesToClear = options.forceNonces;
+      console.log(`🔒 [Rescue] Using forced nonces from UI state: ${noncesToClear.join(', ')}`);
+      console.log(`⚠️  [Rescue] Note: Blockchain shows no gap - transactions may have auto-resolved`);
+    } else if (pendingNonce > latestNonce) {
+      // Use gap detected by blockchain
+      noncesToClear = Array.from(
+        { length: pendingNonce - latestNonce }, 
+        (_, i) => latestNonce + i
+      );
+      console.log(`📡 [Rescue] Clearing ${noncesToClear.length} stuck nonce(s): ${noncesToClear.join(', ')}`);
+    } else {
+      console.log(`✅ [Rescue] No stuck transactions found and no forced nonces provided`);
       return [];
     }
     
     // Cancel each stuck nonce
     const cancelTxs: ethers.TransactionResponse[] = [];
-    for (let nonce = latestNonce; nonce < pendingNonce; nonce++) {
+    for (const nonce of noncesToClear) {
       console.log(`🚨 [Rescue] Canceling nonce ${nonce}...`);
-      const cancelTx = await this.cancelTransaction(wallet, nonce, {
-        gasPriceMultiplier,
-        manualGasPrice: options?.manualGasPrice
-      });
-      cancelTxs.push(cancelTx);
+      
+      try {
+        const cancelTx = await this.cancelTransaction(wallet, nonce, {
+          gasPriceMultiplier,
+          manualGasPrice: options?.manualGasPrice
+        });
+        cancelTxs.push(cancelTx);
+        console.log(`✅ [Rescue] Cancellation tx sent for nonce ${nonce}: ${cancelTx.hash}`);
+      } catch (error) {
+        // If transaction fails (e.g., nonce already used), log but continue
+        console.warn(`⚠️  [Rescue] Failed to cancel nonce ${nonce}:`, error instanceof Error ? error.message : error);
+        
+        // If the error is "nonce too low" or "already known", the transaction resolved itself
+        const errorMsg = error instanceof Error ? error.message.toLowerCase() : '';
+        if (errorMsg.includes('nonce too low') || errorMsg.includes('already known')) {
+          console.log(`✅ [Rescue] Nonce ${nonce} already resolved - skipping`);
+        }
+      }
       
       // Small delay between transactions
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
-    console.log(`✅ [Rescue] Sent ${cancelTxs.length} cancellation transactions`);
+    console.log(`✅ [Rescue] Sent ${cancelTxs.length} cancellation transactions (attempted ${noncesToClear.length})`);
     return cancelTxs;
   }
   
   /**
-   * Get information about stuck transactions
+   * Get information about stuck transactions by querying blockchain mempool
    */
   static async getStuckTransactionInfo(
-    provider: ethers.Provider,
+    provider: ethers.Provider | ethers.JsonRpcProvider,
     address: string
   ): Promise<{
     latestNonce: number;
     pendingNonce: number;
     stuckCount: number;
     stuckNonces: number[];
+    pendingTxs: Array<{ hash: string | null; nonce: number; }>;
   }> {
+    console.log('📡 [TransactionRescueService] Querying blockchain for stuck transactions:', address);
+    
     const latestNonce = await provider.getTransactionCount(address, 'latest');
     const pendingNonce = await provider.getTransactionCount(address, 'pending');
-    const stuckCount = pendingNonce - latestNonce;
-    const stuckNonces = Array.from({ length: stuckCount }, (_, i) => latestNonce + i);
     
-    return {
+    const nonceGap = pendingNonce - latestNonce;
+    console.log('📊 [TransactionRescueService] Nonce counts:', {
       latestNonce,
       pendingNonce,
-      stuckCount,
-      stuckNonces
+      difference: nonceGap
+    });
+    
+    // Primary detection: Use nonce gap (most reliable)
+    const stuckNonces: number[] = [];
+    const pendingTxs: Array<{ hash: string | null; nonce: number; }> = [];
+    
+    if (nonceGap > 0) {
+      // We have stuck transactions based on nonce gap
+      for (let i = latestNonce; i < pendingNonce; i++) {
+        stuckNonces.push(i);
+        pendingTxs.push({
+          hash: null, // Will try to find actual hash below
+          nonce: i
+        });
+      }
+      console.log(`🔍 [TransactionRescueService] Detected ${nonceGap} stuck transaction(s) from nonce gap: ${stuckNonces.join(', ')}`);
+    }
+    
+    // Secondary: Try to find actual transaction hashes (optional, may fail)
+    try {
+      // Cast to JsonRpcProvider to access send method (only available on JsonRpcProvider)
+      if (provider instanceof ethers.JsonRpcProvider) {
+        const block = await provider.send('eth_getBlockByNumber', ['pending', false]);
+        
+        if (block && block.transactions && Array.isArray(block.transactions)) {
+          console.log(`📡 [TransactionRescueService] Scanning ${block.transactions.length} mempool transactions for ${address}...`);
+        
+        // Limit scan to prevent rate limiting (max 50 transactions)
+        const txHashesToScan = block.transactions.slice(0, 50);
+        let foundCount = 0;
+        
+        for (const txHash of txHashesToScan) {
+          if (typeof txHash !== 'string') continue;
+          
+          try {
+            const tx = await provider.getTransaction(txHash);
+            if (tx && tx.from.toLowerCase() === address.toLowerCase()) {
+              // Found a pending transaction from this address
+              const existingEntry = pendingTxs.find(pt => pt.nonce === tx.nonce);
+              if (existingEntry) {
+                // Update with actual hash
+                existingEntry.hash = tx.hash;
+                foundCount++;
+              } else {
+                // Transaction not in nonce gap (shouldn't happen, but handle it)
+                console.warn(`⚠️  [TransactionRescueService] Found pending tx with nonce ${tx.nonce} not in gap [${latestNonce}-${pendingNonce}): ${tx.hash}`);
+              }
+            }
+          } catch (err) {
+            // Silently skip failed transaction queries (rate limiting, etc.)
+            continue;
+          }
+        }
+        
+        console.log(`✅ [TransactionRescueService] Found ${foundCount}/${stuckNonces.length} actual transaction hash(es) in mempool`);
+      }
+      } else {
+        console.log('📡 [TransactionRescueService] Provider is not JsonRpcProvider, skipping mempool scan');
+      }
+    } catch (error) {
+      console.log('📡 [TransactionRescueService] Could not scan mempool (provider limitation), using nonce-based detection only');
+    }
+    
+    const result = {
+      latestNonce,
+      pendingNonce,
+      stuckCount: stuckNonces.length,
+      stuckNonces,
+      pendingTxs
     };
+    
+    console.log('✅ [TransactionRescueService] Stuck transaction analysis:', {
+      stuckCount: result.stuckCount,
+      stuckNonces: result.stuckNonces,
+      pendingTxHashes: pendingTxs.filter(tx => tx.hash).map(tx => tx.hash)
+    });
+    
+    return result;
   }
 }

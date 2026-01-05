@@ -590,8 +590,12 @@ export class RealTimeFeeEstimator {
   /**
    * Calculate fee data based on API response and priority
    * Converts Gwei prices to Wei and adds EIP-1559 fees if supported
+   * 🔥 SAFETY BUFFER: Adds +1 Gwei to all calculated gas values to prevent stuck transactions
    */
   private calculateFeeData(apiData: any, priority: FeePriority, chainId: number): FeeData {
+    // 🔥 SAFETY BUFFER: Always add 1 Gwei to prevent stuck transactions
+    const SAFETY_BUFFER_GWEI = 1.0;
+    
     // Parse gas prices (in Gwei from Etherscan)
     const safeGwei = parseFloat(apiData.SafeGasPrice || '0');
     const standardGwei = parseFloat(apiData.ProposeGasPrice || '0');
@@ -604,19 +608,19 @@ export class RealTimeFeeEstimator {
 
     switch (priority) {
       case FeePriority.LOW:
-        selectedGwei = safeGwei || standardGwei * 0.85;
+        selectedGwei = (safeGwei || standardGwei * 0.85) + SAFETY_BUFFER_GWEI;
         estimatedTime = 300; // 5 minutes
         break;
       case FeePriority.MEDIUM:
-        selectedGwei = standardGwei;
+        selectedGwei = standardGwei + SAFETY_BUFFER_GWEI;
         estimatedTime = 120; // 2 minutes
         break;
       case FeePriority.HIGH:
-        selectedGwei = fastGwei || standardGwei * 1.3;
+        selectedGwei = (fastGwei || standardGwei * 1.3) + SAFETY_BUFFER_GWEI;
         estimatedTime = 60; // 1 minute
         break;
       case FeePriority.URGENT:
-        selectedGwei = (fastGwei || standardGwei) * 1.5;
+        selectedGwei = ((fastGwei || standardGwei) * 1.5) + SAFETY_BUFFER_GWEI;
         estimatedTime = 30; // 30 seconds
         break;
     }
@@ -633,12 +637,14 @@ export class RealTimeFeeEstimator {
 
     if (this.supportsEIP1559(chainId) && baseFeeGwei > 0) {
       const priorityMultiplier = this.getPriorityMultiplier(priority);
-      const priorityTipGwei = selectedGwei * 0.1 * priorityMultiplier;
+      const priorityTipGwei = (selectedGwei * 0.1 * priorityMultiplier) + SAFETY_BUFFER_GWEI;
       
       maxPriorityFeePerGas = Math.round(priorityTipGwei * 1e9).toString();
-      // Max fee = base fee + priority fee + 20% buffer
-      maxFeePerGas = Math.round((baseFeeGwei + priorityTipGwei) * 1.2 * 1e9).toString();
+      // Max fee = base fee + priority fee + 20% buffer + safety buffer
+      maxFeePerGas = Math.round(((baseFeeGwei + priorityTipGwei) * 1.2 + SAFETY_BUFFER_GWEI) * 1e9).toString();
     }
+
+    console.log(`[RealTimeFeeEstimator] 🛡️ Safety buffer (+${SAFETY_BUFFER_GWEI} Gwei) applied to all gas values`);
 
     return {
       gasPrice,

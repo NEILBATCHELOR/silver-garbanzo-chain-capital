@@ -223,19 +223,24 @@ export class EnhancedGasEstimationService {
     // For all other testnets (hoodi, base-sepolia, etc.), use simple testnet-optimized gas prices
     console.log(`[EnhancedGasEstimation] ✅ Using generic testnet gas configuration for ${blockchain}`);
     
-    // Testnet-optimized gas prices (much lower than mainnet)
-    // Most testnets have very low gas prices (< 1 Gwei)
+    // 🔥 SAFETY BUFFER: Add +1 Gwei to all testnet gas prices to ensure transactions are processed
+    // Testnet-optimized gas prices with safety buffer
+    const SAFETY_BUFFER_GWEI = 1.0; // Always add 1 gwei to prevent stuck transactions
+    
     const priorityFeeMap = {
-      [FeePriority.LOW]: '0.1',      // 0.1 Gwei
-      [FeePriority.MEDIUM]: '0.5',   // 0.5 Gwei
-      [FeePriority.HIGH]: '1.0',     // 1.0 Gwei
-      [FeePriority.URGENT]: '2.0'    // 2.0 Gwei
+      [FeePriority.LOW]: 0.1 + SAFETY_BUFFER_GWEI,      // 1.1 Gwei (was 0.1)
+      [FeePriority.MEDIUM]: 0.5 + SAFETY_BUFFER_GWEI,   // 1.5 Gwei (was 0.5)
+      [FeePriority.HIGH]: 1.0 + SAFETY_BUFFER_GWEI,     // 2.0 Gwei (was 1.0)
+      [FeePriority.URGENT]: 2.0 + SAFETY_BUFFER_GWEI    // 3.0 Gwei (was 2.0)
     };
     
-    const maxPriorityFeePerGas = priorityFeeMap[priority];
-    // For testnets, base fee is typically very low
-    const baseFee = '0.5'; // 0.5 Gwei base fee
+    const maxPriorityFeePerGas = priorityFeeMap[priority].toString();
+    // For testnets, base fee is typically very low - add safety buffer
+    const baseFee = (0.5 + SAFETY_BUFFER_GWEI).toString(); // 1.5 Gwei base fee (was 0.5)
     const maxFeePerGas = (parseFloat(baseFee) + parseFloat(maxPriorityFeePerGas)).toString();
+    
+    console.log(`[EnhancedGasEstimation] 🛡️ Safety buffer applied: +${SAFETY_BUFFER_GWEI} Gwei to all values`);
+    console.log(`[EnhancedGasEstimation] Final values: baseFee=${baseFee}, priorityFee=${maxPriorityFeePerGas}, maxFee=${maxFeePerGas}`);
     
     return {
       gasPrice: undefined, // EIP-1559 only
