@@ -6,18 +6,21 @@
  * 
  * Reuses: 95% of existing TransactionBuilder infrastructure
  * New: 5% commodity-specific encoding and validation
+ * 
+ * UPDATE: Now queries contract_masters database for pool address
  */
 
 import { ethers } from 'ethers';
 import { transactionBuilder, type TransactionRequest, type GasEstimate, type SignedTransaction, type BroadcastResult } from '@/services/wallet/builders/TransactionBuilder';
 import { ChainType } from '@/services/wallet/AddressUtils';
+import { TradeFinanceContractService } from './ContractDeploymentService';
 
 // ============================================================================
 // INTERFACES
 // ============================================================================
 
 export interface CommodityPoolConfig {
-  poolAddress: string;
+  poolAddress?: string; // Optional - will query from database if not provided
   chainType: ChainType;
   chainId: number;
   networkType: 'mainnet' | 'testnet';
@@ -102,18 +105,47 @@ const COMMODITY_POOL_ABI = [
 // ============================================================================
 
 export class CommodityPoolService {
-  private poolAddress: string;
+  private poolAddress: string | null = null;
   private chainType: ChainType;
   private chainId: number;
   private networkType: 'mainnet' | 'testnet';
   private poolInterface: ethers.Interface;
   
   constructor(config: CommodityPoolConfig) {
-    this.poolAddress = config.poolAddress;
+    // Use provided address or will query from database
+    this.poolAddress = config.poolAddress || null;
     this.chainType = config.chainType;
     this.chainId = config.chainId;
     this.networkType = config.networkType;
     this.poolInterface = new ethers.Interface(COMMODITY_POOL_ABI);
+  }
+  
+  /**
+   * Get pool address from database or config
+   */
+  private async getPoolAddress(): Promise<string> {
+    // If already have address, return it
+    if (this.poolAddress) {
+      return this.poolAddress;
+    }
+    
+    // Query from database
+    const network = this.networkType === 'testnet' ? 'hoodi' : 'mainnet';
+    const environment = this.networkType;
+    
+    const address = await TradeFinanceContractService.getProxyAddress(
+      'commodity_lending_pool',
+      network,
+      environment
+    );
+    
+    if (!address) {
+      throw new Error(`CommodityLendingPool not found in database for ${network}/${environment}`);
+    }
+    
+    // Cache it
+    this.poolAddress = address;
+    return address;
   }
   
   // ============================================================================
@@ -133,6 +165,8 @@ export class CommodityPoolService {
    * ```
    */
   async supply(params: SupplyParams): Promise<BroadcastResult> {
+    const poolAddress = await this.getPoolAddress();
+    
     // 1. Encode function data
     const data = this.poolInterface.encodeFunctionData('supply', [
       params.commodityToken,
@@ -142,7 +176,7 @@ export class CommodityPoolService {
     // 2. Build transaction
     const tx: TransactionRequest = {
       from: params.userAddress,
-      to: this.poolAddress,
+      to: poolAddress,
       data,
       chainId: this.chainId
     };
@@ -178,6 +212,8 @@ export class CommodityPoolService {
    * Withdraw commodity collateral from pool
    */
   async withdraw(params: WithdrawParams): Promise<BroadcastResult> {
+    const poolAddress = await this.getPoolAddress();
+    
     const data = this.poolInterface.encodeFunctionData('withdraw', [
       params.commodityToken,
       ethers.parseEther(params.amount)
@@ -185,7 +221,7 @@ export class CommodityPoolService {
     
     const tx: TransactionRequest = {
       from: params.userAddress,
-      to: this.poolAddress,
+      to: poolAddress,
       data,
       chainId: this.chainId
     };
@@ -218,6 +254,8 @@ export class CommodityPoolService {
    * Borrow against commodity collateral
    */
   async borrow(params: BorrowParams): Promise<BroadcastResult> {
+    const poolAddress = await this.getPoolAddress();
+    
     const data = this.poolInterface.encodeFunctionData('borrow', [
       params.asset,
       ethers.parseEther(params.amount)
@@ -225,7 +263,7 @@ export class CommodityPoolService {
     
     const tx: TransactionRequest = {
       from: params.userAddress,
-      to: this.poolAddress,
+      to: poolAddress,
       data,
       chainId: this.chainId
     };
@@ -258,6 +296,8 @@ export class CommodityPoolService {
    * Repay borrowed amount
    */
   async repay(params: RepayParams): Promise<BroadcastResult> {
+    const poolAddress = await this.getPoolAddress();
+    
     const data = this.poolInterface.encodeFunctionData('repay', [
       params.asset,
       ethers.parseEther(params.amount)
@@ -265,7 +305,7 @@ export class CommodityPoolService {
     
     const tx: TransactionRequest = {
       from: params.userAddress,
-      to: this.poolAddress,
+      to: poolAddress,
       data,
       chainId: this.chainId
     };
@@ -298,6 +338,8 @@ export class CommodityPoolService {
    * Liquidate undercollateralized position
    */
   async liquidate(params: LiquidateParams): Promise<BroadcastResult> {
+    const poolAddress = await this.getPoolAddress();
+    
     const data = this.poolInterface.encodeFunctionData('liquidate', [
       params.borrower,
       params.collateralAsset,
@@ -308,7 +350,7 @@ export class CommodityPoolService {
     
     const tx: TransactionRequest = {
       from: params.liquidatorAddress,
-      to: this.poolAddress,
+      to: poolAddress,
       data,
       chainId: this.chainId
     };
@@ -361,12 +403,22 @@ export class CommodityPoolService {
 
 /**
  * Create a pool service instance
+ * Now automatically queries pool address from database if not provided
+ * 
  * @example
  * ```typescript
+ * // Option 1: Manual address (legacy)
  * const poolService = createCommodityPoolService({
  *   poolAddress: '0x123...',
  *   chainType: ChainType.ETHEREUM,
- *   chainId: 11155111, // Sepolia
+ *   chainId: 11155111,
+ *   networkType: 'testnet'
+ * });
+ * 
+ * // Option 2: Auto-query from database (recommended)
+ * const poolService = createCommodityPoolService({
+ *   chainType: ChainType.ETHEREUM,
+ *   chainId: 8898,
  *   networkType: 'testnet'
  * });
  * ```

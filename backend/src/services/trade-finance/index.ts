@@ -107,3 +107,9 @@ export {
 export type { 
   MetalPrice 
 } from './PreciousMetalsPriceService'
+
+// Deployment Recording Service
+export { 
+  DeploymentRecordingService,
+  deploymentRecordingService 
+} from './DeploymentRecordingService'

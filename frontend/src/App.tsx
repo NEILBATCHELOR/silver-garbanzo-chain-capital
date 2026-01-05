@@ -84,6 +84,12 @@ const SidebarAdminDashboard = lazy(() => import("@/components/admin/sidebar").th
 // Import Admin Template and Factory Management Components
 import { TemplateManagementPage, FactoryConfigurationPage } from "@/components/admin";
 
+// Import Trade Finance Admin Page
+import { TradeFinanceAdminPage, SupplyPage, BorrowPage, PortfolioPage, MarketplaceDashboard } from "@/components/trade-finance/pages";
+
+// Import Trade Finance Provider
+import { TradeFinanceProvider } from "@/providers/trade-finance";
+
 // Import Enhanced Upload Pages
 import EnhancedIssuerUploadPage from "@/components/compliance/pages/EnhancedIssuerUploadPage";
 import EnhancedInvestorUploadPage from "@/components/compliance/pages/EnhancedInvestorUploadPage";
@@ -919,6 +925,25 @@ function App() {
                         <Route path="admin/sidebar-configuration" element={<SidebarAdminDashboard />} />
                         <Route path="admin/templates" element={<TemplateManagementPage />} />
                         <Route path="admin/factory-config" element={<FactoryConfigurationPage />} />
+                        
+                        {/* Trade Finance Admin Route - Wrapped in TradeFinanceProvider */}
+                        <Route path="admin/trade-finance" element={
+                          <TradeFinanceProvider>
+                            <TradeFinanceAdminPage />
+                          </TradeFinanceProvider>
+                        } />
+
+                        {/* Trade Finance User Routes - All wrapped in single TradeFinanceProvider for shared project state */}
+                        <Route path="trade-finance/*" element={
+                          <TradeFinanceProvider>
+                            <Routes>
+                              <Route path="marketplace" element={<MarketplaceDashboard />} />
+                              <Route path="supply" element={<SupplyPage />} />
+                              <Route path="borrow" element={<BorrowPage />} />
+                              <Route path="portfolio" element={<PortfolioPage />} />
+                            </Routes>
+                          </TradeFinanceProvider>
+                        } />
                       </Route>
 
                       {/* Fallback route */}

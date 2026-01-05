@@ -3,8 +3,15 @@
  * Export all trade finance UI components
  */
 
+// Pages
+export { TradeFinanceAdminPage } from './pages'
+
 // Shared Components
-export { TradeFinanceNavigation, TradeFinanceDashboardHeader } from './shared'
+export { 
+  TradeFinanceNavigation, 
+  TradeFinanceBreadcrumb,
+  TradeFinanceStats
+} from './shared'
 
 // Supply Components
 export { SupplyModal } from './supply'

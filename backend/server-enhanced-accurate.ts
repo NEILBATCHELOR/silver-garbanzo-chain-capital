@@ -48,8 +48,9 @@ import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
 // import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
 
-// Trade Finance Routes (9 services)
-import { haircutRoutes, positionsRoutes, oraclesRoutes, priceManagementRoutes, adminRoutes, rewardsRoutes, liquidationRoutes, treasuryRoutes, stataTokenRoutes } from './src/routes/trade-finance'
+// Trade Finance Routes (14 services)
+import { haircutRoutes, positionsRoutes, oraclesRoutes, priceManagementRoutes, adminRoutes, rewardsRoutes, liquidationRoutes, treasuryRoutes, stataTokenRoutes, marketplaceRoutes, historyRoutes, analyticsRoutes, activityFeedRoutes } from './src/routes/trade-finance'
+import { tradeFinanceDeploymentRoutes } from './src/routes/trade-finance-deployments'
 
 // Admin & Deployment Routes
 import { deploymentRoutes } from './src/routes/deploymentRoutes'
@@ -948,6 +949,11 @@ Comprehensive platform supporting:
     await app.register(liquidationRoutes)  // Handles /api/trade-finance/liquidation/*
     await app.register(treasuryRoutes)  // Handles /api/trade-finance/treasury/*
     await app.register(stataTokenRoutes)  // Handles /api/trade-finance/stata-tokens/*
+    await app.register(marketplaceRoutes)  // Handles /api/trade-finance/marketplace/*
+    await app.register(historyRoutes)  // Handles /api/trade-finance/history/*
+    await app.register(analyticsRoutes)  // Handles /api/trade-finance/analytics/*
+    await app.register(activityFeedRoutes)  // Handles /api/trade-finance/activity/*
+    await app.register(tradeFinanceDeploymentRoutes)  // Handles /api/trade-finance/deployments/*
 
     // ============================================================================
     // TRADE FINANCE WEBSOCKET - TEMPORARILY DISABLED

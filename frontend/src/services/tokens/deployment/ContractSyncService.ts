@@ -36,6 +36,40 @@ const CONTRACT_ABI_MAP: Record<string, { abiPath: string; contractType: string; 
   erc20WrapperBeacon: { abiPath: 'TokenBeacon.sol/TokenBeacon.json', contractType: 'erc20_wrapper_beacon', category: 'token_beacon' },
   erc721WrapperBeacon: { abiPath: 'TokenBeacon.sol/TokenBeacon.json', contractType: 'erc721_wrapper_beacon', category: 'token_beacon' },
   
+  // Trade Finance - Governance
+  poolAddressesProvider: { abiPath: 'trade-finance/governance/PoolAddressesProvider.sol/PoolAddressesProvider.json', contractType: 'pool_addresses_provider', category: 'trade_finance_governance' },
+  aclManager: { abiPath: 'trade-finance/governance/ACLManager.sol/ACLManager.json', contractType: 'acl_manager', category: 'trade_finance_governance' },
+  poolConfigurator: { abiPath: 'trade-finance/governance/PoolConfigurator.sol/PoolConfigurator.json', contractType: 'pool_configurator', category: 'trade_finance_governance' },
+  
+  // Trade Finance - Core Protocol
+  commodityLendingPool: { abiPath: 'trade-finance/core/CommodityLendingPool.sol/CommodityLendingPool.json', contractType: 'commodity_lending_pool', category: 'trade_finance_core' },
+  commodityOracle: { abiPath: 'trade-finance/oracles/CommodityOracle.sol/CommodityOracle.json', contractType: 'commodity_oracle', category: 'trade_finance_core' },
+  futuresCurveOracle: { abiPath: 'trade-finance/oracles/FuturesCurveOracle.sol/FuturesCurveOracle.json', contractType: 'futures_curve_oracle', category: 'trade_finance_core' },
+  priceOracleSentinel: { abiPath: 'trade-finance/oracles/PriceOracleSentinel.sol/PriceOracleSentinel.json', contractType: 'price_oracle_sentinel', category: 'trade_finance_core' },
+  
+  // Trade Finance - Risk & Security
+  haircutEngine: { abiPath: 'trade-finance/risk/HaircutEngine.sol/HaircutEngine.json', contractType: 'haircut_engine', category: 'trade_finance_risk' },
+  circuitBreakers: { abiPath: 'trade-finance/security/CircuitBreakers.sol/CircuitBreakers.json', contractType: 'circuit_breakers', category: 'trade_finance_risk' },
+  emergencyModule: { abiPath: 'trade-finance/security/EmergencyModule.sol/EmergencyModule.json', contractType: 'emergency_module', category: 'trade_finance_risk' },
+  
+  // Trade Finance - Liquidation
+  dutchAuctionLiquidator: { abiPath: 'trade-finance/liquidation/DutchAuctionLiquidator.sol/DutchAuctionLiquidator.json', contractType: 'dutch_auction_liquidator', category: 'trade_finance_liquidation' },
+  gracefulLiquidation: { abiPath: 'trade-finance/liquidation/GracefulLiquidation.sol/GracefulLiquidation.json', contractType: 'graceful_liquidation', category: 'trade_finance_liquidation' },
+  flashLiquidation: { abiPath: 'trade-finance/liquidation/FlashLiquidation.sol/FlashLiquidation.json', contractType: 'flash_liquidation', category: 'trade_finance_liquidation' },
+  dexLiquidationAdapter: { abiPath: 'trade-finance/liquidation/DEXLiquidationAdapter.sol/DEXLiquidationAdapter.json', contractType: 'dex_liquidation_adapter', category: 'trade_finance_liquidation' },
+  liquidationDataProvider: { abiPath: 'trade-finance/liquidation/LiquidationDataProvider.sol/LiquidationDataProvider.json', contractType: 'liquidation_data_provider', category: 'trade_finance_liquidation' },
+  
+  // Trade Finance - Rewards & Treasury
+  rewardsController: { abiPath: 'trade-finance/rewards/RewardsController.sol/RewardsController.json', contractType: 'rewards_controller', category: 'trade_finance_rewards' },
+  emissionManager: { abiPath: 'trade-finance/rewards/EmissionManager.sol/EmissionManager.json', contractType: 'emission_manager', category: 'trade_finance_rewards' },
+  rewardsDistributor: { abiPath: 'trade-finance/rewards/RewardsDistributor.sol/RewardsDistributor.json', contractType: 'rewards_distributor', category: 'trade_finance_rewards' },
+  collector: { abiPath: 'trade-finance/treasury/Collector.sol/Collector.json', contractType: 'collector', category: 'trade_finance_treasury' },
+  protocolReserve: { abiPath: 'trade-finance/treasury/ProtocolReserve.sol/ProtocolReserve.json', contractType: 'protocol_reserve', category: 'trade_finance_treasury' },
+  revenueSplitter: { abiPath: 'trade-finance/treasury/RevenueSplitter.sol/RevenueSplitter.json', contractType: 'revenue_splitter', category: 'trade_finance_treasury' },
+  
+  // Trade Finance - Infrastructure
+  tradeFinanceRegistry: { abiPath: 'trade-finance/deployment/TradeFinanceRegistry.sol/TradeFinanceRegistry.json', contractType: 'trade_finance_registry', category: 'trade_finance_infrastructure' },
+  
   // Master Implementations
   erc20Master: { abiPath: 'ERC20Master.sol/ERC20Master.json', contractType: 'erc20_master', category: 'master_implementation' },
   erc721Master: { abiPath: 'ERC721Master.sol/ERC721Master.json', contractType: 'erc721_master', category: 'master_implementation' },
@@ -119,7 +153,6 @@ const CONTRACT_ABI_MAP: Record<string, { abiPath: string; contractType: string; 
   // Policy
   policyEngine: { abiPath: 'PolicyEngine.sol/PolicyEngine.json', contractType: 'policy_engine', category: 'policy' },
   policyRegistry: { abiPath: 'PolicyRegistry.sol/PolicyRegistry.json', contractType: 'policy_registry', category: 'policy' },
-  haircutEngine: { abiPath: 'HaircutEngine.sol/HaircutEngine.json', contractType: 'haircut_engine', category: 'policy' },
 };
 
 

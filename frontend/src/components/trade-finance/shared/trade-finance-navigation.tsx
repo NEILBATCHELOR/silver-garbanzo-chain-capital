@@ -1,164 +1,172 @@
 /**
  * Trade Finance Navigation Component
- * Horizontal navigation for the Trade Finance module
- * Pattern: Similar to BondNavigation and NavNavigation
+ * 
+ * Provides navigation for Trade Finance admin pages and features
  */
 
-import React from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { cn } from '@/utils/utils'
+import { Link, useLocation } from 'react-router-dom';
+import { cn } from '@/utils/utils';
+import { Badge } from '@/components/ui/badge';
 import {
-  LayoutDashboard,
-  PackagePlus,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  Wallet,
-  AlertTriangle,
-  Shield,
+  Database,
   Settings,
-  BarChart3,
-} from 'lucide-react'
+  Shield,
+  FileText,
+  AlertTriangle,
+  Home,
+  ChevronRight
+} from 'lucide-react';
 
 interface TradeFinanceNavigationProps {
-  projectId?: string
+  className?: string;
 }
 
-const TradeFinanceNavigation: React.FC<TradeFinanceNavigationProps> = ({ projectId }) => {
-  const location = useLocation()
-  const currentPath = location.pathname
+export function TradeFinanceNavigation({ className }: TradeFinanceNavigationProps) {
+  const location = useLocation();
 
-  const isActive = (path: string) => {
-    return currentPath.includes(path)
-  }
+  const navItems = [
+    {
+      title: 'Overview',
+      href: '/admin/trade-finance',
+      icon: Home,
+      description: 'Trade Finance dashboard and overview'
+    },
+    {
+      title: 'Deployments',
+      href: '/admin/trade-finance?tab=deployments',
+      icon: Database,
+      description: 'Contract deployments and verification',
+      badge: '27 contracts'
+    },
+    {
+      title: 'Parameters',
+      href: '/admin/trade-finance?tab=parameters',
+      icon: Settings,
+      description: 'Deployment parameters and configuration',
+      badge: 'All phases'
+    },
+    {
+      title: 'Risk Controls',
+      href: '/admin/trade-finance?tab=risk',
+      icon: Shield,
+      description: 'Risk management and security settings'
+    },
+    {
+      title: 'Asset Listing',
+      href: '/admin/trade-finance?tab=assets',
+      icon: FileText,
+      description: 'Commodity and asset configurations'
+    },
+    {
+      title: 'Emergency',
+      href: '/admin/trade-finance?tab=emergency',
+      icon: AlertTriangle,
+      description: 'Emergency controls and circuit breakers',
+      badge: 'Critical'
+    }
+  ];
 
-  // Define navigation links
-  const navLinks = projectId
-    ? [
-        {
-          icon: <LayoutDashboard className="h-4 w-4" />,
-          label: 'Dashboard',
-          href: `/projects/${projectId}/trade-finance`,
-          active:
-            currentPath === `/projects/${projectId}/trade-finance` ||
-            currentPath === `/projects/${projectId}/trade-finance/`,
-        },
-        {
-          icon: <PackagePlus className="h-4 w-4" />,
-          label: 'Tokenize',
-          href: `/projects/${projectId}/trade-finance/tokenize`,
-          active: isActive('/trade-finance/tokenize'),
-        },
-        {
-          icon: <ArrowUpCircle className="h-4 w-4" />,
-          label: 'Supply',
-          href: `/projects/${projectId}/trade-finance/supply`,
-          active: isActive('/trade-finance/supply'),
-        },
-        {
-          icon: <ArrowDownCircle className="h-4 w-4" />,
-          label: 'Borrow',
-          href: `/projects/${projectId}/trade-finance/borrow`,
-          active: isActive('/trade-finance/borrow'),
-        },
-        {
-          icon: <Wallet className="h-4 w-4" />,
-          label: 'My Positions',
-          href: `/projects/${projectId}/trade-finance/positions`,
-          active: isActive('/trade-finance/positions'),
-        },
-        {
-          icon: <AlertTriangle className="h-4 w-4" />,
-          label: 'Liquidations',
-          href: `/projects/${projectId}/trade-finance/liquidations`,
-          active: isActive('/trade-finance/liquidations'),
-        },
-        {
-          icon: <BarChart3 className="h-4 w-4" />,
-          label: 'Analytics',
-          href: `/projects/${projectId}/trade-finance/analytics`,
-          active: isActive('/trade-finance/analytics'),
-        },
-        {
-          icon: <Settings className="h-4 w-4" />,
-          label: 'Admin',
-          href: `/projects/${projectId}/trade-finance/admin`,
-          active: isActive('/trade-finance/admin'),
-        },
-      ]
-    : [
-        {
-          icon: <LayoutDashboard className="h-4 w-4" />,
-          label: 'Dashboard',
-          href: '/trade-finance',
-          active:
-            currentPath === '/trade-finance' ||
-            currentPath === '/trade-finance/',
-        },
-        {
-          icon: <PackagePlus className="h-4 w-4" />,
-          label: 'Tokenize',
-          href: '/trade-finance/tokenize',
-          active: isActive('/trade-finance/tokenize'),
-        },
-        {
-          icon: <ArrowUpCircle className="h-4 w-4" />,
-          label: 'Supply',
-          href: '/trade-finance/supply',
-          active: isActive('/trade-finance/supply'),
-        },
-        {
-          icon: <ArrowDownCircle className="h-4 w-4" />,
-          label: 'Borrow',
-          href: '/trade-finance/borrow',
-          active: isActive('/trade-finance/borrow'),
-        },
-        {
-          icon: <Wallet className="h-4 w-4" />,
-          label: 'My Positions',
-          href: '/trade-finance/positions',
-          active: isActive('/trade-finance/positions'),
-        },
-        {
-          icon: <AlertTriangle className="h-4 w-4" />,
-          label: 'Liquidations',
-          href: '/trade-finance/liquidations',
-          active: isActive('/trade-finance/liquidations'),
-        },
-        {
-          icon: <BarChart3 className="h-4 w-4" />,
-          label: 'Analytics',
-          href: '/trade-finance/analytics',
-          active: isActive('/trade-finance/analytics'),
-        },
-        {
-          icon: <Settings className="h-4 w-4" />,
-          label: 'Admin',
-          href: '/trade-finance/admin',
-          active: isActive('/trade-finance/admin'),
-        },
-      ]
+  const isActive = (href: string) => {
+    if (href === '/admin/trade-finance') {
+      return location.pathname === href && !location.search;
+    }
+    return location.pathname + location.search === href;
+  };
 
   return (
-    <div className="bg-white border-b px-6 py-3">
-      <div className="flex space-x-8 overflow-x-auto">
-        {navLinks.map((link) => (
+    <nav className={cn('space-y-1', className)}>
+      {navItems.map((item) => {
+        const Icon = item.icon;
+        const active = isActive(item.href);
+
+        return (
           <Link
-            key={link.href}
-            to={link.href}
+            key={item.href}
+            to={item.href}
             className={cn(
-              'flex items-center gap-2 py-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors',
-              link.active
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300'
+              'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
+              active
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
             )}
           >
-            {link.icon}
-            {link.label}
+            <Icon className="h-4 w-4 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-medium truncate">{item.title}</span>
+                {item.badge && (
+                  <Badge
+                    variant={active ? 'secondary' : 'outline'}
+                    className="text-xs shrink-0"
+                  >
+                    {item.badge}
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs truncate opacity-80">{item.description}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />
           </Link>
-        ))}
-      </div>
-    </div>
-  )
+        );
+      })}
+    </nav>
+  );
 }
 
-export default TradeFinanceNavigation
+/**
+ * Breadcrumb Navigation for Trade Finance
+ */
+interface TradeFinanceBreadcrumbProps {
+  currentPage?: string;
+  className?: string;
+}
+
+export function TradeFinanceBreadcrumb({ 
+  currentPage = 'Overview', 
+  className 
+}: TradeFinanceBreadcrumbProps) {
+  return (
+    <div className={cn('flex items-center gap-2 text-sm text-muted-foreground', className)}>
+      <Link to="/admin" className="hover:text-foreground transition-colors">
+        Admin
+      </Link>
+      <ChevronRight className="h-4 w-4" />
+      <Link to="/admin/trade-finance" className="hover:text-foreground transition-colors">
+        Trade Finance
+      </Link>
+      {currentPage !== 'Overview' && (
+        <>
+          <ChevronRight className="h-4 w-4" />
+          <span className="text-foreground font-medium">{currentPage}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Quick Stats Component for Trade Finance
+ */
+interface TradeFinanceStatsProps {
+  className?: string;
+}
+
+export function TradeFinanceStats({ className }: TradeFinanceStatsProps) {
+  const stats = [
+    { label: 'Total Contracts', value: '27', color: 'text-blue-600' },
+    { label: 'UUPS Upgradeable', value: '21', color: 'text-green-600' },
+    { label: 'Direct Deploy', value: '6', color: 'text-amber-600' },
+    { label: 'Deployment Phases', value: '5', color: 'text-purple-600' }
+  ];
+
+  return (
+    <div className={cn('grid grid-cols-2 md:grid-cols-4 gap-4', className)}>
+      {stats.map((stat) => (
+        <div key={stat.label} className="text-center p-4 bg-muted/50 rounded-lg">
+          <div className={cn('text-2xl font-bold', stat.color)}>{stat.value}</div>
+          <div className="text-xs text-muted-foreground">{stat.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}

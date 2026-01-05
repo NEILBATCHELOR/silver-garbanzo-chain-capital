@@ -6,3 +6,4 @@
 export { RiskParameterControl } from './RiskParameterControl'
 export { AssetListing } from './AssetListing'
 export { EmergencyControls } from './EmergencyControls'
+export { ContractDeployments } from './ContractDeployments'

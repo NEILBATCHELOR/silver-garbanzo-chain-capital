@@ -1,7 +1,11 @@
 /**
- * Trade Finance Shared Components
- * Export all shared UI components
+ * Trade Finance Shared Components Index
+ * Exports all shared/common components
  */
 
-export { default as TradeFinanceNavigation } from './trade-finance-navigation'
-export { default as TradeFinanceDashboardHeader } from './trade-finance-dashboard-header'
+export { WalletConnectButton } from './wallet-connect-button';
+export { TradeFinanceDashboardHeader } from './trade-finance-dashboard-header';
+export { TradeFinanceNavigation } from './trade-finance-navigation';
+export { ActivityFeed } from './ActivityFeed';
+export { TradeFinanceBreadcrumb } from './TradeFinanceBreadcrumb';
+export { TradeFinanceStats } from './TradeFinanceStats';
