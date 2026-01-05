@@ -513,10 +513,9 @@ function aggregateByInterval<T>(
     }
 
     if (key) {
-      if (!grouped[key]) {
-        grouped[key] = []
-      }
-      grouped[key].push(item)
+      const group = grouped[key] ?? []
+      group.push(item)
+      grouped[key] = group
     }
   })
 
