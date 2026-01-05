@@ -476,7 +476,10 @@ export enum WalletType {
 export enum TokenType {
   NATIVE = 'native',
   ERC20 = 'erc20',
+  ERC20_WRAPPER = 'erc20-wrapper',
+  ERC20_REBASING = 'erc20-rebasing',
   ERC721 = 'erc721',
+  ERC721_WRAPPER = 'erc721-wrapper',
   ERC1155 = 'erc1155',
   ERC1400 = 'erc1400',
   ERC3525 = 'erc3525',
@@ -1507,7 +1510,10 @@ export enum TokenStandard {
   ERC1155 = 'ERC-1155',
   ERC1400 = 'ERC-1400',
   ERC3525 = 'ERC-3525',
-  ERC4626 = 'ERC-4626'
+  ERC4626 = 'ERC-4626',
+  ERC20_WRAPPER = 'ERC-20-WRAPPER',
+  ERC721_WRAPPER = 'ERC-721-WRAPPER',
+  ERC20_REBASING = 'ERC-20-REBASING'
 }
 
 export enum TokenConfigMode {

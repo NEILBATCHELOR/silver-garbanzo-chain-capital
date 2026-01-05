@@ -23,3 +23,6 @@ export * from './FallbackRPCService';
 
 // Blockchain explorer configuration and utilities
 export * from './blockchainExplorerConfig';
+
+// Explorer helper functions for verification and dynamic URLs
+export * from './explorerHelpers';

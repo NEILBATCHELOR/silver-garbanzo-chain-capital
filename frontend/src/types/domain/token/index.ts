@@ -192,7 +192,7 @@ export const mapTokenDomainToDb = (token: Token): TokenUpdate => ({
   name: token.name,
   symbol: token.symbol,
   decimals: token.decimals,
-  standard: token.standard,
+  standard: token.standard as "ERC-20" | "ERC-721" | "ERC-1155" | "ERC-1400" | "ERC-3525" | "ERC-4626",
   blocks: token.blocks as Json,
   metadata: token.metadata as Json,
   status: token.status as "DRAFT" | "UNDER REVIEW" | "APPROVED" | "READY TO MINT" | "MINTED" | "DEPLOYED" | "PAUSED" | "DISTRIBUTED" | "REJECTED",

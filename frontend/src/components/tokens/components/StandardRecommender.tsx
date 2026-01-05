@@ -153,6 +153,34 @@ const standardDetails: Record<TokenStandard, StandardDetails> = {
       'Maximum market compatibility'
     ]
   },
+  [TokenStandard.ERC20_WRAPPER]: {
+    title: 'ERC20 Wrapper Token',
+    description: 'Wraps existing ERC20 tokens to add additional functionality or upgrade token contracts.',
+    benefits: [
+      '1:1 backing with underlying token',
+      'Adds new features to existing tokens',
+      'Cross-chain compatibility'
+    ],
+    bestFor: [
+      'Token upgrades and migrations',
+      'Cross-chain bridging',
+      'Adding compliance to existing tokens'
+    ]
+  },
+  [TokenStandard.ERC20_REBASING]: {
+    title: 'Rebasing Token',
+    description: 'Elastic supply token that automatically adjusts balances based on market conditions or algorithms.',
+    benefits: [
+      'Automatic supply adjustments',
+      'Price stability mechanisms',
+      'Yield distribution to all holders'
+    ],
+    bestFor: [
+      'Algorithmic stablecoins',
+      'Yield-bearing tokens',
+      'Supply-elastic cryptocurrencies'
+    ]
+  },
   [TokenStandard.ERC721]: {
     title: 'Non-Fungible Token',
     description: 'The standard for non-fungible tokens representing unique assets with distinct IDs and metadata.',
@@ -165,6 +193,20 @@ const standardDetails: Record<TokenStandard, StandardDetails> = {
       'Collectibles and unique assets',
       'Real estate and unique property rights',
       'Individual IP rights'
+    ]
+  },
+  [TokenStandard.ERC721_WRAPPER]: {
+    title: 'ERC721 Wrapper',
+    description: 'Wraps existing NFTs to add additional functionality or enable cross-chain transfers.',
+    benefits: [
+      'Adds features to existing NFTs',
+      'Cross-chain NFT compatibility',
+      'Fractional ownership support'
+    ],
+    bestFor: [
+      'NFT upgrades and migrations',
+      'Cross-chain NFT bridging',
+      'Adding royalties to existing NFTs'
     ]
   },
   [TokenStandard.ERC1155]: {

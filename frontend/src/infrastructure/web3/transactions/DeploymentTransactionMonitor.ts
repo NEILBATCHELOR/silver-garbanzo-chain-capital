@@ -446,10 +446,24 @@ export class DeploymentTransactionMonitor extends EventEmitter implements IDeplo
         "event Transfer(address indexed from, address indexed to, uint256 value)",
         "event Approval(address indexed owner, address indexed spender, uint256 value)"
       ],
+      [TokenStandard.ERC20_WRAPPER]: [
+        "event Transfer(address indexed from, address indexed to, uint256 value)",
+        "event Deposit(address indexed from, uint256 value)",
+        "event Withdrawal(address indexed to, uint256 value)"
+      ],
+      [TokenStandard.ERC20_REBASING]: [
+        "event Transfer(address indexed from, address indexed to, uint256 value)",
+        "event Rebase(uint256 epoch, uint256 prevScalingFactor, uint256 newScalingFactor)"
+      ],
       [TokenStandard.ERC721]: [
         "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
         "event Approval(address indexed owner, address indexed approved, uint256 indexed tokenId)",
         "event ApprovalForAll(address indexed owner, address indexed operator, bool approved)"
+      ],
+      [TokenStandard.ERC721_WRAPPER]: [
+        "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+        "event Deposit(address indexed from, uint256 indexed tokenId)",
+        "event Withdrawal(address indexed to, uint256 indexed tokenId)"
       ],
       [TokenStandard.ERC1155]: [
         "event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 id, uint256 value)",

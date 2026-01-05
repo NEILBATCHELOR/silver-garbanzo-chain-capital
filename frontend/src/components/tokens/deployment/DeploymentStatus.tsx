@@ -1,9 +1,14 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { BlockchainNetwork, NetworkEnvironment } from "@/components/tokens/types";
-import { CheckCircle2, Clock, AlertCircle, ExternalLink } from "lucide-react";
+import { CheckCircle2, Clock, AlertCircle, ExternalLink, FileCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/utils";
+import { 
+  getTransactionUrlByNetwork, 
+  getAddressUrlByNetwork,
+  getVerificationUrlByNetwork 
+} from "@/infrastructure/web3/utils/explorerHelpers";
 
 export type DeploymentStatusType = "pending" | "success" | "failed" | "not_started";
 
@@ -29,48 +34,6 @@ const DeploymentStatus: React.FC<DeploymentStatusProps> = ({
   network,
   environment
 }) => {
-  // Get block explorer URL based on network and environment
-  const getBlockExplorerUrl = (type: "tx" | "address", value: string): string => {
-    const explorers = {
-      [BlockchainNetwork.ETHEREUM]: {
-        [NetworkEnvironment.MAINNET]: "https://etherscan.io",
-        [NetworkEnvironment.TESTNET]: "https://goerli.etherscan.io"
-      },
-      [BlockchainNetwork.POLYGON]: {
-        [NetworkEnvironment.MAINNET]: "https://polygonscan.com",
-        [NetworkEnvironment.TESTNET]: "https://mumbai.polygonscan.com"
-      },
-      [BlockchainNetwork.OPTIMISM]: {
-        [NetworkEnvironment.MAINNET]: "https://optimistic.etherscan.io",
-        [NetworkEnvironment.TESTNET]: "https://goerli-optimism.etherscan.io"
-      },
-      [BlockchainNetwork.ARBITRUM]: {
-        [NetworkEnvironment.MAINNET]: "https://arbiscan.io",
-        [NetworkEnvironment.TESTNET]: "https://goerli.arbiscan.io"
-      },
-      [BlockchainNetwork.BASE]: {
-        [NetworkEnvironment.MAINNET]: "https://basescan.org",
-        [NetworkEnvironment.TESTNET]: "https://goerli.basescan.org"
-      },
-      [BlockchainNetwork.AVALANCHE]: {
-        [NetworkEnvironment.MAINNET]: "https://snowtrace.io",
-        [NetworkEnvironment.TESTNET]: "https://testnet.snowtrace.io"
-      },
-      [BlockchainNetwork.XRP]: {
-        [NetworkEnvironment.MAINNET]: "https://xrpscan.com",
-        [NetworkEnvironment.TESTNET]: "https://testnet.xrpscan.com"
-      },
-      // Other networks' block explorers would be added here
-    };
-
-    const baseUrl = explorers[network]?.[environment] || "";
-    if (!baseUrl) return "";
-
-    return type === "tx" 
-      ? `${baseUrl}/tx/${value}` 
-      : `${baseUrl}/address/${value}`;
-  };
-
   // Determine status icon and color
   const StatusIcon = () => {
     switch (status) {
@@ -90,6 +53,19 @@ const DeploymentStatus: React.FC<DeploymentStatusProps> = ({
   if (status === "not_started") {
     return null;
   }
+
+  // Get explorer URLs
+  const contractUrl = contractAddress 
+    ? getAddressUrlByNetwork(network, environment, contractAddress)
+    : null;
+
+  const txUrl = transactionHash
+    ? getTransactionUrlByNetwork(network, environment, transactionHash)
+    : null;
+
+  const verificationUrl = contractAddress
+    ? getVerificationUrlByNetwork(network, environment, contractAddress)
+    : null;
 
   return (
     <Card className={cn(
@@ -128,12 +104,13 @@ const DeploymentStatus: React.FC<DeploymentStatusProps> = ({
                   <div className="text-xs text-muted-foreground">Contract Address</div>
                   <div className="flex items-center space-x-2">
                     <code className="text-sm font-mono">{contractAddress}</code>
-                    {contractAddress && (
+                    {contractUrl && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="h-6 w-6 p-0" 
-                        onClick={() => window.open(getBlockExplorerUrl("address", contractAddress), "_blank")}
+                        onClick={() => window.open(contractUrl, "_blank")}
+                        title="View contract on explorer"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
@@ -145,12 +122,13 @@ const DeploymentStatus: React.FC<DeploymentStatusProps> = ({
                   <div className="text-xs text-muted-foreground">Transaction Hash</div>
                   <div className="flex items-center space-x-2">
                     <code className="text-sm font-mono">{transactionHash}</code>
-                    {transactionHash && (
+                    {txUrl && (
                       <Button 
                         variant="ghost" 
                         size="sm" 
                         className="h-6 w-6 p-0" 
-                        onClick={() => window.open(getBlockExplorerUrl("tx", transactionHash), "_blank")}
+                        onClick={() => window.open(txUrl, "_blank")}
+                        title="View transaction on explorer"
                       >
                         <ExternalLink className="h-3.5 w-3.5" />
                       </Button>
@@ -164,6 +142,21 @@ const DeploymentStatus: React.FC<DeploymentStatusProps> = ({
                     <div className="text-sm">
                       {new Date(deployedAt).toLocaleString()}
                     </div>
+                  </div>
+                )}
+
+                {/* Verify Contract Button */}
+                {verificationUrl && (
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(verificationUrl, "_blank")}
+                      className="w-full"
+                    >
+                      <FileCheck className="h-4 w-4 mr-2" />
+                      Verify Contract on Explorer
+                    </Button>
                   </div>
                 )}
               </div>

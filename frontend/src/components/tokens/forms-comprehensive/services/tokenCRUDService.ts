@@ -34,6 +34,20 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
       'payableToken': 'payable_token_config',
       'temporaryApproval': 'temporary_approval_config'
     },
+    [TokenStandard.ERC20_WRAPPER]: {
+      'document': 'document_config',
+      'compliance': 'compliance_config',
+      'fees': 'fees_config',
+      'vesting': 'vesting_config',
+      'timelock': 'timelock_config'
+    },
+    [TokenStandard.ERC20_REBASING]: {
+      'document': 'document_config',
+      'compliance': 'compliance_config',
+      'fees': 'fees_config',
+      'vesting': 'vesting_config',
+      'snapshot': 'snapshot_config'
+    },
     [TokenStandard.ERC721]: {
       'document': 'document_config',
       'consecutive': 'consecutive_config',
@@ -44,6 +58,13 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
       'compliance': 'compliance_config',
       'vesting': 'vesting_config',
       'royalty': 'royalty_config'
+    },
+    [TokenStandard.ERC721_WRAPPER]: {
+      'document': 'document_config',
+      'compliance': 'compliance_config',
+      'royalty': 'royalty_config',
+      'rental': 'rental_config',
+      'fractionalization': 'fractionalization_config'
     },
     [TokenStandard.ERC1155]: {
       'document': 'document_config',
@@ -89,7 +110,10 @@ class ComprehensiveTokenCRUDService implements TokenCRUDService {
   private getPropertiesTable(standard: TokenStandard): string {
     const tableMap: Record<TokenStandard, string> = {
       [TokenStandard.ERC20]: 'token_erc20_properties',
+      [TokenStandard.ERC20_WRAPPER]: 'token_erc20_wrapper_properties',
+      [TokenStandard.ERC20_REBASING]: 'token_erc20_rebasing_properties',
       [TokenStandard.ERC721]: 'token_erc721_properties',
+      [TokenStandard.ERC721_WRAPPER]: 'token_erc721_wrapper_properties',
       [TokenStandard.ERC1155]: 'token_erc1155_properties',
       [TokenStandard.ERC3525]: 'token_erc3525_properties',
       [TokenStandard.ERC4626]: 'token_erc4626_properties',

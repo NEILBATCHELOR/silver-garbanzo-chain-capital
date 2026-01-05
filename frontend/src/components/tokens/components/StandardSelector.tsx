@@ -36,10 +36,25 @@ const standardInfo: Record<TokenStandard, StandardInfo> = {
     useCase: 'Currencies, utility tokens, shares, commodities',
     example: 'USDC, DAI, UNI'
   },
+  [TokenStandard.ERC20_WRAPPER]: {
+    description: 'Wrapper for existing ERC20 tokens',
+    useCase: 'Token upgrades, cross-chain bridging, adding features',
+    example: 'Wrapped Bitcoin (WBTC), Wrapped Ether (WETH)'
+  },
+  [TokenStandard.ERC20_REBASING]: {
+    description: 'Elastic supply token with automatic balance adjustments',
+    useCase: 'Algorithmic stablecoins, yield distribution, supply-elastic tokens',
+    example: 'Ampleforth (AMPL), OLYMPUS (OHM)'
+  },
   [TokenStandard.ERC721]: {
     description: 'Standard interface for non-fungible tokens (NFTs)',
     useCase: 'Unique assets, real estate, IP rights',
     example: 'CryptoPunks, BAYC, Cryptokitties'
+  },
+  [TokenStandard.ERC721_WRAPPER]: {
+    description: 'Wrapper for existing NFTs',
+    useCase: 'NFT upgrades, cross-chain bridging, fractional ownership',
+    example: 'Wrapped CryptoPunks'
   },
   [TokenStandard.ERC1155]: {
     description: 'Multi-token standard for fungible and non-fungible tokens',

@@ -266,7 +266,10 @@ export interface DeploymentParams {
  */
 export const tokenStandardToTokenType: Record<TokenStandard, TokenType> = {
   [TokenStandard.ERC20]: TokenType.ERC20,
+  [TokenStandard.ERC20_WRAPPER]: TokenType.ERC20_WRAPPER,
+  [TokenStandard.ERC20_REBASING]: TokenType.ERC20_REBASING,
   [TokenStandard.ERC721]: TokenType.ERC721,
+  [TokenStandard.ERC721_WRAPPER]: TokenType.ERC721_WRAPPER,
   [TokenStandard.ERC1155]: TokenType.ERC1155,
   [TokenStandard.ERC1400]: TokenType.ERC1400,
   [TokenStandard.ERC3525]: TokenType.ERC3525,

@@ -7,15 +7,20 @@ import {
   CardTitle 
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, ExternalLink, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { CheckCircle2, Clock, ExternalLink, XCircle, FileCheck } from 'lucide-react';
 import { DeploymentStatus } from '@/types/deployment/TokenDeploymentTypes';
 import { formatDistanceToNow, format } from 'date-fns';
-import { getExplorerUrl } from '@/utils/wallet/blockchain';
 import { supabase } from '@/infrastructure/database/client';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { TokenDeploymentHistoryTable, TokenDeploymentsTable } from '@/types/core/database';
 import { Json } from '@/types/core/supabase';
+import { 
+  getTransactionUrlByNetwork, 
+  getAddressUrlByNetwork,
+  getVerificationUrlByNetwork 
+} from '@/infrastructure/web3/utils/explorerHelpers';
+import { DeploymentVerificationModal } from './DeploymentVerificationModal';
 
 // Temporary interface until token_deployment_history table is created
 interface DeploymentHistoryItem {
@@ -23,6 +28,7 @@ interface DeploymentHistoryItem {
   token_id: string;
   status: string;
   transaction_hash?: string | null;
+  contract_address?: string | null;
   blockchain: string;
   environment?: string;
   timestamp: string;
@@ -41,6 +47,15 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
   const [history, setHistory] = useState<DeploymentHistoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [verificationModal, setVerificationModal] = useState<{
+    isOpen: boolean;
+    tokenId: string;
+    network: string;
+  }>({
+    isOpen: false,
+    tokenId: '',
+    network: ''
+  });
 
   useEffect(() => {
     fetchDeploymentHistory();
@@ -100,6 +115,7 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
             token_id: deployment.token_id,
             status: deployment.status || 'unknown',
             transaction_hash: deployment.transaction_hash,
+            contract_address: deployment.contract_address,
             blockchain,
             environment,
             timestamp: deployment.deployed_at,
@@ -211,52 +227,115 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
         ) : (
           <ScrollArea className="h-[250px] pr-4">
             <div className="space-y-4">
-              {historyItems.map((item) => (
-                <div key={item.id} className="flex space-x-3 items-start border-b pb-3 last:border-0">
-                  <div className="pt-1">{getStatusIcon(item.status as DeploymentStatus)}</div>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">
-                        {item.blockchain} {item.environment?.toLowerCase()}
-                      </span>
-                      {getStatusBadge(item.status as DeploymentStatus)}
-                    </div>
-                    
-                    <div className="text-xs text-muted-foreground">
-                      {format(new Date(item.timestamp), 'PPpp')} 
-                      ({formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })})
-                    </div>
-                    
-                    {item.transaction_hash && (
-                      <div className="flex items-center space-x-1 text-xs">
-                        <span className="text-muted-foreground">Tx:</span>
-                        <span>{item.transaction_hash.substring(0, 8)}...{item.transaction_hash.substring(item.transaction_hash.length - 6)}</span>
-                        <a 
-                          href={getExplorerUrl(item.blockchain, item.transaction_hash, 'transaction')} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex text-blue-500 hover:text-blue-700"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                        </a>
+              {historyItems.map((item) => {
+                // Get dynamic explorer URLs
+                const txUrl = item.transaction_hash
+                  ? getTransactionUrlByNetwork(item.blockchain, item.environment || 'testnet', item.transaction_hash)
+                  : null;
+
+                const contractUrl = item.contract_address
+                  ? getAddressUrlByNetwork(item.blockchain, item.environment || 'testnet', item.contract_address)
+                  : null;
+
+                const verificationUrl = item.contract_address
+                  ? getVerificationUrlByNetwork(item.blockchain, item.environment || 'testnet', item.contract_address)
+                  : null;
+
+                return (
+                  <div key={item.id} className="flex space-x-3 items-start border-b pb-3 last:border-0">
+                    <div className="pt-1">{getStatusIcon(item.status as DeploymentStatus)}</div>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {item.blockchain} {item.environment?.toLowerCase()}
+                        </span>
+                        {getStatusBadge(item.status as DeploymentStatus)}
                       </div>
-                    )}
-                    
-                    {item.error && (
-                      <div className="text-xs text-red-500">
-                        Error: {item.error.length > 100 
-                          ? `${item.error.substring(0, 100)}...` 
-                          : item.error
-                        }
+                      
+                      <div className="text-xs text-muted-foreground">
+                        {format(new Date(item.timestamp), 'PPpp')} 
+                        ({formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })})
                       </div>
-                    )}
+
+                      {item.contract_address && (
+                        <div className="flex items-center space-x-1 text-xs">
+                          <span className="text-muted-foreground">Contract:</span>
+                          <span>{item.contract_address.substring(0, 8)}...{item.contract_address.substring(item.contract_address.length - 6)}</span>
+                          {contractUrl && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0"
+                              onClick={() => window.open(contractUrl, "_blank")}
+                              title="View contract on explorer"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      
+                      {item.transaction_hash && (
+                        <div className="flex items-center space-x-1 text-xs">
+                          <span className="text-muted-foreground">Tx:</span>
+                          <span>{item.transaction_hash.substring(0, 8)}...{item.transaction_hash.substring(item.transaction_hash.length - 6)}</span>
+                          {txUrl && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-4 w-4 p-0"
+                              onClick={() => window.open(txUrl, "_blank")}
+                              title="View transaction on explorer"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Verify button for successful deployments */}
+                      {item.status === 'deployed' && item.contract_address && (
+                        <div className="pt-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => setVerificationModal({
+                              isOpen: true,
+                              tokenId: item.token_id,
+                              network: `${item.blockchain}-${item.environment}`
+                            })}
+                          >
+                            <FileCheck className="h-3 w-3 mr-1" />
+                            Verify Deployment
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {item.error && (
+                        <div className="text-xs text-red-500">
+                          Error: {item.error.length > 100 
+                            ? `${item.error.substring(0, 100)}...` 
+                            : item.error
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </ScrollArea>
         )}
       </CardContent>
+      
+      {/* Verification Modal */}
+      <DeploymentVerificationModal
+        tokenId={verificationModal.tokenId}
+        network={verificationModal.network}
+        isOpen={verificationModal.isOpen}
+        onClose={() => setVerificationModal({ isOpen: false, tokenId: '', network: '' })}
+      />
     </Card>
   );
 };

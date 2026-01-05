@@ -292,24 +292,21 @@ const TokenEditPage: React.FC = () => {
         ) : token ? (
           // For all token standards, render the specialized form directly
           token.standard === TokenStandard.ERC20 || 
-          token.standard === TokenStandard.ERC721 || 
+          token.standard === TokenStandard.ERC20_WRAPPER ||
+          token.standard === TokenStandard.ERC20_REBASING ||
+          token.standard === TokenStandard.ERC721 ||
+          token.standard === TokenStandard.ERC721_WRAPPER ||
           token.standard === TokenStandard.ERC1155 || 
           token.standard === TokenStandard.ERC3525 || 
           token.standard === TokenStandard.ERC4626 || 
           token.standard === TokenStandard.ERC1400 ? (
             renderStandardSpecificForm()
           ) : (
-            // For other token standards, use the tabs-based interface
+            // Fallback for any future standards
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4">
                 <TabsTrigger value="general">General</TabsTrigger>
                 <TabsTrigger value="properties">Token Properties</TabsTrigger>
-                {token.standard === TokenStandard.ERC1400 && (
-                  <TabsTrigger value="partitions">Partitions</TabsTrigger>
-                )}
-                {token.standard === TokenStandard.ERC1155 && (
-                  <TabsTrigger value="types">Token Types</TabsTrigger>
-                )}
               </TabsList>
               
               <TabsContent value="general">
@@ -375,36 +372,7 @@ const TokenEditPage: React.FC = () => {
                 </Card>
               </TabsContent>
               
-              {/* Additional tab contents for specific token standards */}
-              {token.standard === TokenStandard.ERC1400 && (
-                <TabsContent value="partitions">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Token Partitions</CardTitle>
-                      <CardDescription>Manage ERC-1400 token partitions</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Partition management form will be implemented here */}
-                      <p className="text-muted-foreground">Partition management functionality will be available soon.</p>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              )}
-              
-              {token.standard === TokenStandard.ERC1155 && (
-                <TabsContent value="types">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Token Types</CardTitle>
-                      <CardDescription>Manage ERC-1155 token types</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Token types management form will be implemented here */}
-                      <p className="text-muted-foreground">Token type management functionality will be available soon.</p>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              )}
+              {/* No additional standard-specific tabs in fallback - all standards use specialized forms */}
             </Tabs>
           )
         ) : (
