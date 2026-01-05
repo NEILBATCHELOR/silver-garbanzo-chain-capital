@@ -34,7 +34,10 @@ export async function getProjectWallet(
       query.or(`non_evm_network.eq.${blockchain},chain_id.eq.${getChainIdString(blockchain)}`);
     }
 
-    const { data, error } = await query.limit(1).maybeSingle();
+    const { data, error } = await query
+      .order('created_at', { ascending: false }) // ✅ FIX: Order by newest first
+      .limit(1)
+      .maybeSingle();
 
     if (error) throw error;
     if (!data) {

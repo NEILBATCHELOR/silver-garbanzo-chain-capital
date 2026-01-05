@@ -20,6 +20,7 @@ import { InstanceDeploymentService } from './InstanceDeploymentService';
 import { ModuleRegistryService, type ModuleSelection } from './ModuleRegistryService';
 import type { CompleteModuleConfiguration } from '@/types/modules';
 import type { FoundryDeploymentParams } from '@/components/tokens/interfaces/TokenInterfaces';
+import { CHAIN_ID_TO_NAME } from '@/infrastructure/web3/utils/chainIds';
 
 // ============ TYPES & INTERFACES ============
 
@@ -107,9 +108,13 @@ export class InstanceConfigurationService {
       // Determine token standard first (needed for factory lookup)
       const tokenStandard = this.getTokenStandard(params.tokenType);
 
+      // ✅ FIX: Normalize network name (convert chain ID to network name if needed)
+      const networkName = this.normalizeNetworkName(params.blockchain);
+      console.log(`🔄 Network parameter normalized: '${params.blockchain}' → '${networkName}'`);
+
       // Get extension factory address from database (standard-specific or universal)
       const factoryAddress = await this.getFactoryAddress(
-        params.blockchain,
+        networkName,  // ✅ Use normalized network name
         params.environment,
         tokenStandard  // ✅ FIX: Pass token standard for correct factory lookup
       );
@@ -129,14 +134,14 @@ export class InstanceConfigurationService {
       console.log('🔄 Calling InstanceDeploymentService.deployAndAttachModules...');
       console.log(`   - Token: ${tokenAddress}`);
       console.log(`   - Factory: ${factoryAddress}`);
-      console.log(`   - Network: ${params.blockchain} (${params.environment})`);
+      console.log(`   - Network: ${networkName} (${params.environment})`);  // ✅ Use normalized name
       console.log(`   - Standard: ${tokenStandard}`);
       
       const deployedModules = await InstanceDeploymentService.deployAndAttachModules(
         tokenAddress,
         tokenId,
         moduleSelection,
-        params.blockchain,
+        networkName,  // ✅ Use normalized network name
         tokenStandard,
         params.environment,
         wallet,
@@ -570,6 +575,35 @@ export class InstanceConfigurationService {
     if (normalized.includes('erc1400')) return 'erc1400';
     
     return 'erc20';
+  }
+
+  /**
+   * Normalize blockchain parameter to network name for database queries
+   * 
+   * Handles both chain IDs (e.g., '560048', '1439') and network names (e.g., 'hoodi', 'injective')
+   * 
+   * @param blockchain - Chain ID or network name
+   * @returns Network name for database query
+   */
+  private static normalizeNetworkName(blockchain: string): string {
+    // If it's already a known network name, return as-is
+    const knownNetworks = ['hoodi', 'injective', 'ethereum', 'polygon', 'arbitrum', 'optimism', 'base'];
+    if (knownNetworks.includes(blockchain.toLowerCase())) {
+      return blockchain.toLowerCase();
+    }
+
+    // Try to parse as chain ID
+    const chainId = parseInt(blockchain);
+    if (!isNaN(chainId)) {
+      // Use the CHAIN_ID_TO_NAME mapping
+      const networkName = CHAIN_ID_TO_NAME[chainId];
+      if (networkName) {
+        return networkName.toLowerCase();
+      }
+    }
+
+    // Default: return as-is (might be a network name we don't know yet)
+    return blockchain.toLowerCase();
   }
 
   /**

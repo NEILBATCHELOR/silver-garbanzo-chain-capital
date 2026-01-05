@@ -6,6 +6,7 @@
  */
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY } from '../../config/env';
 import type { DeploymentRecord, VerificationUpdate } from '../../types/trade-finance/deployment-records';
 
 // Use any for now since Database types are in frontend
@@ -14,9 +15,10 @@ type ContractMaster = any;
 type ContractMasterInsert = any;
 type ContractMasterUpdate = any;
 
+// Initialize Supabase client with centralized config
 const supabase: SupabaseClient = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
 );
 
 export interface UpgradeHistoryEntry {

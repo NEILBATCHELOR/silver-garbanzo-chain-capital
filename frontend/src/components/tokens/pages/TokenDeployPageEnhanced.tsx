@@ -288,24 +288,28 @@ const TokenDeployPageEnhanced: React.FC = () => {
       try {
         setLoadingFactory(true);
         
-        // Check for factory registry first (preferred)
+        // Check for factory registry first (preferred) - get LATEST only
         const { data: registryData, error: registryError } = await supabase
           .from('contract_masters')
-          .select('contract_address, is_active')
+          .select('contract_address, is_active, created_at')
           .eq('network', selectedChain)
           .eq('environment', 'testnet')
           .eq('contract_type', 'factory_registry')
           .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
         
-        // If no registry, check for any factory contracts
+        // If no registry, check for any factory contracts - get LATEST only
         const { data: factoriesData, error: factoriesError } = await supabase
           .from('contract_masters')
-          .select('contract_address, contract_type, is_active')
+          .select('contract_address, contract_type, is_active, created_at')
           .eq('network', selectedChain)
           .eq('environment', 'testnet')
           .like('contract_type', '%factory%')
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1);
         
         if (registryError) {
           console.error('Error checking factory registry:', registryError);
@@ -320,7 +324,6 @@ const TokenDeployPageEnhanced: React.FC = () => {
           setFactoryAddress(registryData.contract_address);
           setFactoryConfigured(true);
         } else if (factoriesData && factoriesData.length > 0) {
-          // Multiple factories exist, use the first one as representative
           setFactoryAddress(factoriesData[0].contract_address);
           setFactoryConfigured(true);
         } else {
@@ -328,19 +331,45 @@ const TokenDeployPageEnhanced: React.FC = () => {
           setFactoryConfigured(false);
         }
         
-        // Get active templates for the selected blockchain
-        const { data: templatesData, error: templatesError } = await supabase
+        // Get LATEST deployment family of templates
+        // Step 1: Find the most recent created_at date for templates
+        const { data: latestTemplateData } = await supabase
           .from('contract_masters')
-          .select('*')
+          .select('created_at')
           .eq('network', selectedChain)
           .eq('environment', 'testnet')
           .eq('is_template', true)
-          .eq('is_active', true);
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
         
-        if (templatesError) {
-          console.error('Error fetching templates:', templatesError);
+        if (latestTemplateData?.created_at) {
+          // Step 2: Get ALL templates from the same deployment batch
+          // Templates from same deployment are created within ~1 hour of each other
+          const latestTime = new Date(latestTemplateData.created_at);
+          const oneHourBefore = new Date(latestTime.getTime() - 60 * 60 * 1000);
+          
+          const { data: templatesData, error: templatesError } = await supabase
+            .from('contract_masters')
+            .select('*')
+            .eq('network', selectedChain)
+            .eq('environment', 'testnet')
+            .eq('is_template', true)
+            .eq('is_active', true)
+            .gte('created_at', oneHourBefore.toISOString())
+            .lte('created_at', latestTime.toISOString());
+          
+          if (templatesError) {
+            console.error('Error fetching latest template family:', templatesError);
+          } else {
+            setActiveTemplates(templatesData || []);
+            console.log(`✅ Loaded ${templatesData?.length || 0} templates from latest deployment batch (${latestTime.toISOString()})`);
+          }
         } else {
-          setActiveTemplates(templatesData || []);
+          // No templates found
+          setActiveTemplates([]);
+          console.log('⚠️ No active templates found for this network');
         }
         
       } catch (error) {

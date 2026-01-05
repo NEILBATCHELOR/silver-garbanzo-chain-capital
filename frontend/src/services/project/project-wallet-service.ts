@@ -71,7 +71,8 @@ export const projectWalletService = {
     const { data, error } = await supabase
       .from('project_wallets')
       .select('*')
-      .eq('project_id', projectId);
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false }); // ✅ FIX: Order by newest first
 
     if (error) {
       console.error('[ProjectWalletService] Error fetching project wallets:', error);

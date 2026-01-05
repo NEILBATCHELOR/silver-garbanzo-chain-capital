@@ -30,6 +30,7 @@ import calendarRoutes from './src/routes/calendar'
 import organizationRoutes from './src/routes/organizations'
 import authRoutes from './src/routes/auth/index'
 import walletEncryptionRoutes from './src/routes/wallet-encryption'
+import walletRestorationRoutes from './src/routes/wallet-restoration'
 import nonceRoutes from './src/routes/nonce'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes, etfDataInputRoutes, etfCalculationRoutes } from './src/routes/nav/index'
 import { etfTokenLinksRoutes } from './src/routes/etf-token-links.routes'
@@ -887,6 +888,7 @@ Comprehensive platform supporting:
     await app.register(documentRoutes, { prefix: apiPrefix })
     await app.register(walletRoutes, { prefix: apiPrefix })
     await app.register(walletEncryptionRoutes)  // Wallet encryption at /api/wallet/*
+    await app.register(walletRestorationRoutes)  // Wallet restoration at /api/wallet/*
     await app.register(nonceRoutes)  // Nonce management at /api/nonce/*
     await app.register(baseWalletRoutes, { prefix: '/api' })  // Base Network wallet service
     await app.register(calendarRoutes, { prefix: apiPrefix })

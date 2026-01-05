@@ -37,6 +37,57 @@ export interface ModuleDeploymentResult {
  */
 export class InstanceDeploymentService {
   /**
+   * Helper: Parse extension deployed event from transaction receipt
+   * 
+   * Handles ethers.js v6 log parsing - raw logs don't have eventName/args
+   * Must parse through contract interface
+   * 
+   * @param receipt - Transaction receipt with logs
+   * @param factory - Factory contract with interface for parsing
+   * @param eventName - Expected event name (e.g., 'FeesExtensionDeployed')
+   * @param paramName - Parameter name for module address (usually 'extension')
+   * @returns Deployed module address
+   */
+  private static parseExtensionEvent(
+    receipt: any,
+    factory: ethers.Contract,
+    eventName: string,
+    paramName: string = 'extension'
+  ): string | null {
+    try {
+      // Parse all logs through factory interface
+      const parsedLogs = receipt.logs
+        .map((log: any) => {
+          try {
+            return factory.interface.parseLog({
+              topics: [...log.topics],
+              data: log.data
+            });
+          } catch {
+            return null;
+          }
+        })
+        .filter((log: any) => log !== null);
+
+      // Find the specific event
+      const event = parsedLogs.find((log: any) => log?.name === eventName);
+      const moduleAddress = event?.args?.[paramName];
+
+      if (!moduleAddress) {
+        console.error(`❌ Failed to find ${eventName} event. Available events:`, 
+          parsedLogs.map((l: any) => l?.name));
+        return null;
+      }
+
+      console.log(`✅ Parsed ${eventName}: ${moduleAddress}`);
+      return moduleAddress;
+    } catch (error) {
+      console.error(`❌ Error parsing ${eventName}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Deploy and attach modules for a token based on feature selection
    * 
    * CRITICAL: Deploys NEW instances, does NOT reuse shared masters
@@ -422,13 +473,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'ComplianceModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ComplianceExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address from transaction');
+      throw new Error('Failed to get deployed module address from ComplianceExtensionDeployed event');
     }
 
     console.log(`NEW compliance module deployed at: ${newModuleAddress}`);
@@ -499,13 +548,11 @@ export class InstanceDeploymentService {
     const tx = await factory.deployVesting(tokenAddress);
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'VestingModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'VestingExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from VestingExtensionDeployed event');
     }
 
     console.log(`NEW vesting module deployed at: ${newModuleAddress}`);
@@ -619,16 +666,14 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'FeeModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FeesExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from FeesExtensionDeployed event');
     }
 
-    console.log(`NEW fee module deployed at: ${newModuleAddress}`);
+    console.log(`✅ Fee module deployed at: ${newModuleAddress}`);
     await token.setFeesModule(newModuleAddress);
 
     return {
@@ -676,13 +721,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'FlashMintModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FlashMintExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from FlashMintExtensionDeployed event');
     }
 
     console.log(`NEW flash mint module deployed at: ${newModuleAddress}`);
@@ -727,13 +770,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'PermitModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'PermitExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from PermitExtensionDeployed event');
     }
 
     console.log(`NEW permit module deployed at: ${newModuleAddress}`);
@@ -774,13 +815,11 @@ export class InstanceDeploymentService {
     const tx = await factory.deploySnapshot(tokenAddress);
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'SnapshotModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SnapshotExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from SnapshotExtensionDeployed event');
     }
 
     console.log(`NEW snapshot module deployed at: ${newModuleAddress}`);
@@ -832,13 +871,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'TimelockModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'TimelockExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from TimelockExtensionDeployed event');
     }
 
     console.log(`NEW timelock module deployed at: ${newModuleAddress}`);
@@ -936,13 +973,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'VotesModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'VotesExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from VotesExtensionDeployed event');
     }
 
     console.log(`NEW votes module deployed at: ${newModuleAddress}`);
@@ -990,13 +1025,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'PayableTokenModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'PayableExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from PayableExtensionDeployed event');
     }
 
     console.log(`NEW payable token module deployed at: ${newModuleAddress}`);
@@ -1048,13 +1081,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'TemporaryApprovalModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'TemporaryApprovalExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from TemporaryApprovalExtensionDeployed event');
     }
 
     console.log(`NEW temporary approval module deployed at: ${newModuleAddress}`);
@@ -1108,13 +1139,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'RoyaltyModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'RoyaltyExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from RoyaltyExtensionDeployed event');
     }
 
     console.log(`NEW royalty module deployed at: ${newModuleAddress}`);
@@ -1174,13 +1203,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'RentalModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'RentalExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from RentalExtensionDeployed event');
     }
 
     console.log(`NEW rental module deployed at: ${newModuleAddress}`);
@@ -1236,13 +1263,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'SoulboundModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SoulboundExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from SoulboundExtensionDeployed event');
     }
 
     console.log(`NEW soulbound module deployed at: ${newModuleAddress}`);
@@ -1300,13 +1325,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'FractionalizationModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FractionalizationExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from FractionalizationExtensionDeployed event');
     }
 
     console.log(`NEW fractionalization module deployed at: ${newModuleAddress}`);
@@ -1356,13 +1379,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'ConsecutiveModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ConsecutiveExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from ConsecutiveExtensionDeployed event');
     }
 
     console.log(`NEW consecutive module deployed at: ${newModuleAddress}`);
@@ -1412,13 +1433,11 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'MetadataModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'MetadataExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from MetadataExtensionDeployed event');
     }
 
     console.log(`NEW metadata events module deployed at: ${newModuleAddress}`);
@@ -1464,13 +1483,11 @@ export class InstanceDeploymentService {
     const tx = await factory.deployGranularApproval(tokenAddress);
     const receipt = await tx.wait();
 
-    const event = receipt.logs.find(
-      (log: any) => log.eventName === 'GranularApprovalModuleDeployed'
-    );
-    const newModuleAddress = event?.args?.moduleAddress;
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'GranularApprovalExtensionDeployed', 'extension');
 
     if (!newModuleAddress) {
-      throw new Error('Failed to get deployed module address');
+      throw new Error('Failed to get deployed module address from GranularApprovalExtensionDeployed event');
     }
 
     console.log(`NEW granular approval module deployed at: ${newModuleAddress}`);
@@ -1499,8 +1516,9 @@ export class InstanceDeploymentService {
     
     const tx = await factory.deploySupplyCap(tokenAddress, globalCap);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'SupplyCapExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SupplyCapExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from SupplyCapExtensionDeployed event');
     
     await token.setSupplyCapModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'supply_cap', configuration: config };
@@ -1520,8 +1538,9 @@ export class InstanceDeploymentService {
     // FIXED: Use correct factory method name (deployURIManagement not attachURIManagement)
     const tx = await factory.deployURIManagement(tokenAddress, baseURI, ipfsGateway);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'URIManagementExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'URIManagementExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from URIManagementExtensionDeployed event');
     
     await token.setUriManagementModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'uri_management', configuration: config };
@@ -1538,8 +1557,9 @@ export class InstanceDeploymentService {
     
     const tx = await factory.deploySlotApprovableModule(tokenAddress);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'SlotApprovableModuleDeployed')?.args?.moduleAddress;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SlotApprovableExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from SlotApprovableExtensionDeployed event');
     
     await token.setSlotApprovableModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'slot_approvable', configuration: config };
@@ -1564,8 +1584,9 @@ export class InstanceDeploymentService {
       allowSlotMerging
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'SlotManagerModuleDeployed')?.args?.moduleAddress;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SlotManagerExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from SlotManagerExtensionDeployed event');
     
     await token.setSlotManagerModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'slot_manager', configuration: config };
@@ -1581,8 +1602,9 @@ export class InstanceDeploymentService {
     // Exchange rates configured post-deployment via setExchangeRate(fromSlot, toSlot, rate)
     const tx = await factory.deployValueExchangeModule(tokenAddress);
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ValueExchangeModuleDeployed')?.args?.moduleAddress;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ValueExchangeExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from ValueExchangeExtensionDeployed event');
     
     await token.setValueExchangeModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'value_exchange', configuration: config };
@@ -1611,8 +1633,9 @@ export class InstanceDeploymentService {
       feeRecipient
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'FeeStrategyExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FeeStrategyExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from FeeStrategyExtensionDeployed event');
     
     await token.setFeeStrategyModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'fee_strategy', configuration: config };
@@ -1643,8 +1666,9 @@ export class InstanceDeploymentService {
       priorityFeeBps
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'WithdrawalQueueExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'WithdrawalQueueExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from WithdrawalQueueExtensionDeployed event');
     
     await token.setWithdrawalQueueModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'withdrawal_queue', configuration: config };
@@ -1667,8 +1691,9 @@ export class InstanceDeploymentService {
       rebalanceThreshold
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'YieldStrategyExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'YieldStrategyExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from YieldStrategyExtensionDeployed event');
     
     await token.setYieldStrategyModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'yield_strategy', configuration: config };
@@ -1697,8 +1722,9 @@ export class InstanceDeploymentService {
       partialFulfillmentEnabled
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'AsyncVaultExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'AsyncVaultExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from AsyncVaultExtensionDeployed event');
     
     await token.setAsyncVaultModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'async_vault', configuration: config };
@@ -1724,8 +1750,9 @@ export class InstanceDeploymentService {
       unwrapOnWithdrawal
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'NativeVaultExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'NativeVaultExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from NativeVaultExtensionDeployed event');
     
     await token.setNativeVaultModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'native_vault', configuration: config };
@@ -1750,8 +1777,9 @@ export class InstanceDeploymentService {
       slippageTolerance
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'RouterExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'RouterExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from RouterExtensionDeployed event');
     
     await token.setRouterModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'router', configuration: config };
@@ -1775,8 +1803,9 @@ export class InstanceDeploymentService {
       baseAsset
     );
     const receipt = await tx.wait();
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'MultiAssetVaultExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'MultiAssetVaultExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from MultiAssetVaultExtensionDeployed event');
     
     await token.setMultiAssetVaultModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'multi_asset_vault', configuration: config };
@@ -1795,8 +1824,9 @@ export class InstanceDeploymentService {
     const tx = await factory.deployTransferRestrictions(tokenAddress);
     const receipt = await tx.wait();
     // Fixed: Updated event name to match factory
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'TransferRestrictionsExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'TransferRestrictionsExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from TransferRestrictionsExtensionDeployed event');
     
     await token.setTransferRestrictionsModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'transfer_restrictions', configuration: config };
@@ -1814,8 +1844,9 @@ export class InstanceDeploymentService {
     const tx = await factory.deployController(tokenAddress, controllable);
     const receipt = await tx.wait();
     // Fixed: Updated event name to match factory
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'ControllerExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ControllerExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from ControllerExtensionDeployed event');
     
     await token.setControllerModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'controller', configuration: config };
@@ -1832,8 +1863,9 @@ export class InstanceDeploymentService {
     const tx = await factory.deployDocument(tokenAddress);
     const receipt = await tx.wait();
     // Fixed: Updated event name to match factory
-    const newModuleAddress = receipt.logs.find((log: any) => log.eventName === 'DocumentExtensionDeployed')?.args?.extension;
-    if (!newModuleAddress) throw new Error('Failed to get deployed module address');
+    // ✅ Use helper to parse event
+    const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'DocumentExtensionDeployed', 'extension');
+    if (!newModuleAddress) throw new Error('Failed to get deployed module address from DocumentExtensionDeployed event');
     
     await token.setERC1400DocumentModule(newModuleAddress);
     return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'erc1400_document', configuration: config };
