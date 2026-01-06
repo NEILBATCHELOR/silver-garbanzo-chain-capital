@@ -33,6 +33,9 @@ interface DeploymentHistoryItem {
   environment?: string;
   timestamp: string;
   error?: string | null;
+  source_verified?: boolean;
+  source_verification_status?: string | null;
+  block_explorer_url?: string | null;
 }
 
 interface DeploymentHistoryViewProps {
@@ -82,7 +85,7 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
       // Temporarily use token_deployments table until the token_deployment_history table is created
       const { data, error } = await supabase
         .from('token_deployments')
-        .select('id, token_id, contract_address, transaction_hash, deployed_at, deployed_by, status, network, deployment_data')
+        .select('id, token_id, contract_address, transaction_hash, deployed_at, deployed_by, status, network, deployment_data, source_verified, source_verification_status, block_explorer_url')
         .eq('token_id', tokenId)
         .order('deployed_at', { ascending: false });
       
@@ -119,7 +122,10 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
             blockchain,
             environment,
             timestamp: deployment.deployed_at,
-            error: errorMsg
+            error: errorMsg,
+            source_verified: deployment.source_verified || false,
+            source_verification_status: deployment.source_verification_status,
+            block_explorer_url: deployment.block_explorer_url
           };
         });
         
@@ -245,11 +251,23 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
                   <div key={item.id} className="flex space-x-3 items-start border-b pb-3 last:border-0">
                     <div className="pt-1">{getStatusIcon(item.status as DeploymentStatus)}</div>
                     <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium">
                           {item.blockchain} {item.environment?.toLowerCase()}
                         </span>
                         {getStatusBadge(item.status as DeploymentStatus)}
+                        {item.source_verified && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                            <CheckCircle2 className="h-3 w-3 mr-1" />
+                            Source Verified
+                          </Badge>
+                        )}
+                        {item.status === 'deployed' && !item.source_verified && (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Not Verified
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="text-xs text-muted-foreground">

@@ -19473,7 +19473,13 @@ CREATE TABLE public.token_deployments (
     gas_used bigint,
     gas_price text,
     details jsonb NOT NULL,
-    initial_owner text
+    initial_owner text,
+    source_verified boolean DEFAULT false,
+    source_verification_status text DEFAULT 'not_verified'::text,
+    source_verification_guid text,
+    source_verification_attempts integer DEFAULT 0,
+    last_source_verification_attempt timestamp with time zone,
+    block_explorer_url text
 );
 
 
@@ -19482,6 +19488,48 @@ CREATE TABLE public.token_deployments (
 --
 
 COMMENT ON TABLE public.token_deployments IS 'Bridge table linking token configurations to deployed contracts. Tracks deployment status and initialization state.';
+
+
+--
+-- Name: COLUMN token_deployments.source_verified; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.source_verified IS 'Whether source code is verified on block explorer';
+
+
+--
+-- Name: COLUMN token_deployments.source_verification_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.source_verification_status IS 'Status: not_verified, pending, verified, failed, already_verified';
+
+
+--
+-- Name: COLUMN token_deployments.source_verification_guid; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.source_verification_guid IS 'GUID from block explorer for tracking verification';
+
+
+--
+-- Name: COLUMN token_deployments.source_verification_attempts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.source_verification_attempts IS 'Number of verification attempts';
+
+
+--
+-- Name: COLUMN token_deployments.last_source_verification_attempt; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.last_source_verification_attempt IS 'Timestamp of last verification attempt';
+
+
+--
+-- Name: COLUMN token_deployments.block_explorer_url; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.block_explorer_url IS 'URL to verified contract on block explorer';
 
 
 --
@@ -26046,6 +26094,12 @@ CREATE TABLE public.token_modules (
     deployed_by uuid,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    source_verified boolean DEFAULT false,
+    source_verification_status text DEFAULT 'not_verified'::text,
+    source_verification_guid text,
+    source_verification_attempts integer DEFAULT 0,
+    last_source_verification_attempt timestamp with time zone,
+    block_explorer_url text,
     CONSTRAINT token_modules_master_address_check CHECK (((master_address IS NULL) OR (master_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_modules_module_address_check CHECK ((module_address ~ '^0x[a-fA-F0-9]{40}$'::text)),
     CONSTRAINT token_modules_module_type_check CHECK ((module_type = ANY (ARRAY['compliance'::text, 'vesting'::text, 'fees'::text, 'policy_engine'::text])))
@@ -26106,6 +26160,48 @@ COMMENT ON COLUMN public.token_modules.attached_at IS 'When the module was attac
 --
 
 COMMENT ON COLUMN public.token_modules.detached_at IS 'When the module was detached (if applicable)';
+
+
+--
+-- Name: COLUMN token_modules.source_verified; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.source_verified IS 'Whether source code is verified on block explorer';
+
+
+--
+-- Name: COLUMN token_modules.source_verification_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.source_verification_status IS 'Status: not_verified, pending, verified, failed, already_verified';
+
+
+--
+-- Name: COLUMN token_modules.source_verification_guid; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.source_verification_guid IS 'GUID from block explorer for tracking verification';
+
+
+--
+-- Name: COLUMN token_modules.source_verification_attempts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.source_verification_attempts IS 'Number of verification attempts';
+
+
+--
+-- Name: COLUMN token_modules.last_source_verification_attempt; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.last_source_verification_attempt IS 'Timestamp of last verification attempt';
+
+
+--
+-- Name: COLUMN token_modules.block_explorer_url; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.block_explorer_url IS 'URL to verified contract on block explorer';
 
 
 --
@@ -43763,6 +43859,13 @@ CREATE INDEX idx_token_deployment_history_token_id ON public.token_deployment_hi
 
 
 --
+-- Name: idx_token_deployments_source_verified; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_deployments_source_verified ON public.token_deployments USING btree (source_verified);
+
+
+--
 -- Name: idx_token_deployments_token_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -43984,6 +44087,13 @@ CREATE INDEX idx_token_modules_module_address ON public.token_modules USING btre
 --
 
 CREATE INDEX idx_token_modules_module_type ON public.token_modules USING btree (module_type);
+
+
+--
+-- Name: idx_token_modules_source_verified; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_source_verified ON public.token_modules USING btree (source_verified);
 
 
 --

@@ -28778,6 +28778,7 @@ export type Database = {
       }
       token_deployments: {
         Row: {
+          block_explorer_url: string | null
           contract_address: string
           deployed_at: string | null
           deployed_by: string
@@ -28789,13 +28790,19 @@ export type Database = {
           gas_used: number | null
           id: string
           initial_owner: string | null
+          last_source_verification_attempt: string | null
           master_address: string | null
           network: string
+          source_verification_attempts: number | null
+          source_verification_guid: string | null
+          source_verification_status: string | null
+          source_verified: boolean | null
           status: string
           token_id: string
           transaction_hash: string
         }
         Insert: {
+          block_explorer_url?: string | null
           contract_address: string
           deployed_at?: string | null
           deployed_by: string
@@ -28807,13 +28814,19 @@ export type Database = {
           gas_used?: number | null
           id?: string
           initial_owner?: string | null
+          last_source_verification_attempt?: string | null
           master_address?: string | null
           network: string
+          source_verification_attempts?: number | null
+          source_verification_guid?: string | null
+          source_verification_status?: string | null
+          source_verified?: boolean | null
           status?: string
           token_id: string
           transaction_hash: string
         }
         Update: {
+          block_explorer_url?: string | null
           contract_address?: string
           deployed_at?: string | null
           deployed_by?: string
@@ -28825,8 +28838,13 @@ export type Database = {
           gas_used?: number | null
           id?: string
           initial_owner?: string | null
+          last_source_verification_attempt?: string | null
           master_address?: string | null
           network?: string
+          source_verification_attempts?: number | null
+          source_verification_guid?: string | null
+          source_verification_status?: string | null
+          source_verified?: boolean | null
           status?: string
           token_id?: string
           transaction_hash?: string
@@ -33139,6 +33157,7 @@ export type Database = {
       token_modules: {
         Row: {
           attached_at: string | null
+          block_explorer_url: string | null
           configuration: Json | null
           created_at: string | null
           deployed_at: string | null
@@ -33147,14 +33166,20 @@ export type Database = {
           detached_at: string | null
           id: string
           is_active: boolean | null
+          last_source_verification_attempt: string | null
           master_address: string | null
           module_address: string
           module_type: string
+          source_verification_attempts: number | null
+          source_verification_guid: string | null
+          source_verification_status: string | null
+          source_verified: boolean | null
           token_id: string
           updated_at: string | null
         }
         Insert: {
           attached_at?: string | null
+          block_explorer_url?: string | null
           configuration?: Json | null
           created_at?: string | null
           deployed_at?: string | null
@@ -33163,14 +33188,20 @@ export type Database = {
           detached_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_source_verification_attempt?: string | null
           master_address?: string | null
           module_address: string
           module_type: string
+          source_verification_attempts?: number | null
+          source_verification_guid?: string | null
+          source_verification_status?: string | null
+          source_verified?: boolean | null
           token_id: string
           updated_at?: string | null
         }
         Update: {
           attached_at?: string | null
+          block_explorer_url?: string | null
           configuration?: Json | null
           created_at?: string | null
           deployed_at?: string | null
@@ -33179,9 +33210,14 @@ export type Database = {
           detached_at?: string | null
           id?: string
           is_active?: boolean | null
+          last_source_verification_attempt?: string | null
           master_address?: string | null
           module_address?: string
           module_type?: string
+          source_verification_attempts?: number | null
+          source_verification_guid?: string | null
+          source_verification_status?: string | null
+          source_verified?: boolean | null
           token_id?: string
           updated_at?: string | null
         }

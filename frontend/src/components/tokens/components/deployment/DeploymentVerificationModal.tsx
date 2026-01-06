@@ -40,6 +40,7 @@ import {
 } from '@/services/verification/types';
 import { verificationService } from '@/services/verification/verificationService';
 import { getExplorerUrl } from '@/utils/shared/explorerUtils';
+import { SourceVerificationPanel } from './SourceVerificationPanel';
 
 interface VerificationModalProps {
   tokenId: string;
@@ -290,6 +291,9 @@ export const DeploymentVerificationModal: React.FC<VerificationModalProps> = ({
                   <TabsTrigger value="transactions">
                     Transactions ({result.transactionChecks.length})
                   </TabsTrigger>
+                  <TabsTrigger value="source">
+                    Source Code
+                  </TabsTrigger>
                   {result.issues.length > 0 && (
                     <TabsTrigger value="issues">
                       Issues ({result.issues.length})
@@ -341,6 +345,19 @@ export const DeploymentVerificationModal: React.FC<VerificationModalProps> = ({
 
                 <TabsContent value="transactions" className="space-y-2 mt-4">
                   {result.transactionChecks.map((check, idx) => renderCheckItem(check, idx))}
+                </TabsContent>
+
+                <TabsContent value="source" className="mt-4">
+                  <SourceVerificationPanel
+                    tokenId={tokenId}
+                    contractAddress={result.tokenAddress}
+                    network={network}
+                    modules={result.moduleResults.map(m => ({
+                      moduleType: m.moduleType,
+                      moduleAddress: m.moduleAddress,
+                      configuration: m.checks.find(c => c.type.toString().includes('CONFIGURATION'))?.actual
+                    }))}
+                  />
                 </TabsContent>
 
                 {result.issues.length > 0 && (
