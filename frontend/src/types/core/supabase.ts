@@ -28783,6 +28783,7 @@ export type Database = {
           deployed_at: string | null
           deployed_by: string
           deployment_data: Json | null
+          deployment_sequence: Json | null
           deployment_strategy: string | null
           details: Json
           factory_address: string | null
@@ -28790,6 +28791,8 @@ export type Database = {
           gas_used: number | null
           id: string
           initial_owner: string | null
+          initialization_block_numbers: number[] | null
+          initialization_tx_hashes: string[] | null
           last_source_verification_attempt: string | null
           master_address: string | null
           network: string
@@ -28799,6 +28802,7 @@ export type Database = {
           source_verified: boolean | null
           status: string
           token_id: string
+          total_deployment_transactions: number | null
           transaction_hash: string
         }
         Insert: {
@@ -28807,6 +28811,7 @@ export type Database = {
           deployed_at?: string | null
           deployed_by: string
           deployment_data?: Json | null
+          deployment_sequence?: Json | null
           deployment_strategy?: string | null
           details: Json
           factory_address?: string | null
@@ -28814,6 +28819,8 @@ export type Database = {
           gas_used?: number | null
           id?: string
           initial_owner?: string | null
+          initialization_block_numbers?: number[] | null
+          initialization_tx_hashes?: string[] | null
           last_source_verification_attempt?: string | null
           master_address?: string | null
           network: string
@@ -28823,6 +28830,7 @@ export type Database = {
           source_verified?: boolean | null
           status?: string
           token_id: string
+          total_deployment_transactions?: number | null
           transaction_hash: string
         }
         Update: {
@@ -28831,6 +28839,7 @@ export type Database = {
           deployed_at?: string | null
           deployed_by?: string
           deployment_data?: Json | null
+          deployment_sequence?: Json | null
           deployment_strategy?: string | null
           details?: Json
           factory_address?: string | null
@@ -28838,6 +28847,8 @@ export type Database = {
           gas_used?: number | null
           id?: string
           initial_owner?: string | null
+          initialization_block_numbers?: number[] | null
+          initialization_tx_hashes?: string[] | null
           last_source_verification_attempt?: string | null
           master_address?: string | null
           network?: string
@@ -28847,6 +28858,7 @@ export type Database = {
           source_verified?: boolean | null
           status?: string
           token_id?: string
+          total_deployment_transactions?: number | null
           transaction_hash?: string
         }
         Relationships: [
@@ -33159,14 +33171,21 @@ export type Database = {
           attached_at: string | null
           block_explorer_url: string | null
           configuration: Json | null
+          configuration_block_numbers: number[] | null
+          configuration_tx_hashes: string[] | null
+          configured_at: string | null
           created_at: string | null
           deployed_at: string | null
           deployed_by: string | null
+          deployment_sequence: Json | null
           deployment_tx_hash: string | null
           detached_at: string | null
           id: string
           is_active: boolean | null
           last_source_verification_attempt: string | null
+          linkage_block_number: number | null
+          linkage_tx_hash: string | null
+          linked_at: string | null
           master_address: string | null
           module_address: string
           module_type: string
@@ -33181,14 +33200,21 @@ export type Database = {
           attached_at?: string | null
           block_explorer_url?: string | null
           configuration?: Json | null
+          configuration_block_numbers?: number[] | null
+          configuration_tx_hashes?: string[] | null
+          configured_at?: string | null
           created_at?: string | null
           deployed_at?: string | null
           deployed_by?: string | null
+          deployment_sequence?: Json | null
           deployment_tx_hash?: string | null
           detached_at?: string | null
           id?: string
           is_active?: boolean | null
           last_source_verification_attempt?: string | null
+          linkage_block_number?: number | null
+          linkage_tx_hash?: string | null
+          linked_at?: string | null
           master_address?: string | null
           module_address: string
           module_type: string
@@ -33203,14 +33229,21 @@ export type Database = {
           attached_at?: string | null
           block_explorer_url?: string | null
           configuration?: Json | null
+          configuration_block_numbers?: number[] | null
+          configuration_tx_hashes?: string[] | null
+          configured_at?: string | null
           created_at?: string | null
           deployed_at?: string | null
           deployed_by?: string | null
+          deployment_sequence?: Json | null
           deployment_tx_hash?: string | null
           detached_at?: string | null
           id?: string
           is_active?: boolean | null
           last_source_verification_attempt?: string | null
+          linkage_block_number?: number | null
+          linkage_tx_hash?: string | null
+          linked_at?: string | null
           master_address?: string | null
           module_address?: string
           module_type?: string
@@ -38533,6 +38566,80 @@ export type Database = {
           user_name: string | null
         }
         Relationships: []
+      }
+      v_complete_deployments: {
+        Row: {
+          all_transaction_hashes: string[] | null
+          deployed_at: string | null
+          deployed_by: string | null
+          modules_configured: number | null
+          modules_linked: number | null
+          network: string | null
+          status: string | null
+          token_address: string | null
+          token_deployment_tx: string | null
+          token_id: string | null
+          total_deployment_transactions: number | null
+          total_modules: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_deployments_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       valid_policy_approvers: {
         Row: {

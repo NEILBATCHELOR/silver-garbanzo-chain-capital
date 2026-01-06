@@ -19479,7 +19479,12 @@ CREATE TABLE public.token_deployments (
     source_verification_guid text,
     source_verification_attempts integer DEFAULT 0,
     last_source_verification_attempt timestamp with time zone,
-    block_explorer_url text
+    block_explorer_url text,
+    initialization_tx_hashes text[],
+    initialization_block_numbers bigint[],
+    total_deployment_transactions integer DEFAULT 1,
+    deployment_sequence jsonb,
+    CONSTRAINT chk_init_arrays_length CHECK ((COALESCE(array_length(initialization_tx_hashes, 1), 0) = COALESCE(array_length(initialization_block_numbers, 1), 0)))
 );
 
 
@@ -19530,6 +19535,34 @@ COMMENT ON COLUMN public.token_deployments.last_source_verification_attempt IS '
 --
 
 COMMENT ON COLUMN public.token_deployments.block_explorer_url IS 'URL to verified contract on block explorer';
+
+
+--
+-- Name: COLUMN token_deployments.initialization_tx_hashes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.initialization_tx_hashes IS 'Post-deployment initialization transactions (if any)';
+
+
+--
+-- Name: COLUMN token_deployments.initialization_block_numbers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.initialization_block_numbers IS 'Block numbers for initialization transactions';
+
+
+--
+-- Name: COLUMN token_deployments.total_deployment_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.total_deployment_transactions IS 'Total number of transactions in complete deployment (token + modules + config)';
+
+
+--
+-- Name: COLUMN token_deployments.deployment_sequence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.deployment_sequence IS 'Complete token deployment sequence including all initialization steps';
 
 
 --
@@ -26100,6 +26133,15 @@ CREATE TABLE public.token_modules (
     source_verification_attempts integer DEFAULT 0,
     last_source_verification_attempt timestamp with time zone,
     block_explorer_url text,
+    linkage_tx_hash text,
+    linkage_block_number bigint,
+    linked_at timestamp with time zone,
+    configuration_tx_hashes text[],
+    configuration_block_numbers bigint[],
+    configured_at timestamp with time zone,
+    deployment_sequence jsonb,
+    CONSTRAINT chk_config_arrays_length CHECK ((COALESCE(array_length(configuration_tx_hashes, 1), 0) = COALESCE(array_length(configuration_block_numbers, 1), 0))),
+    CONSTRAINT chk_linkage_consistency CHECK ((((linkage_tx_hash IS NULL) AND (linkage_block_number IS NULL)) OR ((linkage_tx_hash IS NOT NULL) AND (linkage_block_number IS NOT NULL)))),
     CONSTRAINT token_modules_master_address_check CHECK (((master_address IS NULL) OR (master_address ~ '^0x[a-fA-F0-9]{40}$'::text))),
     CONSTRAINT token_modules_module_address_check CHECK ((module_address ~ '^0x[a-fA-F0-9]{40}$'::text)),
     CONSTRAINT token_modules_module_type_check CHECK ((module_type = ANY (ARRAY['compliance'::text, 'vesting'::text, 'fees'::text, 'policy_engine'::text])))
@@ -26202,6 +26244,55 @@ COMMENT ON COLUMN public.token_modules.last_source_verification_attempt IS 'Time
 --
 
 COMMENT ON COLUMN public.token_modules.block_explorer_url IS 'URL to verified contract on block explorer';
+
+
+--
+-- Name: COLUMN token_modules.linkage_tx_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.linkage_tx_hash IS 'Transaction hash for linking module to token (e.g., setFeesModule, setVotesModule)';
+
+
+--
+-- Name: COLUMN token_modules.linkage_block_number; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.linkage_block_number IS 'Block number where module was linked to token';
+
+
+--
+-- Name: COLUMN token_modules.linked_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.linked_at IS 'Timestamp when module was linked to token';
+
+
+--
+-- Name: COLUMN token_modules.configuration_tx_hashes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.configuration_tx_hashes IS 'Array of transaction hashes for configuration calls (e.g., setTransferFee, setFeeRecipient)';
+
+
+--
+-- Name: COLUMN token_modules.configuration_block_numbers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.configuration_block_numbers IS 'Array of block numbers for configuration transactions';
+
+
+--
+-- Name: COLUMN token_modules.configured_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.configured_at IS 'Timestamp when configuration was completed';
+
+
+--
+-- Name: COLUMN token_modules.deployment_sequence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_modules.deployment_sequence IS 'Complete deployment sequence: [{step, action, txHash, blockNumber, gasUsed, timestamp}]';
 
 
 --
@@ -27563,6 +27654,45 @@ CREATE TABLE public.user_verifications (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: v_complete_deployments; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.v_complete_deployments AS
+ SELECT td.token_id,
+    td.contract_address AS token_address,
+    td.transaction_hash AS token_deployment_tx,
+    td.total_deployment_transactions,
+    td.network,
+    td.status,
+    td.deployed_by,
+    td.deployed_at,
+    count(tm.id) AS total_modules,
+    count(tm.linkage_tx_hash) AS modules_linked,
+    count(tm.configured_at) AS modules_configured,
+    ( SELECT array_agg(DISTINCT all_txs.tx_hash) AS array_agg
+           FROM ( SELECT td.transaction_hash AS tx_hash
+                  WHERE (td.transaction_hash IS NOT NULL)
+                UNION
+                 SELECT unnest(td.initialization_tx_hashes) AS tx_hash
+                  WHERE (td.initialization_tx_hashes IS NOT NULL)
+                UNION
+                 SELECT tm2.deployment_tx_hash AS tx_hash
+                   FROM public.token_modules tm2
+                  WHERE ((tm2.token_id = td.token_id) AND (tm2.deployment_tx_hash IS NOT NULL))
+                UNION
+                 SELECT tm2.linkage_tx_hash AS tx_hash
+                   FROM public.token_modules tm2
+                  WHERE ((tm2.token_id = td.token_id) AND (tm2.linkage_tx_hash IS NOT NULL))
+                UNION
+                 SELECT unnest(tm2.configuration_tx_hashes) AS tx_hash
+                   FROM public.token_modules tm2
+                  WHERE ((tm2.token_id = td.token_id) AND (tm2.configuration_tx_hashes IS NOT NULL))) all_txs) AS all_transaction_hashes
+   FROM (public.token_deployments td
+     LEFT JOIN public.token_modules tm ON ((td.token_id = tm.token_id)))
+  GROUP BY td.token_id, td.contract_address, td.transaction_hash, td.total_deployment_transactions, td.network, td.status, td.deployed_by, td.deployed_at, td.initialization_tx_hashes;
 
 
 --
@@ -43859,6 +43989,13 @@ CREATE INDEX idx_token_deployment_history_token_id ON public.token_deployment_hi
 
 
 --
+-- Name: idx_token_deployments_init_txs; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_deployments_init_txs ON public.token_deployments USING gin (initialization_tx_hashes) WHERE (initialization_tx_hashes IS NOT NULL);
+
+
+--
 -- Name: idx_token_deployments_source_verified; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -44069,10 +44206,24 @@ CREATE INDEX idx_token_modules_attached_at ON public.token_modules USING btree (
 
 
 --
+-- Name: idx_token_modules_config_txs; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_config_txs ON public.token_modules USING gin (configuration_tx_hashes) WHERE (configuration_tx_hashes IS NOT NULL);
+
+
+--
 -- Name: idx_token_modules_is_active; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_token_modules_is_active ON public.token_modules USING btree (is_active);
+
+
+--
+-- Name: idx_token_modules_linkage_tx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_modules_linkage_tx ON public.token_modules USING btree (linkage_tx_hash) WHERE (linkage_tx_hash IS NOT NULL);
 
 
 --
@@ -58707,6 +58858,16 @@ GRANT ALL ON TABLE public.user_verifications TO anon;
 GRANT ALL ON TABLE public.user_verifications TO authenticated;
 GRANT ALL ON TABLE public.user_verifications TO service_role;
 GRANT ALL ON TABLE public.user_verifications TO prisma;
+
+
+--
+-- Name: TABLE v_complete_deployments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.v_complete_deployments TO anon;
+GRANT ALL ON TABLE public.v_complete_deployments TO authenticated;
+GRANT ALL ON TABLE public.v_complete_deployments TO service_role;
+GRANT ALL ON TABLE public.v_complete_deployments TO prisma;
 
 
 --

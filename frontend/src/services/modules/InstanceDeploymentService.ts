@@ -26,6 +26,22 @@ export interface ModuleDeploymentResult {
   deploymentTxHash: string;
   moduleType: string;
   configuration: Record<string, any>;
+  
+  // ✅ NEW: Transaction tracking
+  linkageTxHash?: string;              // setFeesModule() transaction
+  linkageBlockNumber?: number;
+  configurationTxHashes?: string[];    // [setTransferFee(), setFeeRecipient()]
+  configurationBlockNumbers?: number[];
+  
+  // ✅ NEW: Complete deployment sequence
+  deploymentSequence?: {
+    step: number;
+    action: string;
+    txHash: string;
+    blockNumber: number;
+    gasUsed: string;
+    timestamp: number;
+  }[];
 }
 
 /**
@@ -439,7 +455,12 @@ export class InstanceDeploymentService {
       throw new Error('Compliance module master not found');
     }
 
-    console.log(`Deploying NEW compliance module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW compliance module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    const configurationTxHashes: string[] = [];
+    const configurationBlockNumbers: number[] = [];
     
     // Transform jurisdictionRules to jurisdictions array (only allowed jurisdictions)
     let jurisdictions: string[] = [];
@@ -463,7 +484,8 @@ export class InstanceDeploymentService {
       kycRequired
     });
     
-    // Deploy compliance module with correct parameters
+    // STEP 1: Deploy compliance module with correct parameters
+    console.log('📦 Step 1: Deploying module...');
     const tx = await factory.deployCompliance(
       tokenAddress,
       jurisdictions,
@@ -473,6 +495,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployCompliance',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ComplianceExtensionDeployed', 'extension');
 
@@ -480,14 +512,28 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from ComplianceExtensionDeployed event');
     }
 
-    console.log(`NEW compliance module deployed at: ${newModuleAddress}`);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
     
-    // Attach module to token
-    await token.setComplianceModule(newModuleAddress);
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setComplianceModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setComplianceModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
 
-    // Post-deployment: Add whitelist addresses if provided
+    // STEP 3: Add whitelist addresses if provided
     if (config.whitelistAddresses && Array.isArray(config.whitelistAddresses) && config.whitelistAddresses.length > 0) {
-      console.log(`Adding ${config.whitelistAddresses.length} addresses to whitelist...`);
+      console.log(`⚙️ Step 3: Adding ${config.whitelistAddresses.length} addresses to whitelist...`);
       
       const complianceModule = new ethers.Contract(
         newModuleAddress,
@@ -505,25 +551,48 @@ export class InstanceDeploymentService {
           config.whitelistAddresses,
           jurisdictionsArray
         );
-        await whitelistTx.wait();
-        console.log('Whitelist addresses added successfully');
+        const whitelistReceipt = await whitelistTx.wait();
+        
+        // ✅ Track configuration transaction
+        configurationTxHashes.push(whitelistReceipt.hash);
+        configurationBlockNumbers.push(whitelistReceipt.blockNumber);
+        
+        deploymentSequence.push({
+          step: 3,
+          action: 'addToWhitelistBatch',
+          txHash: whitelistReceipt.hash,
+          blockNumber: whitelistReceipt.blockNumber,
+          gasUsed: whitelistReceipt.gasUsed.toString(),
+          timestamp: Date.now()
+        });
+        
+        console.log(`✅ Whitelist addresses added: ${whitelistReceipt.hash}`);
       } catch (error) {
         console.error('Failed to add whitelist addresses:', error);
         // Don't fail deployment if whitelist addition fails
       }
     }
+    
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'compliance',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      configurationTxHashes,
+      configurationBlockNumbers,
+      deploymentSequence
     };
   }
 
   /**
    * Deploy vesting module instance
+   * ✅ UPDATED: Now tracks all transactions (deployment, linkage)
    */
   private static async deployVestingModule(
     factory: ethers.Contract,
@@ -544,9 +613,25 @@ export class InstanceDeploymentService {
       throw new Error('Vesting module master not found');
     }
 
-    console.log(`Deploying NEW vesting module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW vesting module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     const tx = await factory.deployVesting(tokenAddress);
     const receipt = await tx.wait();
+
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployVesting',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
 
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'VestingExtensionDeployed', 'extension');
@@ -555,15 +640,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from VestingExtensionDeployed event');
     }
 
-    console.log(`NEW vesting module deployed at: ${newModuleAddress}`);
-    await token.setVestingModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+
+    // STEP 2: Link to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setVestingModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setVestingModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'vesting',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -646,7 +752,10 @@ export class InstanceDeploymentService {
       throw new Error('Fee module master not found');
     }
 
-    console.log(`Deploying NEW fee module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW fee module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
     
     // Ensure fee recipient is valid (not empty string, undefined, or placeholder)
     const feeRecipient = config.feeRecipient && 
@@ -658,13 +767,23 @@ export class InstanceDeploymentService {
     const feeBps = config.transferFeeBps || config.feePercent || 0;
     console.log(`Fee module config: {transferFeeBps: ${feeBps}, feeRecipient: ${feeRecipient}}`);
     
-    // UPDATED: New parameter order (feeRecipient, feeBps)
+    // STEP 1: Deploy module
     const tx = await factory.deployFees(
       tokenAddress,
       feeRecipient,
       feeBps
     );
     const receipt = await tx.wait();
+
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployFees',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
 
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FeesExtensionDeployed', 'extension');
@@ -674,19 +793,44 @@ export class InstanceDeploymentService {
     }
 
     console.log(`✅ Fee module deployed at: ${newModuleAddress}`);
-    await token.setFeesModule(newModuleAddress);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Linking fees module to token...`);
+    const linkTx = await token.setFeesModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setFeesModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
+    console.log(`✅ Fees module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'fees',
-      configuration: config
+      configuration: config,
+      
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      configurationTxHashes: [], // No additional config for fees module
+      configurationBlockNumbers: [],
+      deploymentSequence
     };
   }
 
   /**
    * Deploy flash mint module instance (ERC20)
+   * ✅ UPDATED: Now tracks all transactions (deployment, linkage)
    */
   private static async deployFlashMintModule(
     factory: ethers.Contract,
@@ -708,18 +852,33 @@ export class InstanceDeploymentService {
       throw new Error('Flash mint module master not found');
     }
 
-    console.log(`Deploying NEW flash mint module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW flash mint module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
     
     // UPDATED: New parameters (feeRecipient, flashFeeBasisPoints)
     const feeRecipient = config.feeRecipient || deployer.address;
     const flashFeeBasisPoints = config.flashFeeBasisPoints || config.flashFee || 100; // Default 1%
     
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     const tx = await factory.deployFlashMint(
       tokenAddress,
       feeRecipient,
       flashFeeBasisPoints
     );
     const receipt = await tx.wait();
+
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployFlashMint',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
 
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FlashMintExtensionDeployed', 'extension');
@@ -728,20 +887,42 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from FlashMintExtensionDeployed event');
     }
 
-    console.log(`NEW flash mint module deployed at: ${newModuleAddress}`);
-    await token.setFlashMintModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setFlashMintModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setFlashMintModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'flash_mint',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
   /**
    * Deploy permit module instance (ERC20)
+   * ✅ UPDATED: Now tracks all transactions (deployment, linkage)
    */
   private static async deployPermitModule(
     factory: ethers.Contract,
@@ -762,13 +943,29 @@ export class InstanceDeploymentService {
       throw new Error('Permit module master not found');
     }
 
-    console.log(`Deploying NEW permit module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW permit module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     const tx = await factory.deployPermit(
       tokenAddress,
       config.name || 'Token',
       config.version || '1'
     );
     const receipt = await tx.wait();
+
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployPermit',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
 
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'PermitExtensionDeployed', 'extension');
@@ -777,20 +974,42 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from PermitExtensionDeployed event');
     }
 
-    console.log(`NEW permit module deployed at: ${newModuleAddress}`);
-    await token.setPermitModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setPermitModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setPermitModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'permit',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
   /**
    * Deploy snapshot module instance (ERC20)
+   * ✅ UPDATED: Now tracks all transactions (deployment, linkage)
    */
   private static async deploySnapshotModule(
     factory: ethers.Contract,
@@ -811,9 +1030,25 @@ export class InstanceDeploymentService {
       throw new Error('Snapshot module master not found');
     }
 
-    console.log(`Deploying NEW snapshot module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW snapshot module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     const tx = await factory.deploySnapshot(tokenAddress);
     const receipt = await tx.wait();
+
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deploySnapshot',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
 
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SnapshotExtensionDeployed', 'extension');
@@ -822,20 +1057,41 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from SnapshotExtensionDeployed event');
     }
 
-    console.log(`NEW snapshot module deployed at: ${newModuleAddress}`);
-    await token.setSnapshotModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setSnapshotModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setSnapshotModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'snapshot',
-      configuration: config
+      configuration: config,
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
   /**
    * Deploy timelock module instance (ERC20)
+   * ✅ UPDATED: Now tracks all transactions (deployment, linkage)
    */
   private static async deployTimelockModule(
     factory: ethers.Contract,
@@ -856,7 +1112,13 @@ export class InstanceDeploymentService {
       throw new Error('Timelock module master not found');
     }
 
-    console.log(`Deploying NEW timelock module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW timelock module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: New parameters (minDuration, maxDuration, allowExtension)
     const minDuration = config.minDuration || config.minDelay || 86400; // Default 1 day
@@ -871,6 +1133,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployTimelock',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'TimelockExtensionDeployed', 'extension');
 
@@ -878,15 +1150,35 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from TimelockExtensionDeployed event');
     }
 
-    console.log(`NEW timelock module deployed at: ${newModuleAddress}`);
-    await token.setTimelockModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setTimelockModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setTimelockModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'timelock',
-      configuration: config
+      configuration: config,
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -913,7 +1205,13 @@ export class InstanceDeploymentService {
       throw new Error('Votes module master not found');
     }
 
-    console.log(`Deploying NEW votes module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW votes module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // Get token info for naming
     let tokenName = 'Governance Token';
@@ -973,6 +1271,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployVotes',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'VotesExtensionDeployed', 'extension');
 
@@ -980,15 +1288,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from VotesExtensionDeployed event');
     }
 
-    console.log(`NEW votes module deployed at: ${newModuleAddress}`);
-    await token.setVotesModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setVotesModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setVotesModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'votes',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1014,7 +1343,13 @@ export class InstanceDeploymentService {
       throw new Error('Payable token module master not found');
     }
 
-    console.log(`Deploying NEW payable token module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW payable token module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Add callbackGasLimit parameter (verified 2025-12-31)
     const callbackGasLimit = config.callbackGasLimit || 100000; // Default 100K gas
@@ -1025,6 +1360,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployPayable',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'PayableExtensionDeployed', 'extension');
 
@@ -1032,15 +1377,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from PayableExtensionDeployed event');
     }
 
-    console.log(`NEW payable token module deployed at: ${newModuleAddress}`);
-    await token.setPayableTokenModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setPayableTokenModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setPayableTokenModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'payable_token',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1066,7 +1432,13 @@ export class InstanceDeploymentService {
       throw new Error('Temporary approval module master not found');
     }
 
-    console.log(`Deploying NEW temporary approval module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW temporary approval module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: New duration parameters
     const defaultDuration = config.defaultDuration || 3600; // Default 1 hour
@@ -1081,6 +1453,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployTemporaryApproval',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'TemporaryApprovalExtensionDeployed', 'extension');
 
@@ -1088,15 +1470,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from TemporaryApprovalExtensionDeployed event');
     }
 
-    console.log(`NEW temporary approval module deployed at: ${newModuleAddress}`);
-    await token.setTemporaryApprovalModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setTemporaryApprovalModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setTemporaryApprovalModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'temporary_approval',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1124,7 +1527,13 @@ export class InstanceDeploymentService {
       throw new Error('Royalty module master not found');
     }
 
-    console.log(`Deploying NEW royalty module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW royalty module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // Extract parameters - UPDATED for ERC721 fix
     const defaultRoyaltyReceiver = config.royaltyRecipient || config.defaultRoyaltyReceiver || tokenAddress;
@@ -1139,6 +1548,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployRoyalty',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'RoyaltyExtensionDeployed', 'extension');
 
@@ -1146,15 +1565,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from RoyaltyExtensionDeployed event');
     }
 
-    console.log(`NEW royalty module deployed at: ${newModuleAddress}`);
-    await token.setRoyaltyModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setRoyaltyModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setRoyaltyModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'royalty',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1180,7 +1620,13 @@ export class InstanceDeploymentService {
       throw new Error('Rental module master not found');
     }
 
-    console.log(`Deploying NEW rental module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW rental module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // Extract parameters - UPDATED for ERC721 fix
     const feeRecipient = config.feeRecipient || tokenAddress;
@@ -1203,6 +1649,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployRental',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'RentalExtensionDeployed', 'extension');
 
@@ -1210,15 +1666,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from RentalExtensionDeployed event');
     }
 
-    console.log(`NEW rental module deployed at: ${newModuleAddress}`);
-    await token.setRentalModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setRentalModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setRentalModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'rental',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1244,7 +1721,13 @@ export class InstanceDeploymentService {
       throw new Error('Soulbound module master not found');
     }
 
-    console.log(`Deploying NEW soulbound module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW soulbound module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // Extract parameters - UPDATED for ERC721 fix
     const allowOneTimeTransfer = config.allowOneTimeTransfer ?? false;
@@ -1263,6 +1746,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deploySoulbound',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SoulboundExtensionDeployed', 'extension');
 
@@ -1270,15 +1763,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from SoulboundExtensionDeployed event');
     }
 
-    console.log(`NEW soulbound module deployed at: ${newModuleAddress}`);
-    await token.setSoulboundModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setSoulboundModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setSoulboundModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'soulbound',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1304,7 +1818,13 @@ export class InstanceDeploymentService {
       throw new Error('Fraction module master not found');
     }
 
-    console.log(`Deploying NEW fractionalization module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW fractionalization module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: New numeric parameters (not address!)
     const minFractions = config.minFractions || 100; // Default 100 fractions min
@@ -1325,6 +1845,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployFractionalization',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FractionalizationExtensionDeployed', 'extension');
 
@@ -1332,15 +1862,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from FractionalizationExtensionDeployed event');
     }
 
-    console.log(`NEW fractionalization module deployed at: ${newModuleAddress}`);
-    await token.setFractionModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setFractionModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setFractionModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'fraction',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1366,7 +1917,13 @@ export class InstanceDeploymentService {
       throw new Error('Consecutive module master not found');
     }
 
-    console.log(`Deploying NEW consecutive module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW consecutive module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Add startTokenId and maxBatchSize parameters
     const startTokenId = config.startTokenId || 0; // Default start at 0
@@ -1379,6 +1936,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployConsecutive',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ConsecutiveExtensionDeployed', 'extension');
 
@@ -1386,15 +1953,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from ConsecutiveExtensionDeployed event');
     }
 
-    console.log(`NEW consecutive module deployed at: ${newModuleAddress}`);
-    await token.setConsecutiveModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setConsecutiveModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setConsecutiveModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'consecutive',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1420,7 +2008,13 @@ export class InstanceDeploymentService {
       throw new Error('Metadata events module master not found');
     }
 
-    console.log(`Deploying NEW metadata events module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW metadata events module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Add batchUpdatesEnabled and emitOnTransfer parameters
     const batchUpdatesEnabled = config.batchUpdatesEnabled ?? true; // Default true
@@ -1433,6 +2027,16 @@ export class InstanceDeploymentService {
     );
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployMetadata',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'MetadataExtensionDeployed', 'extension');
 
@@ -1440,15 +2044,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from MetadataExtensionDeployed event');
     }
 
-    console.log(`NEW metadata events module deployed at: ${newModuleAddress}`);
-    await token.setMetadataEventsModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setMetadataEventsModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setMetadataEventsModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'metadata_events',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1474,7 +2099,13 @@ export class InstanceDeploymentService {
       throw new Error('Granular approval module master not found');
     }
 
-    console.log(`Deploying NEW granular approval module instance for token ${tokenAddress}`);
+    console.log(`📦 Deploying NEW granular approval module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // Factory signature: deployGranularApproval(address token)
     // Module expects: initialize(address tokenContract, address admin)
@@ -1483,6 +2114,16 @@ export class InstanceDeploymentService {
     const tx = await factory.deployGranularApproval(tokenAddress);
     const receipt = await tx.wait();
 
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployGranularApproval',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'GranularApprovalExtensionDeployed', 'extension');
 
@@ -1490,15 +2131,36 @@ export class InstanceDeploymentService {
       throw new Error('Failed to get deployed module address from GranularApprovalExtensionDeployed event');
     }
 
-    console.log(`NEW granular approval module deployed at: ${newModuleAddress}`);
-    await token.setGranularApprovalModule(newModuleAddress);
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setGranularApprovalModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setGranularApprovalModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
 
     return {
       moduleAddress: newModuleAddress,
       masterAddress: masterModule.contractAddress,
       deploymentTxHash: receipt.hash,
       moduleType: 'granular_approval',
-      configuration: config
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
     };
   }
 
@@ -1511,17 +2173,65 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('supply_cap_module', network, environment);
     if (!masterModule) throw new Error('Supply cap module master not found');
     
+    console.log(`📦 Deploying NEW supply cap module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
+    
     // UPDATED: Use globalCap instead of defaultCap to match factory signature
     const globalCap = config.globalCap || config.defaultCap || 0;
     
     const tx = await factory.deploySupplyCap(tokenAddress, globalCap);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deploySupplyCap',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SupplyCapExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from SupplyCapExtensionDeployed event');
     
-    await token.setSupplyCapModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'supply_cap', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setSupplyCapModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setSupplyCapModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'supply_cap',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployUriManagementModule(
@@ -1531,6 +2241,14 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('uri_management_module', network, environment);
     if (!masterModule) throw new Error('URI management module master not found');
     
+    console.log(`📦 Deploying NEW URI management module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
+    
     // UPDATED: Add ipfsGateway parameter to match factory signature
     const baseURI = config.baseURI || '';
     const ipfsGateway = config.ipfsGateway || 'https://ipfs.io/ipfs/';
@@ -1538,12 +2256,52 @@ export class InstanceDeploymentService {
     // FIXED: Use correct factory method name (deployURIManagement not attachURIManagement)
     const tx = await factory.deployURIManagement(tokenAddress, baseURI, ipfsGateway);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployURIManagement',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'URIManagementExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from URIManagementExtensionDeployed event');
     
-    await token.setUriManagementModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'uri_management', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setUriManagementModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setUriManagementModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'uri_management',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   // ============ ERC3525 MODULES ============
@@ -1555,14 +2313,61 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('slot_approvable_module', network, environment);
     if (!masterModule) throw new Error('Slot approvable module master not found');
     
+    console.log(`📦 Deploying NEW slot approvable module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     const tx = await factory.deploySlotApprovableModule(tokenAddress);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deploySlotApprovableModule',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SlotApprovableExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from SlotApprovableExtensionDeployed event');
     
-    await token.setSlotApprovableModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'slot_approvable', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setSlotApprovableModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setSlotApprovableModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'slot_approvable',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deploySlotManagerModule(
@@ -1571,6 +2376,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('slot_manager_module', network, environment);
     if (!masterModule) throw new Error('Slot manager module master not found');
+    
+    console.log(`📦 Deploying NEW slot manager module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // Extract slot configuration from config (with defaults)
     const allowDynamicSlotCreation = config.allowDynamicSlotCreation ?? true;
@@ -1584,12 +2397,52 @@ export class InstanceDeploymentService {
       allowSlotMerging
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deploySlotManagerModule',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'SlotManagerExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from SlotManagerExtensionDeployed event');
     
-    await token.setSlotManagerModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'slot_manager', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setSlotManagerModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setSlotManagerModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'slot_manager',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployValueExchangeModule(
@@ -1599,15 +2452,63 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('value_exchange_module', network, environment);
     if (!masterModule) throw new Error('Value exchange module master not found');
     
+    console.log(`📦 Deploying NEW value exchange module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
+    
     // Exchange rates configured post-deployment via setExchangeRate(fromSlot, toSlot, rate)
     const tx = await factory.deployValueExchangeModule(tokenAddress);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployValueExchangeModule',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ValueExchangeExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from ValueExchangeExtensionDeployed event');
     
-    await token.setValueExchangeModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'value_exchange', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setValueExchangeModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setValueExchangeModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'value_exchange',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   // ============ ERC4626 MODULES ============
@@ -1618,6 +2519,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('fee_strategy_module', network, environment);
     if (!masterModule) throw new Error('Fee strategy module master not found');
+    
+    console.log(`📦 Deploying NEW fee strategy module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Match new factory signature (managementFeeBps, performanceFeeBps, withdrawalFeeBps, feeRecipient)
     const managementFeeBps = config.managementFeeBps || config.managementFee || 100; // Default 1% annual
@@ -1633,12 +2542,52 @@ export class InstanceDeploymentService {
       feeRecipient
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployFeeStrategy',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'FeeStrategyExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from FeeStrategyExtensionDeployed event');
     
-    await token.setFeeStrategyModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'fee_strategy', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setFeeStrategyModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setFeeStrategyModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'fee_strategy',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployWithdrawalQueueModule(
@@ -1647,6 +2596,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('withdrawal_queue_module', network, environment);
     if (!masterModule) throw new Error('Withdrawal queue module master not found');
+    
+    console.log(`📦 Deploying NEW withdrawal queue module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Add 6 missing parameters
     const liquidityBuffer = config.liquidityBuffer || ethers.parseEther('1000'); // Default 1000 asset units
@@ -1666,12 +2623,52 @@ export class InstanceDeploymentService {
       priorityFeeBps
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployWithdrawalQueue',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'WithdrawalQueueExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from WithdrawalQueueExtensionDeployed event');
     
-    await token.setWithdrawalQueueModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'withdrawal_queue', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setWithdrawalQueueModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setWithdrawalQueueModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'withdrawal_queue',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployYieldStrategyModule(
@@ -1680,6 +2677,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('yield_strategy_module', network, environment);
     if (!masterModule) throw new Error('Yield strategy module master not found');
+    
+    console.log(`📦 Deploying NEW yield strategy module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Change from (strategyType, strategyParams) to (harvestFrequency, rebalanceThreshold)
     const harvestFrequency = config.harvestFrequency || 86400; // Default 24 hours
@@ -1691,12 +2696,52 @@ export class InstanceDeploymentService {
       rebalanceThreshold
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployYieldStrategy',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'YieldStrategyExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from YieldStrategyExtensionDeployed event');
     
-    await token.setYieldStrategyModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'yield_strategy', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setYieldStrategyModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setYieldStrategyModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'yield_strategy',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployAsyncVaultModule(
@@ -1705,6 +2750,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('async_vault_module', network, environment);
     if (!masterModule) throw new Error('Async vault module master not found');
+    
+    console.log(`📦 Deploying NEW async vault module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Add 5 missing async operation parameters
     const minimumFulfillmentDelay = config.minimumFulfillmentDelay || config.settlementDelay || 86400; // Default 24 hours
@@ -1722,12 +2775,52 @@ export class InstanceDeploymentService {
       partialFulfillmentEnabled
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployAsyncVault',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'AsyncVaultExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from AsyncVaultExtensionDeployed event');
     
-    await token.setAsyncVaultModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'async_vault', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setAsyncVaultModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setAsyncVaultModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'async_vault',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployNativeVaultModule(
@@ -1736,6 +2829,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('native_vault_module', network, environment);
     if (!masterModule) throw new Error('Native vault module master not found');
+    
+    console.log(`📦 Deploying NEW native vault module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Add 3 missing ETH wrapping parameters
     // Get WETH address for current network (must be configured in config or use standard addresses)
@@ -1750,12 +2851,52 @@ export class InstanceDeploymentService {
       unwrapOnWithdrawal
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployNativeVault',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'NativeVaultExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from NativeVaultExtensionDeployed event');
     
-    await token.setNativeVaultModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'native_vault', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setNativeVaultModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setNativeVaultModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'native_vault',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployRouterModule(
@@ -1764,6 +2905,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('router_module', network, environment);
     if (!masterModule) throw new Error('Router module master not found');
+    
+    console.log(`📦 Deploying NEW router module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Change from (vault) to (vault, allowMultiHop, maxHops, slippageTolerance)
     const allowMultiHop = config.allowMultiHop ?? true; // Default enable multi-hop routing
@@ -1777,12 +2926,52 @@ export class InstanceDeploymentService {
       slippageTolerance
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployRouter',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'RouterExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from RouterExtensionDeployed event');
     
-    await token.setRouterModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'router', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setRouterModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setRouterModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'router',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployMultiAssetVaultModule(
@@ -1791,6 +2980,14 @@ export class InstanceDeploymentService {
   ): Promise<ModuleDeploymentResult> {
     const masterModule = await ModuleRegistryService.getModuleMetadata('multi_asset_vault_module', network, environment);
     if (!masterModule) throw new Error('Multi-asset vault module master not found');
+    
+    console.log(`📦 Deploying NEW multi-asset vault module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
     
     // UPDATED: Change from (vault, supportedAssets[]) to (vault, priceOracle, baseAsset)
     // Assets are added post-deployment via addAsset() function
@@ -1803,12 +3000,52 @@ export class InstanceDeploymentService {
       baseAsset
     );
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployMultiAssetVault',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'MultiAssetVaultExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from MultiAssetVaultExtensionDeployed event');
     
-    await token.setMultiAssetVaultModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'multi_asset_vault', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setMultiAssetVaultModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setMultiAssetVaultModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'multi_asset_vault',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   // ============ ERC1400 MODULES ============
@@ -1820,16 +3057,64 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('transfer_restrictions_module', network, environment);
     if (!masterModule) throw new Error('Transfer restrictions module master not found');
     
+    console.log(`📦 Deploying NEW transfer restrictions module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
+    
     // Fixed: deployTransferRestrictions now only takes tokenAddress (no defaultPartitions)
     const tx = await factory.deployTransferRestrictions(tokenAddress);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployTransferRestrictions',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // Fixed: Updated event name to match factory
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'TransferRestrictionsExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from TransferRestrictionsExtensionDeployed event');
     
-    await token.setTransferRestrictionsModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'transfer_restrictions', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setTransferRestrictionsModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setTransferRestrictionsModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'transfer_restrictions',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployControllerModule(
@@ -1839,17 +3124,65 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('controller_module', network, environment);
     if (!masterModule) throw new Error('Controller module master not found');
     
+    console.log(`📦 Deploying NEW controller module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
+    
     // Fixed: deployController now takes (tokenAddress, controllable) instead of (tokenAddress, controllers[])
     const controllable = config.controllable !== undefined ? config.controllable : true; // Default to controllable
     const tx = await factory.deployController(tokenAddress, controllable);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployController',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // Fixed: Updated event name to match factory
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'ControllerExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from ControllerExtensionDeployed event');
     
-    await token.setControllerModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'controller', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setControllerModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setControllerModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'controller',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   private static async deployERC1400DocumentModule(
@@ -1859,16 +3192,64 @@ export class InstanceDeploymentService {
     const masterModule = await ModuleRegistryService.getModuleMetadata('erc1400_document_module', network, environment);
     if (!masterModule) throw new Error('ERC1400 document module master not found');
     
+    console.log(`📦 Deploying NEW ERC1400 document module instance for token ${tokenAddress}`);
+    
+    // ✅ Initialize deployment sequence tracking
+    const deploymentSequence: any[] = [];
+    
+    // STEP 1: Deploy module
+    console.log('📦 Step 1: Deploying module...');
+    
     // Fixed: deployDocument now only takes tokenAddress (no extra params)
     const tx = await factory.deployDocument(tokenAddress);
     const receipt = await tx.wait();
+    
+    // ✅ Track deployment transaction
+    deploymentSequence.push({
+      step: 1,
+      action: 'deployDocument',
+      txHash: receipt.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
     // Fixed: Updated event name to match factory
     // ✅ Use helper to parse event
     const newModuleAddress = this.parseExtensionEvent(receipt, factory, 'DocumentExtensionDeployed', 'extension');
     if (!newModuleAddress) throw new Error('Failed to get deployed module address from DocumentExtensionDeployed event');
     
-    await token.setERC1400DocumentModule(newModuleAddress);
-    return { moduleAddress: newModuleAddress, masterAddress: masterModule.contractAddress, deploymentTxHash: receipt.hash, moduleType: 'erc1400_document', configuration: config };
+    console.log(`✅ Module deployed at: ${newModuleAddress}`);
+    
+    // STEP 2: Link module to token
+    console.log(`🔗 Step 2: Linking module to token...`);
+    const linkTx = await token.setERC1400DocumentModule(newModuleAddress);
+    const linkReceipt = await linkTx.wait();
+    
+    // ✅ Track linkage transaction
+    deploymentSequence.push({
+      step: 2,
+      action: 'setERC1400DocumentModule',
+      txHash: linkReceipt.hash,
+      blockNumber: linkReceipt.blockNumber,
+      gasUsed: linkReceipt.gasUsed.toString(),
+      timestamp: Date.now()
+    });
+    
+    console.log(`✅ Module linked: ${linkReceipt.hash}`);
+    console.log(`📊 Total transactions: ${deploymentSequence.length}`);
+    
+    return {
+      moduleAddress: newModuleAddress,
+      masterAddress: masterModule.contractAddress,
+      deploymentTxHash: receipt.hash,
+      moduleType: 'erc1400_document',
+      configuration: config,
+      // ✅ NEW: Transaction tracking
+      linkageTxHash: linkReceipt.hash,
+      linkageBlockNumber: linkReceipt.blockNumber,
+      deploymentSequence
+    };
   }
 
   // ============ HELPER METHODS ============
@@ -1879,7 +3260,23 @@ export class InstanceDeploymentService {
       module_type: module.moduleType,
       module_address: module.moduleAddress,
       master_address: module.masterAddress,
+      
+      // ✅ Existing deployment transaction
       deployment_tx_hash: module.deploymentTxHash,
+      
+      // ✅ NEW: Linkage transaction
+      linkage_tx_hash: module.linkageTxHash || null,
+      linkage_block_number: module.linkageBlockNumber || null,
+      linked_at: module.linkageTxHash ? new Date().toISOString() : null,
+      
+      // ✅ NEW: Configuration transactions
+      configuration_tx_hashes: module.configurationTxHashes || [],
+      configuration_block_numbers: module.configurationBlockNumbers || [],
+      configured_at: module.configurationTxHashes?.length ? new Date().toISOString() : null,
+      
+      // ✅ NEW: Complete deployment sequence
+      deployment_sequence: module.deploymentSequence || [],
+      
       configuration: module.configuration,
       is_active: true,
       deployed_at: new Date().toISOString()
@@ -1890,7 +3287,7 @@ export class InstanceDeploymentService {
       console.error('Failed to save module deployments:', error);
       throw new Error(`Failed to save module deployments: ${error.message}`);
     }
-    console.log(`Saved ${modules.length} module deployments to database`);
+    console.log(`✅ Saved ${modules.length} modules with complete transaction tracking`);
   }
 
   private static async getFactoryABI(factoryAddress: string, network: string, environment: string): Promise<any> {
