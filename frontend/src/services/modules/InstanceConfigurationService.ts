@@ -1496,16 +1496,111 @@ export class InstanceConfigurationService {
     }
   }
 
+  /**
+   * Configure ERC20 Fee Module - DATABASE-FIRST
+   * 
+   * CRITICAL: Fee configuration must match database to ensure:
+   * - Correct transfer fee (basis points)
+   * - Correct buy fee (basis points) for DEX purchases
+   * - Correct sell fee (basis points) for DEX sales
+   * - Proper fee recipient address
+   * - Maximum fee cap (safety limit)
+   * - Fee enabled/disabled state
+   * - Address exemptions from fees
+   * 
+   * Misconfiguration means permanent revenue loss!
+   * 
+   * @see https://eth-hoodi.blockscout.com/tx/0x015a673a255b500895dbe0b29ea1b8024acf5a2d4145b8351683a266f3f40de1
+   * @see https://eth-hoodi.blockscout.com/tx/0x5922a94e731d8969892139219f4f6800e80e1075f14a0882b77a8a6bd0c0ba16
+   */
   private static async configureFeeModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring fee module');
+    console.log('💰 Configuring fee module (DATABASE-FIRST)');
+    
+    // Set transfer fee (standard transfers)
     if (config.transferFeeBps !== undefined) {
+      console.log(`   Setting transfer fee: ${config.transferFeeBps} bps (${(config.transferFeeBps / 100).toFixed(2)}%)`);
       const tx = await module.setTransferFee(config.transferFeeBps);
       txHashes.push((await tx.wait()).transactionHash);
     }
+    
+    // Set buy fee (DEX purchases)
+    if (config.buyFeeBps !== undefined) {
+      console.log(`   Setting buy fee: ${config.buyFeeBps} bps (${(config.buyFeeBps / 100).toFixed(2)}%)`);
+      const tx = await module.setBuyFee(config.buyFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set sell fee (DEX sales)
+    if (config.sellFeeBps !== undefined) {
+      console.log(`   Setting sell fee: ${config.sellFeeBps} bps (${(config.sellFeeBps / 100).toFixed(2)}%)`);
+      const tx = await module.setSellFee(config.sellFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set maximum fee cap (safety limit)
+    if (config.maxFeeBps !== undefined) {
+      console.log(`   Setting max fee cap: ${config.maxFeeBps} bps (${(config.maxFeeBps / 100).toFixed(2)}%)`);
+      const tx = await module.setMaxFee(config.maxFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set fee recipient address
     if (config.feeRecipient) {
+      console.log(`   Setting fee recipient: ${config.feeRecipient}`);
       const tx = await module.setFeeRecipient(config.feeRecipient);
       txHashes.push((await tx.wait()).transactionHash);
     }
+    
+    // Enable or disable fee collection
+    if (config.enabled !== undefined) {
+      console.log(`   Setting fee enabled: ${config.enabled}`);
+      const tx = await module.setFeeEnabled(config.enabled);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Exempt addresses from fees (batch operation for efficiency)
+    if (config.exemptAddresses && Array.isArray(config.exemptAddresses) && config.exemptAddresses.length > 0) {
+      console.log(`   Exempting ${config.exemptAddresses.length} addresses from fees`);
+      
+      // Validate all addresses before attempting exemption
+      const validAddresses = config.exemptAddresses.filter((addr: string) => {
+        try {
+          return ethers.isAddress(addr);
+        } catch {
+          console.warn(`     ⚠️ Invalid address skipped: ${addr}`);
+          return false;
+        }
+      });
+      
+      if (validAddresses.length > 0) {
+        // Use batch exemption if available, otherwise exempt individually
+        try {
+          // Try batch operation first (if available in contract)
+          const tx = await module.exemptFromFeesBatch(validAddresses);
+          txHashes.push((await tx.wait()).transactionHash);
+          console.log(`     ✅ Batch exempted ${validAddresses.length} addresses`);
+        } catch (batchError: any) {
+          // Fallback to individual exemptions if batch not supported
+          if (batchError.message?.includes('not a function')) {
+            console.log(`     ℹ️ Batch exemption not available, exempting individually...`);
+            for (const address of validAddresses) {
+              try {
+                const tx = await module.exemptFromFees(address, 'Platform exemption');
+                txHashes.push((await tx.wait()).transactionHash);
+                console.log(`     ✅ Exempted: ${address}`);
+              } catch (exemptError) {
+                console.error(`     ❌ Failed to exempt ${address}:`, exemptError);
+                // Continue with remaining addresses
+              }
+            }
+          } else {
+            throw batchError; // Re-throw if it's a different error
+          }
+        }
+      }
+    }
+    
+    console.log('✅ Fee module configured');
   }
 
   /**

@@ -24688,7 +24688,7 @@ COMMENT ON COLUMN public.token_erc20_properties.policy_engine_address IS 'Addres
 -- Name: COLUMN token_erc20_properties.flash_mint_module_address; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.token_erc20_properties.flash_mint_module_address IS 'Address of ERC20FlashMintModule for flash loan functionality (EIP-3156)';
+COMMENT ON COLUMN public.token_erc20_properties.flash_mint_module_address IS 'Deployed flash mint module instance address';
 
 
 --
@@ -24773,6 +24773,13 @@ COMMENT ON COLUMN public.token_erc20_properties.policy_engine_config IS 'Policy 
 --
 
 COMMENT ON COLUMN public.token_erc20_properties.fees_config IS 'Fee configuration: {transferFeeBps, feeRecipient, exemptAddresses}';
+
+
+--
+-- Name: COLUMN token_erc20_properties.flash_mint_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_erc20_properties.flash_mint_config IS 'Flash loan module configuration - EIP-3156 compliant. flashFeeBasisPoints: fee in basis points (100 = 1%), feeRecipient: address receiving fees, maxFlashLoan: maximum loan amount (0 = unlimited)';
 
 
 --
@@ -25744,6 +25751,7 @@ CREATE TABLE public.token_erc721_properties (
     metadata_events_config jsonb,
     soulbound_config jsonb,
     legacy_properties jsonb DEFAULT '{}'::jsonb,
+    fraction_config jsonb DEFAULT '{"maxFractions": 10000, "minFractions": 100, "fractionPrice": 0, "tradingEnabled": true, "redemptionEnabled": true, "buyoutMultiplierBps": 15000}'::jsonb,
     CONSTRAINT check_whitelist_config_valid CHECK (public.validate_whitelist_config_permissive(whitelist_config)),
     CONSTRAINT sales_config_structure_check CHECK (((sales_config IS NULL) OR ((jsonb_typeof(sales_config) = 'object'::text) AND (sales_config ? 'enabled'::text) AND (((sales_config -> 'enabled'::text))::text = ANY (ARRAY['true'::text, 'false'::text]))))),
     CONSTRAINT token_erc721_properties_compliance_module_address_check CHECK (((compliance_module_address IS NULL) OR (compliance_module_address ~* '^0x[a-fA-F0-9]{40}$'::text))),
@@ -38074,10 +38082,24 @@ CREATE INDEX idx_erc20_permit ON public.token_erc20_properties USING btree (perm
 
 
 --
+-- Name: idx_erc20_permit_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_permit_enabled ON public.token_erc20_properties USING btree (((permit_config ->> 'enabled'::text))) WHERE ((permit_config ->> 'enabled'::text) = 'true'::text);
+
+
+--
 -- Name: idx_erc20_snapshot; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc20_snapshot ON public.token_erc20_properties USING btree (snapshot_module_address) WHERE (snapshot_module_address IS NOT NULL);
+
+
+--
+-- Name: idx_erc20_snapshot_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc20_snapshot_enabled ON public.token_erc20_properties USING btree (((snapshot_config ->> 'autoSnapshotEnabled'::text))) WHERE ((snapshot_config ->> 'autoSnapshotEnabled'::text) = 'true'::text);
 
 
 --
@@ -38270,10 +38292,24 @@ CREATE INDEX idx_erc721_consecutive ON public.token_erc721_properties USING btre
 
 
 --
+-- Name: idx_erc721_consecutive_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_consecutive_enabled ON public.token_erc721_properties USING btree (((consecutive_config IS NOT NULL)));
+
+
+--
 -- Name: idx_erc721_document_config; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_erc721_document_config ON public.token_erc721_properties USING gin (document_config);
+
+
+--
+-- Name: idx_erc721_fraction_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_fraction_enabled ON public.token_erc721_properties USING btree (((fraction_config IS NOT NULL)));
 
 
 --
@@ -38309,6 +38345,13 @@ CREATE INDEX idx_erc721_rental_config ON public.token_erc721_properties USING gi
 --
 
 CREATE INDEX idx_erc721_royalty_module ON public.token_erc721_properties USING btree (royalty_module_address) WHERE (royalty_module_address IS NOT NULL);
+
+
+--
+-- Name: idx_erc721_soulbound_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_erc721_soulbound_enabled ON public.token_erc721_properties USING btree (((soulbound_config IS NOT NULL)));
 
 
 --

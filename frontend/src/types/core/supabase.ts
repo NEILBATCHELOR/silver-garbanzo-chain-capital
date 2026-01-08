@@ -32406,6 +32406,7 @@ export type Database = {
           document_enabled: boolean | null
           document_module_address: string | null
           enumerable: boolean | null
+          fraction_config: Json | null
           fractionalization_config: Json | null
           fractionalization_module_address: string | null
           has_royalty: boolean | null
@@ -32460,6 +32461,7 @@ export type Database = {
           document_enabled?: boolean | null
           document_module_address?: string | null
           enumerable?: boolean | null
+          fraction_config?: Json | null
           fractionalization_config?: Json | null
           fractionalization_module_address?: string | null
           has_royalty?: boolean | null
@@ -32514,6 +32516,7 @@ export type Database = {
           document_enabled?: boolean | null
           document_module_address?: string | null
           enumerable?: boolean | null
+          fraction_config?: Json | null
           fractionalization_config?: Json | null
           fractionalization_module_address?: string | null
           has_royalty?: boolean | null
