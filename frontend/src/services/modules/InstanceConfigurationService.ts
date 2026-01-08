@@ -368,7 +368,7 @@ export class InstanceConfigurationService {
         } else if (tokenStandard === 'erc1400') {
           const { data, error } = await supabase
             .from('token_erc1400_properties')
-            .select('transfer_restrictions_config, controller_config, compliance_config, vesting_config')
+            .select('enhanced_transfer_restrictions_config, controller_config, enhanced_document_config, compliance_config, vesting_config')
             .eq('token_id', params.tokenId)
             .maybeSingle();
           
