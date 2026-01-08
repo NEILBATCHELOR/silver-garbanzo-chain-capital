@@ -1355,10 +1355,42 @@ export class InstanceConfigurationService {
 
   // ============ MODULE-SPECIFIC CONFIGURATION METHODS ============
 
+  /**
+   * Configure Universal Vesting Module - DATABASE-FIRST
+   * 
+   * CRITICAL: Vesting configuration must match database to ensure:
+   * - Correct beneficiary addresses
+   * - Proper vesting amounts
+   * - Accurate timing (start, cliff, total duration)
+   * - Revocability settings
+   * - Category labels for reporting
+   * 
+   * ACTUAL ABI SIGNATURE:
+   * createVestingSchedule(
+   *   address beneficiary,
+   *   uint256 amount,
+   *   uint256 startTime,
+   *   uint256 cliffDuration,
+   *   uint256 vestingDuration,
+   *   bool revocable,
+   *   string category  // ← IT'S A STRING! Not bytes32!
+   * ) → bytes32 scheduleId
+   * 
+   * ✅ FIX APPLIED: Changed from ethers.encodeBytes32String(schedule.category) to schedule.category
+   */
   private static async configureVestingModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring vesting module with schedules:', config.schedules?.length || 0);
+    console.log('📅 Configuring vesting module (DATABASE-FIRST)');
+    console.log(`   Creating ${config.schedules?.length || 0} vesting schedule(s)`);
+    
     for (const schedule of config.schedules || []) {
-      console.log(`  Creating vesting schedule for ${schedule.beneficiary}`);
+      console.log(`   Schedule for: ${schedule.beneficiary}`);
+      console.log(`     - Amount: ${schedule.amount} tokens`);
+      console.log(`     - Start: ${new Date(schedule.startTime * 1000).toISOString()}`);
+      console.log(`     - Cliff: ${schedule.cliffDuration}s (${Math.floor(schedule.cliffDuration / 86400)}d)`);
+      console.log(`     - Duration: ${schedule.vestingDuration}s (${Math.floor(schedule.vestingDuration / 86400)}d)`);
+      console.log(`     - Revocable: ${schedule.revocable}`);
+      console.log(`     - Category: "${schedule.category}"`);
+      
       const tx = await module.createVestingSchedule(
         schedule.beneficiary,
         ethers.parseUnits(schedule.amount.toString(), 18),
@@ -1366,11 +1398,16 @@ export class InstanceConfigurationService {
         schedule.cliffDuration,
         schedule.vestingDuration,
         schedule.revocable,
-        ethers.encodeBytes32String(schedule.category)
+        schedule.category  // ✅ FIXED: Pass string directly, DO NOT encode as bytes32
       );
+      
       const receipt = await tx.wait();
       txHashes.push(receipt.transactionHash);
+      
+      console.log(`   ✅ Schedule created: ${receipt.transactionHash}`);
     }
+    
+    console.log(`✅ Vesting module configured with ${config.schedules?.length || 0} schedule(s)`);
   }
 
   private static async configureDocumentModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
@@ -1634,20 +1671,53 @@ export class InstanceConfigurationService {
     console.log('✅ Flash mint module configured');
   }
 
+  /**
+   * Configure ERC20 Timelock Module - DATABASE-FIRST
+   * 
+   * CRITICAL: Timelock configuration must match database to ensure:
+   * - Correct lock duration constraints (min/max/default)
+   * - Proper extension permissions
+   * 
+   * ACTUAL ABI METHODS:
+   * - setLockDurationConstraints(uint256 minDuration, uint256 maxDuration, uint256 defaultDuration)
+   * - setExtensionAllowed(bool allowed)
+   * 
+   * ✅ FIX APPLIED: Replaced setMinDelay(), grantRole(PROPOSER_ROLE), grantRole(EXECUTOR_ROLE)
+   * with correct methods from actual contract ABI
+   */
   private static async configureTimelockModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring timelock module');
-    if (config.minDelay !== undefined) {
-      const tx = await module.setMinDelay(config.minDelay);
-      txHashes.push((await tx.wait()).transactionHash);
+    console.log('🔒 Configuring timelock module (DATABASE-FIRST)');
+    
+    // Set lock duration constraints (min, max, default) - ALL AT ONCE
+    if (config.minDuration !== undefined || config.maxDuration !== undefined || config.defaultDuration !== undefined) {
+      // Use config values or sensible defaults
+      const minDuration = config.minDuration !== undefined ? config.minDuration : 3600; // 1 hour minimum
+      const maxDuration = config.maxDuration !== undefined ? config.maxDuration : 31536000; // 1 year maximum
+      const defaultDuration = config.defaultDuration !== undefined ? config.defaultDuration : 172800; // 2 days default
+      
+      console.log(`   Setting duration constraints:`);
+      console.log(`     - Min: ${minDuration}s (${Math.floor(minDuration / 3600)}h)`);
+      console.log(`     - Max: ${maxDuration}s (${Math.floor(maxDuration / 86400)}d)`);
+      console.log(`     - Default: ${defaultDuration}s (${Math.floor(defaultDuration / 3600)}h)`);
+      
+      const tx = await module.setLockDurationConstraints(minDuration, maxDuration, defaultDuration);
+      const receipt = await tx.wait();
+      txHashes.push(receipt.transactionHash);
+      
+      console.log(`   ✅ Duration constraints set: ${receipt.transactionHash}`);
     }
-    for (const proposer of config.proposers || []) {
-      const tx = await module.grantRole(ethers.id('PROPOSER_ROLE'), proposer);
-      txHashes.push((await tx.wait()).transactionHash);
+    
+    // Set whether lock extensions are allowed
+    if (config.extensionAllowed !== undefined) {
+      console.log(`   Setting lock extension allowed: ${config.extensionAllowed}`);
+      const tx = await module.setExtensionAllowed(config.extensionAllowed);
+      const receipt = await tx.wait();
+      txHashes.push(receipt.transactionHash);
+      
+      console.log(`   ✅ Extension setting updated: ${receipt.transactionHash}`);
     }
-    for (const executor of config.executors || []) {
-      const tx = await module.grantRole(ethers.id('EXECUTOR_ROLE'), executor);
-      txHashes.push((await tx.wait()).transactionHash);
-    }
+    
+    console.log(`✅ Timelock module configured with ${txHashes.length} transaction(s)`);
   }
 
   private static async configureRoyaltyModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
@@ -1805,25 +1875,56 @@ export class InstanceConfigurationService {
     }
   }
 
+  /**
+   * Configure ERC20 Temporary Approval Module - DATABASE-FIRST
+   * 
+   * CRITICAL: Temporary approval configuration must match database to ensure:
+   * - Correct default approval duration
+   * - Proper duration constraints (min/max)
+   * - Feature enabled/disabled state
+   * 
+   * ACTUAL ABI METHODS:
+   * - setDurationConfig(uint256 defaultDuration, uint256 minDuration, uint256 maxDuration)
+   * - setEnabled(bool enabled)
+   * 
+   * ✅ FIX APPLIED: Replaced setDefaultDuration(), setMinDuration(), setMaxDuration()
+   * with single batch method setDurationConfig() as per actual contract ABI
+   * 
+   * All duration settings must be set together in one transaction.
+   */
   private static async configureTemporaryApprovalModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring temporary approval module');
+    console.log('⏰ Configuring temporary approval module (DATABASE-FIRST)');
     
-    // Set default approval duration
-    if (config.defaultDuration !== undefined) {
-      const tx = await module.setDefaultDuration(config.defaultDuration);
-      txHashes.push((await tx.wait()).transactionHash);
+    // Set all duration constraints together - MUST BE ONE TRANSACTION
+    if (config.defaultDuration !== undefined || config.minDuration !== undefined || config.maxDuration !== undefined) {
+      // Use config values or sensible defaults
+      const defaultDuration = config.defaultDuration !== undefined ? config.defaultDuration : 3600; // 1 hour default
+      const minDuration = config.minDuration !== undefined ? config.minDuration : 300; // 5 minutes minimum
+      const maxDuration = config.maxDuration !== undefined ? config.maxDuration : 86400; // 1 day maximum
+      
+      console.log(`   Setting duration configuration:`);
+      console.log(`     - Default: ${defaultDuration}s (${Math.floor(defaultDuration / 60)}min)`);
+      console.log(`     - Min: ${minDuration}s (${Math.floor(minDuration / 60)}min)`);
+      console.log(`     - Max: ${maxDuration}s (${Math.floor(maxDuration / 3600)}h)`);
+      
+      const tx = await module.setDurationConfig(defaultDuration, minDuration, maxDuration);
+      const receipt = await tx.wait();
+      txHashes.push(receipt.transactionHash);
+      
+      console.log(`   ✅ Duration config set: ${receipt.transactionHash}`);
     }
     
-    // Set min/max duration limits
-    if (config.minDuration !== undefined) {
-      const tx = await module.setMinDuration(config.minDuration);
-      txHashes.push((await tx.wait()).transactionHash);
+    // Set enabled state
+    if (config.enabled !== undefined) {
+      console.log(`   Setting temporary approval enabled: ${config.enabled}`);
+      const tx = await module.setEnabled(config.enabled);
+      const receipt = await tx.wait();
+      txHashes.push(receipt.transactionHash);
+      
+      console.log(`   ✅ Enabled state updated: ${receipt.transactionHash}`);
     }
     
-    if (config.maxDuration !== undefined) {
-      const tx = await module.setMaxDuration(config.maxDuration);
-      txHashes.push((await tx.wait()).transactionHash);
-    }
+    console.log(`✅ Temporary approval module configured with ${txHashes.length} transaction(s)`);
   }
 
   private static async configurePayableTokenModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
