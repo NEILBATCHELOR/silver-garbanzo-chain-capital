@@ -109,10 +109,9 @@ contract ERC20WrapperMaster is
         __ERC20Pausable_init();
         __UUPSUpgradeable_init();
         
-        // Grant roles to owner
+        // Grant ONLY DEFAULT_ADMIN_ROLE to owner during initialization
+        // Other roles will be granted via grantRole after deployment
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(PAUSER_ROLE, owner_);
-        _grantRole(UPGRADER_ROLE, owner_);
     }
     
     // ============ Wrapping Functions ============

@@ -205,9 +205,7 @@ contract ERC3525Master is
         decimals = decimals_;
         
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(MINTER_ROLE, owner_);
-        _grantRole(PAUSER_ROLE, owner_);
-        _grantRole(UPGRADER_ROLE, owner_);
+        // Other roles (MINTER, PAUSER, UPGRADER) will be granted via grantRole after deployment
     }
     
     // ============ Minting ============

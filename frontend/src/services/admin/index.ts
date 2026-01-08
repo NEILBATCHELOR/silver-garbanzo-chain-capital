@@ -6,3 +6,4 @@ export * from './DeploymentImportService';
 export * from './DeploymentArtifactService';
 export * from './ContractDeploymentOrchestrator';
 export * from './DeploymentExecutionService';
+export * from './ContractMasterService';

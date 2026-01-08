@@ -667,7 +667,7 @@ export class BalanceService {
     const normalized = walletType.toLowerCase();
     
     const mapping: Record<string, string[]> = {
-      'ethereum': ['ethereum', 'sepolia', 'holesky', 'hoodi'],
+      'ethereum': ['ethereum', 'sepolia', 'hoodi'],
       'polygon': ['polygon', 'amoy'],
       'optimism': ['optimism', 'optimism-sepolia'],
       'arbitrum': ['arbitrum', 'arbitrum-sepolia'],

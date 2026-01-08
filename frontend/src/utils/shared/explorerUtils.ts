@@ -107,13 +107,13 @@ const EXPLORER_URLS: Record<string, { base: string; transaction: string; address
     block: '/block/'
   },
   hoodi: {
-    base: 'https://hoodi.etherscan.io',
+    base: 'https://eth-hoodi.blockscout.com',
     transaction: '/tx/',
     address: '/address/',
     block: '/block/'
   },
   'hoodi-testnet': {
-    base: 'https://hoodi.etherscan.io',
+    base: 'https://eth-hoodi.blockscout.com',
     transaction: '/tx/',
     address: '/address/',
     block: '/block/'
@@ -152,13 +152,20 @@ const EXPLORER_URLS: Record<string, { base: string; transaction: string; address
  * @returns The full explorer URL
  */
 export function getExplorerUrl(blockchain: string, hash: string, type: 'transaction' | 'address' | 'block' = 'transaction'): string {
+  // Early return if hash is missing
   if (!hash) return '';
   
-  const normalizedBlockchain = blockchain.toLowerCase();
+  // Early return if blockchain is missing
+  if (!blockchain || blockchain.trim() === '') {
+    console.warn('Explorer URL requested with empty blockchain identifier');
+    return '';
+  }
+  
+  const normalizedBlockchain = blockchain.toLowerCase().trim();
   const explorerConfig = EXPLORER_URLS[normalizedBlockchain];
   
   if (!explorerConfig) {
-    console.warn(`Explorer URL not configured for blockchain: ${blockchain}`);
+    console.warn(`Explorer URL not configured for blockchain: "${blockchain}" (normalized: "${normalizedBlockchain}")`);
     return '';
   }
   

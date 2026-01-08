@@ -141,12 +141,9 @@ contract ERC1155Master is
         _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(UPGRADER_ROLE, DEFAULT_ADMIN_ROLE);
         
-        // Grant roles to owner
+        // Grant ONLY DEFAULT_ADMIN_ROLE to owner during initialization
+        // Other roles (URI_SETTER, MINTER, PAUSER, UPGRADER) will be granted via grantRole after deployment
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(URI_SETTER_ROLE, owner_);
-        _grantRole(MINTER_ROLE, owner_);
-        _grantRole(PAUSER_ROLE, owner_);
-        _grantRole(UPGRADER_ROLE, owner_);
     }
     
     // ============ Minting Functions ============

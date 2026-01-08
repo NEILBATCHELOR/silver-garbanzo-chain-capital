@@ -39,6 +39,7 @@ import { TokenBalances } from './components/dashboard/TokenBalances';
 import { TransferTab } from './components/dashboard/TransferTab';
 import { TestnetBalanceChecker } from './TestnetBalanceChecker';
 import { MultiSigTransactionList } from './multisig/MultiSigTransactionList';
+import { NonceGapFixerWrapper } from './NonceGapFixerWrapper';
 
 // Import wallet connection utilities
 import { useAppKit } from '@reown/appkit/react';
@@ -535,11 +536,12 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="external">Connect External</TabsTrigger>
           <TabsTrigger value="multisig">Multi-Sig</TabsTrigger>
           <TabsTrigger value="transfer">Transfer</TabsTrigger>
+          <TabsTrigger value="nonce-fixer">Nonce Fixer</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -640,6 +642,10 @@ export const InternalWalletDashboard: React.FC<InternalWalletDashboardProps> = (
 
         <TabsContent value="transfer" className="space-y-6">
           <TransferTab />
+        </TabsContent>
+
+        <TabsContent value="nonce-fixer" className="space-y-6">
+          <NonceGapFixerWrapper projectId={projectId || undefined} />
         </TabsContent>
       </Tabs>
 

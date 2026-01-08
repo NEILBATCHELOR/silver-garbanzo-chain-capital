@@ -107,10 +107,9 @@ contract ERC20RebasingMaster is
         __AccessControl_init();
         __UUPSUpgradeable_init();
         
-        // Grant roles
+        // Grant ONLY DEFAULT_ADMIN_ROLE to owner during initialization
+        // Other roles (REBASE, UPGRADER) will be granted via grantRole after deployment
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(REBASE_ROLE, owner_);
-        _grantRole(UPGRADER_ROLE, owner_);
         
         // Initialize with 1:1 shares:tokens ratio
         if (initialSupply_ > 0) {

@@ -34,6 +34,7 @@ export interface FactoryDeploymentParams {
   symbol: string;
   decimals?: number;
   totalSupply?: string;
+  initialOwner?: string; // initial_owner from token_erc*_properties (receives DEFAULT_ADMIN_ROLE)
   
   // Module Selection
   selectedModules: string[]; // ['vesting', 'compliance', etc.]
@@ -469,30 +470,59 @@ export class FactoryDeploymentService {
   
   /**
    * Prepare constructor args based on token standard
+   * Must match the initialize() function signature in master contracts
    */
   private static prepareConstructorArgs(params: FactoryDeploymentParams): any[] {
+    // Owner = initial_owner from token_erc*_properties (receives DEFAULT_ADMIN_ROLE)
+    const owner = params.initialOwner || params.userId;
+    
+    if (!owner) {
+      throw new Error('No owner address provided for token initialization');
+    }
+    
     switch (params.standard.toUpperCase()) {
       case 'ERC20':
+        // Matches ERC20Master.initialize(name, symbol, maxSupply, initialSupply, owner)
         return [
           params.name,
           params.symbol,
-          params.decimals || 18,
-          ethers.parseUnits(params.totalSupply || '0', params.decimals || 18)
+          ethers.parseUnits(params.totalSupply || '0', params.decimals || 18), // maxSupply
+          ethers.parseUnits(params.totalSupply || '0', params.decimals || 18), // initialSupply
+          owner // ← initial_owner from database receives DEFAULT_ADMIN_ROLE
         ];
       
       case 'ERC721':
+        // Matches ERC721Master.initialize(name, symbol, baseURI, maxSupply, owner, mintingEnabled, burningEnabled)
         return [
           params.name,
-          params.symbol
+          params.symbol,
+          '', // baseURI (can be set later)
+          0,  // maxSupply (0 = unlimited)
+          owner,
+          true, // mintingEnabled
+          true  // burningEnabled
         ];
       
       case 'ERC1155':
+        // Matches ERC1155Master.initialize(name, baseURI, owner)
         return [
-          params.name
+          params.name || 'Multi-Token',
+          '', // baseURI
+          owner
+        ];
+      
+      case 'ERC1400':
+        // Matches ERC1400Master.initialize(name, symbol, defaultPartitions, owner)
+        return [
+          params.name,
+          params.symbol,
+          [], // defaultPartitions
+          owner
         ];
       
       default:
-        return [params.name, params.symbol];
+        // Generic fallback for other standards
+        return [params.name, params.symbol, owner];
     }
   }
   

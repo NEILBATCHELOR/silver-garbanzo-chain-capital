@@ -34,6 +34,7 @@ export interface ProjectWallet {
   // Private storage references
   hasDirectKey: boolean;
   hasVaultKey: boolean;
+  vaultId: string | null; // private_key_vault_id from database
 }
 
 export interface UserWallet {
@@ -49,6 +50,7 @@ export interface UserWallet {
   // Private storage references
   hasDirectKey: boolean;
   hasVaultKey: boolean;
+  vaultId: string | null; // key_vault_reference from database
   // User details
   userName?: string; // User's full name
   userEmail?: string; // User's email
@@ -211,7 +213,8 @@ export class InternalWalletService {
         createdAt: new Date(wallet.created_at),
         updatedAt: new Date(wallet.updated_at),
         hasDirectKey: !!wallet.private_key,
-        hasVaultKey: !!wallet.private_key_vault_id
+        hasVaultKey: !!wallet.private_key_vault_id,
+        vaultId: wallet.private_key_vault_id || null
       }));
     } catch (error) {
       console.error('Failed to fetch project EOA wallets:', error);
@@ -261,7 +264,8 @@ export class InternalWalletService {
         createdAt: new Date(wallet.created_at),
         updatedAt: new Date(wallet.updated_at),
         hasDirectKey: !!wallet.encrypted_private_key,
-        hasVaultKey: !!wallet.key_vault_reference
+        hasVaultKey: !!wallet.key_vault_reference,
+        vaultId: wallet.key_vault_reference || null
       }));
     } catch (error) {
       console.error('Failed to fetch user EOA wallets:', error);
@@ -367,6 +371,7 @@ export class InternalWalletService {
           updatedAt: new Date(wallet.updated_at),
           hasDirectKey: !!wallet.encrypted_private_key,
           hasVaultKey: !!wallet.key_vault_reference,
+          vaultId: wallet.key_vault_reference || null,
           userName: userDetails?.name,
           userEmail: userDetails?.email,
           userRole: userRole

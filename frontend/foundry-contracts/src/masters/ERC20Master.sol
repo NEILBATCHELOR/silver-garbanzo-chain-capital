@@ -166,11 +166,10 @@ contract ERC20Master is
         _setRoleAdmin(PAUSER_ROLE, DEFAULT_ADMIN_ROLE);
         _setRoleAdmin(UPGRADER_ROLE, DEFAULT_ADMIN_ROLE);
         
-        // Grant roles to owner
+        // Grant ONLY DEFAULT_ADMIN_ROLE to owner during initialization
+        // Other roles (MINTER, PAUSER, UPGRADER) will be granted via grantRole after deployment
+        // based on user-specified role assignments from the deployment form
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(MINTER_ROLE, owner_);
-        _grantRole(PAUSER_ROLE, owner_);
-        _grantRole(UPGRADER_ROLE, owner_);
         
         // Set max supply
         maxSupply = maxSupply_;

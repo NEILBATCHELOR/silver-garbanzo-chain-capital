@@ -12,6 +12,7 @@
 import { ethers } from 'ethers';
 import { supabase } from '@/infrastructure/database/client';
 import { TokenStandard } from '@/types/core/centralModels';
+import { getRpcUrl } from '@/infrastructure/web3/rpc/rpc-config';
 import {
   ComprehensiveVerificationResult,
   VerificationContext,
@@ -67,12 +68,26 @@ export class ComprehensiveVerificationService {
   ): Promise<ComprehensiveVerificationResult> {
     const startTime = Date.now();
     
+    console.log('🚀 [Verification] Starting comprehensive verification');
+    console.log('🚀 [Verification] Token ID:', tokenId);
+    console.log('🚀 [Verification] Options:', options);
+    
     try {
       // Step 1: Gather verification context from database
+      console.log('📊 [Verification] Step 1: Gathering context from database...');
       const context = await this.gatherVerificationContext(tokenId);
+      console.log('✅ [Verification] Context gathered:', {
+        contractAddress: context.deployment.contractAddress,
+        network: context.deployment.network,
+        standard: context.deployment.standard,
+        modulesCount: context.modules.length,
+        extensionsCount: context.extensions.length
+      });
       
       // Step 2: Initialize provider
+      console.log('🔌 [Verification] Step 2: Initializing RPC provider...');
       await this.initializeProvider(context.deployment.network, options.rpcUrl);
+      console.log('✅ [Verification] Provider initialized');
       
       // Step 3: Initialize result
       const result: ComprehensiveVerificationResult = {
@@ -104,32 +119,49 @@ export class ComprehensiveVerificationService {
 
       // Step 4: Verify token deployment and configuration
       if (options.verifyToken !== false) {
+        console.log('🔍 [Verification] Step 4: Verifying token...');
         await this.verifyToken(context, options, result);
       }
 
       // Step 5: Verify modules
       if (options.verifyModules !== false && context.modules.length > 0) {
+        console.log('🔍 [Verification] Step 5: Verifying modules...');
         await this.verifyModules(context, options, result);
       }
 
       // Step 6: Verify extensions
       if (options.verifyExtensions !== false && context.extensions.length > 0) {
+        console.log('🔍 [Verification] Step 6: Verifying extensions...');
         await this.verifyExtensions(context, options, result);
       }
 
       // Step 7: Verify transaction sequence
       if (options.verifyTransactionSequence !== false) {
+        console.log('🔍 [Verification] Step 7: Verifying transaction sequence...');
         await this.verifyTransactionSequence(context, options, result);
       }
 
       // Step 8: Calculate summary and determine overall status
+      console.log('📊 [Verification] Step 8: Calculating summary...');
       this.calculateSummary(result);
       
       result.verificationDuration = Date.now() - startTime;
       
+      console.log('✅ [Verification] Verification complete!');
+      console.log('📊 [Verification] Results:', {
+        overallStatus: result.overallStatus,
+        totalChecks: result.totalChecks,
+        passed: result.passedChecks,
+        failed: result.failedChecks,
+        warnings: result.warningChecks,
+        skipped: result.skippedChecks,
+        duration: `${result.verificationDuration}ms`
+      });
+      
       return result;
     } catch (error: any) {
-      console.error('Verification failed:', error);
+      console.error('❌ [Verification] Verification failed with error:', error);
+      console.error('❌ [Verification] Error stack:', error.stack);
       throw new Error(`Verification failed: ${error.message}`);
     }
   }
@@ -138,16 +170,19 @@ export class ComprehensiveVerificationService {
    * Gather all relevant data from database
    */
   private async gatherVerificationContext(tokenId: string): Promise<VerificationContext> {
-    // Fetch token deployment
-    const { data: deployment, error: deploymentError } = await supabase
+    // Fetch token deployment (get most recent if multiple exist)
+    const { data: deployments, error: deploymentError } = await supabase
       .from('token_deployments')
       .select('*')
       .eq('token_id', tokenId)
-      .single();
+      .order('deployed_at', { ascending: false })
+      .limit(1);
 
-    if (deploymentError || !deployment) {
-      throw new Error(`Token deployment not found: ${deploymentError?.message}`);
+    if (deploymentError || !deployments || deployments.length === 0) {
+      throw new Error(`Token deployment not found: ${deploymentError?.message || 'No deployments found'}`);
     }
+
+    const deployment = deployments[0];
 
     // Fetch token details for configuration
     const { data: token, error: tokenError } = await supabase
@@ -180,9 +215,21 @@ export class ComprehensiveVerificationService {
       console.warn('Error fetching extensions:', extensionsError);
     }
 
+    // ✅ FIX: Prioritize tokens.address over token_deployments.contract_address
+    // tokens.address is the authoritative source for the deployed contract
+    const contractAddress = token.address || deployment.contract_address;
+    
+    console.log(`🔍 [Verification] Contract address resolution:`, {
+      tokenId,
+      tokensAddress: token.address,
+      deploymentAddress: deployment.contract_address,
+      using: contractAddress,
+      network: deployment.network
+    });
+
     const deploymentData: TokenDeploymentData = {
       tokenId: deployment.token_id,
-      contractAddress: deployment.contract_address,
+      contractAddress: contractAddress, // ✅ Use tokens.address first
       transactionHash: deployment.transaction_hash,
       network: deployment.network,
       standard: token.standard as TokenStandard,
@@ -228,15 +275,25 @@ export class ComprehensiveVerificationService {
     if (rpcUrl) {
       this.provider = new ethers.JsonRpcProvider(rpcUrl);
     } else {
-      // Get RPC URL from network configuration
-      const { data: rpcConfig } = await supabase
-        .from('blockchain_networks')
-        .select('rpc_url')
-        .eq('network_identifier', network)
-        .single();
-
-      if (rpcConfig?.rpc_url) {
-        this.provider = new ethers.JsonRpcProvider(rpcConfig.rpc_url);
+      // Use the RPC configuration infrastructure
+      // Map common network identifiers to blockchain names
+      const networkMap: Record<string, string> = {
+        'hoodi': 'hoodi',
+        'holesky': 'holesky',
+        'ethereum-sepolia': 'ethereum',
+        'sepolia': 'ethereum',
+        'polygon-amoy': 'polygon',
+        'amoy': 'polygon',
+        'optimism-sepolia': 'optimism',
+        'arbitrum-sepolia': 'arbitrum',
+        'base-sepolia': 'base'
+      };
+      
+      const blockchain = networkMap[network.toLowerCase()] || network.toLowerCase();
+      const configRpcUrl = getRpcUrl(blockchain, true); // Default to testnet
+      
+      if (configRpcUrl) {
+        this.provider = new ethers.JsonRpcProvider(configRpcUrl);
       } else {
         throw new Error(`No RPC URL configured for network: ${network}`);
       }
@@ -254,6 +311,14 @@ export class ComprehensiveVerificationService {
     options: VerificationOptions,
     result: ComprehensiveVerificationResult
   ): Promise<void> {
+    console.log('🔍 [VerifyToken] Starting token verification...');
+    console.log('🔍 [VerifyToken] Context:', {
+      tokenId: context.deployment.tokenId,
+      contractAddress: context.deployment.contractAddress,
+      network: context.deployment.network,
+      standard: context.deployment.standard
+    });
+    
     const verifier = this.standardVerifiers.get(context.deployment.standard);
     
     if (!verifier) {
@@ -264,12 +329,16 @@ export class ComprehensiveVerificationService {
         status: VerificationStatus.SKIPPED,
         timestamp: Date.now()
       });
+      console.warn(`⚠️ [VerifyToken] No verifier for standard: ${context.deployment.standard}`);
       return;
     }
 
     try {
+      console.log(`🔍 [VerifyToken] Using verifier for ${context.deployment.standard}`);
       const checks = await verifier.verifyToken(context, options);
       result.tokenChecks.push(...checks);
+      
+      console.log(`✅ [VerifyToken] Completed ${checks.length} checks`);
       
       result.tokenDeploymentVerified = checks.some(
         c => c.type === VerificationType.TOKEN_DEPLOYMENT && c.status === VerificationStatus.SUCCESS
@@ -278,7 +347,13 @@ export class ComprehensiveVerificationService {
       result.tokenConfigurationVerified = checks.some(
         c => c.type === VerificationType.TOKEN_CONFIGURATION && c.status === VerificationStatus.SUCCESS
       );
+      
+      console.log(`✅ [VerifyToken] Results:`, {
+        deploymentVerified: result.tokenDeploymentVerified,
+        configurationVerified: result.tokenConfigurationVerified
+      });
     } catch (error: any) {
+      console.error('❌ [VerifyToken] Verification error:', error);
       result.tokenChecks.push({
         type: VerificationType.TOKEN_DEPLOYMENT,
         name: 'Token Verification',
@@ -299,20 +374,41 @@ export class ComprehensiveVerificationService {
     options: VerificationOptions,
     result: ComprehensiveVerificationResult
   ): Promise<void> {
+    console.log('🔍 [VerifyModules] Starting module verification...');
+    console.log('🔍 [VerifyModules] Found', context.modules.length, 'modules to verify');
+    
     const verifier = this.standardVerifiers.get(context.deployment.standard);
     
     if (!verifier) {
+      console.warn(`⚠️ [VerifyModules] No verifier for standard: ${context.deployment.standard}`);
       return;
     }
 
     try {
+      console.log(`🔍 [VerifyModules] Verifying modules:`, context.modules.map(m => m.moduleType));
       const moduleResults = await verifier.verifyModules(context, options);
       result.moduleResults.push(...moduleResults);
+      
+      console.log(`✅ [VerifyModules] Completed verification for ${moduleResults.length} modules`);
       
       result.modulesVerified = moduleResults.every(m => 
         m.deploymentVerified && m.linkageVerified && m.configurationVerified
       );
+      
+      // Log any failed modules
+      const failedModules = moduleResults.filter(m => 
+        !m.deploymentVerified || !m.linkageVerified || !m.configurationVerified
+      );
+      if (failedModules.length > 0) {
+        console.warn(`⚠️ [VerifyModules] Failed modules:`, failedModules.map(m => ({
+          type: m.moduleType,
+          deployment: m.deploymentVerified,
+          linkage: m.linkageVerified,
+          configuration: m.configurationVerified
+        })));
+      }
     } catch (error: any) {
+      console.error('❌ [VerifyModules] Module verification error:', error);
       result.issues.push(`Module verification failed: ${error.message}`);
     }
   }

@@ -23,14 +23,16 @@ export function PermitModuleConfigPanel({
     if (!checked) {
       onChange({
         enabled: false,
-        permitDeadline: undefined,
-        permitVersion: undefined
+        name: '',
+        version: '1',
+        permitDeadline: undefined
       });
     } else {
       onChange({
         enabled: true,
-        permitDeadline: config.permitDeadline || 3600, // Default 1 hour
-        permitVersion: config.permitVersion || '1'
+        name: config.name || '',
+        version: config.version || '1',
+        permitDeadline: config.permitDeadline || 3600
       });
     }
   };
@@ -121,10 +123,10 @@ export function PermitModuleConfigPanel({
                 <Label className="text-xs">Version String</Label>
                 <Input
                   type="text"
-                  value={config.permitVersion || '1'}
+                  value={config.version || '1'}
                   onChange={(e) => onChange({
                     ...config,
-                    permitVersion: e.target.value || '1'
+                    version: e.target.value || '1'
                   })}
                   placeholder="1"
                   disabled={disabled}
@@ -133,8 +135,8 @@ export function PermitModuleConfigPanel({
                 <p className="text-xs text-muted-foreground mt-1">
                   Version identifier for the permit implementation (usually "1")
                 </p>
-                {errors?.['permitVersion'] && (
-                  <p className="text-xs text-destructive mt-1">{errors['permitVersion']}</p>
+                {errors?.['version'] && (
+                  <p className="text-xs text-destructive mt-1">{errors['version']}</p>
                 )}
               </div>
             </div>
@@ -206,7 +208,7 @@ export function PermitModuleConfigPanel({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Version:</span>
-                  <span className="font-semibold">{config.permitVersion || '1'}</span>
+                  <span className="font-semibold">{config.version || '1'}</span>
                 </div>
               </div>
             </div>

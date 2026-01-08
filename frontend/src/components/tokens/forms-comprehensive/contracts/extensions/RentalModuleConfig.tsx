@@ -29,6 +29,8 @@ export function RentalModuleConfigPanel({
     } else {
       onChange({
         enabled: true,
+        feeRecipient: config.feeRecipient || '', // REQUIRED
+        platformFeeBps: config.platformFeeBps || 250, // Default 2.5%
         maxRentalDuration: config.maxRentalDuration || 86400, // Default 1 day
         minRentalDuration: config.minRentalDuration || 3600, // Default 1 hour
         minRentalPrice: config.minRentalPrice || '0',
@@ -36,7 +38,8 @@ export function RentalModuleConfigPanel({
         autoReturn: config.autoReturn !== false, // Default true
         allowSubRentals: config.allowSubRentals || false,
         depositRequired: config.depositRequired || false,
-        depositAmount: config.depositAmount || '0'
+        depositAmount: config.depositAmount || '0',
+        depositBps: config.depositBps || 1000 // Default 10%
       });
     }
   };

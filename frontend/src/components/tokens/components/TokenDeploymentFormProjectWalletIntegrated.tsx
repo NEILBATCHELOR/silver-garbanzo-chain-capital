@@ -424,6 +424,22 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
         // Factory-based deployment
         console.log('🏭 Using factory deployment');
         
+        // ✅ Fetch initial_owner from database (receives DEFAULT_ADMIN_ROLE)
+        let initialOwner: string;
+        try {
+          const { getTokenOwnerFromDatabase } = await import('@/components/tokens/services/tokenOwnerService');
+          initialOwner = await getTokenOwnerFromDatabase(tokenId, tokenConfig.standard || 'ERC20');
+          console.log(`✅ Fetched initial_owner from database: ${initialOwner}`);
+          console.log(`📋 initial_owner receives DEFAULT_ADMIN_ROLE`);
+        } catch (error) {
+          console.error('❌ Failed to fetch initial_owner:', error);
+          throw new Error(
+            `Failed to fetch token owner from database. ` +
+            `Please ensure the token has an initial_owner configured in its properties. ` +
+            `Error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          );
+        }
+        
         const factoryResult = await FactoryDeploymentService.deployToken({
           tokenId,
           userId: currentUserId,
@@ -435,9 +451,10 @@ const TokenDeploymentFormProjectWalletIntegrated: React.FC<TokenDeploymentFormPr
           symbol: tokenConfig.symbol,
           decimals: tokenConfig.decimals,
           totalSupply: tokenConfig.totalSupply,
+          initialOwner: initialOwner,  // ← initial_owner from database receives DEFAULT_ADMIN_ROLE
           selectedModules: [],
           moduleConfigs: enabledModules,
-          roleAddresses: roleAddresses || {},
+          roleAddresses: roleAddresses || {},  // ← Other roles from RoleAssignmentForm
           gasConfig: {
             gasPrice: gasConfig.gasPrice,
             gasLimit: gasConfig.gasLimit,

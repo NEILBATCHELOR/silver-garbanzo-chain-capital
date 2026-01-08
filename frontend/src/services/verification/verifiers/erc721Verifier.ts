@@ -22,6 +22,7 @@ import {
   VerificationType,
   ModuleDeploymentData
 } from '../types';
+import { EnhancedERC721RoyaltyModuleVerifier } from './enhancedERC721RoyaltyModuleVerifier';
 
 // ERC721 ABI (minimal for verification)
 const ERC721_ABI = [
@@ -560,7 +561,8 @@ export class ERC721Verifier implements ITokenStandardVerifier {
     this.moduleVerifiers = new Map();
     
     // Register module verifiers
-    this.moduleVerifiers.set('royalty', new ERC721RoyaltyModuleVerifier());
+    // ✅ ENHANCED: Uses database-first verification for royalty module
+    this.moduleVerifiers.set('royalty', new EnhancedERC721RoyaltyModuleVerifier());
     this.moduleVerifiers.set('rental', new ERC721RentalModuleVerifier());
     this.moduleVerifiers.set('soulbound', createGenericModuleVerifier('soulbound', 'Soulbound', SOULBOUND_MODULE_ABI, 'soulboundModule'));
     this.moduleVerifiers.set('fraction', createGenericModuleVerifier('fraction', 'Fractionalization', FRACTION_MODULE_ABI, 'fractionModule'));

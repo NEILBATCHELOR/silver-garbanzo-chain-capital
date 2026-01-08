@@ -149,27 +149,37 @@ export interface FeesConfig {
 
 /**
  * Flash Mint Module Configuration (ERC20)
+ * EIP-3156: Flash Loans standard
  */
 export interface FlashMintConfig {
-  flashFeeBps?: number; // Flash loan fee in basis points (default: 9 = 0.09%)
-  maxFlashLoan?: string; // Maximum flash loan amount
+  flashFeeBasisPoints?: number; // Flash loan fee in basis points (100 = 1%)
+  flashFeeBps?: number; // Alias for flashFeeBasisPoints
+  feeRecipient?: string; // Address receiving flash loan fees
+  maxFlashLoan?: number | string; // Maximum flash loan amount (0 = unlimited) - accepts string for form handling
 }
 
 /**
  * Permit Module Configuration (ERC20)
  * EIP-2612: Permit extension for ERC-20
+ * Contract expects: admin, token, name, version
  */
 export interface PermitConfig {
+  name: string; // Token name for EIP-712 domain
+  version: string; // Permit version string (typically "1")
   permitDeadline?: number; // Default permit deadline in seconds
-  permitVersion?: string; // Permit version string
+  enabled?: boolean; // Whether permit functionality is enabled
 }
 
 /**
  * Snapshot Module Configuration (ERC20)
  */
 export interface SnapshotConfig {
-  automaticSnapshots?: boolean;
+  automaticSnapshots?: boolean; // Enable automatic snapshots
+  autoSnapshotEnabled?: boolean; // Alias for automaticSnapshots
   snapshotInterval?: number; // Auto-snapshot interval in seconds
+  lastSnapshotTime?: number; // Unix timestamp of last snapshot
+  nextSnapshotTime?: number; // Unix timestamp of next scheduled snapshot
+  enabled?: boolean; // Whether snapshot functionality is enabled
 }
 
 /**
@@ -212,8 +222,12 @@ export interface PayableTokenConfig {
   
   // Phase 2: Post-deployment configuration (OPTIONAL)
   acceptedForPayment?: boolean;
+  acceptsNativeToken?: boolean;      // Whether token accepts native token (ETH) payments
+  nativeTokenPrice?: string;         // Price in wei for native token conversion
+  autoConversion?: boolean;          // Automatically convert payments to tokens
   paymentCallbackEnabled?: boolean;
   whitelistEnabled?: boolean;
+  enabled?: boolean;                 // Whether payable token functionality is enabled
 }
 
 /**
@@ -245,16 +259,31 @@ export interface RoyaltyConfig {
 /**
  * Rental Module Configuration (ERC721)
  * ✅ ENHANCED: Full rental configuration
+ * Contract expects: admin, recipient, feeBps, minDuration, maxDuration, minPrice, requireDeposit, depositBps
  */
 export interface RentalConfig {
+  // Platform fee configuration (REQUIRED for initialize)
+  feeRecipient: string; // Address receiving platform fees (not rental payments)
+  platformFeeBps: number; // Platform fee in basis points (250 = 2.5%)
+  
+  // Duration constraints
   maxRentalDuration: number; // Maximum rental period in seconds
   minRentalDuration?: number; // Minimum rental period in seconds
+  
+  // Pricing
   minRentalPrice?: string; // Minimum rental price in wei
-  rentalRecipient?: string; // Address receiving rental payments (defaults to owner)
+  rentalRecipient?: string; // Address receiving rental payments (defaults to NFT owner)
+  
+  // Deposit configuration
+  depositRequired?: boolean; // Whether deposit is required
+  depositBps?: number; // Deposit amount in basis points of rental price
+  depositAmount?: string; // Fixed deposit amount in wei (alternative to depositBps)
+  
+  // Additional features
   autoReturn?: boolean; // Automatically return NFT after rental period
-  allowSubRentals?: boolean;
-  depositRequired?: boolean;
-  depositAmount?: string;
+  autoReturnEnabled?: boolean; // Alias for autoReturn
+  allowSubRentals?: boolean; // Allow renters to sub-rent the NFT
+  subRentalsAllowed?: boolean; // Alias for allowSubRentals
 }
 
 /**

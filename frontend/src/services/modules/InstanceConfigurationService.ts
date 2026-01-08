@@ -93,8 +93,9 @@ export class InstanceConfigurationService {
     };
 
     try {
-      // Extract module selection from JSONB config
-      const moduleSelection = this.extractModuleSelection(params);
+      // Extract module selection from JSONB config (with database query)
+      // ✅ FIX: Now async to query database for authoritative module configs
+      const moduleSelection = await this.extractModuleSelection(params);
       
       // Check if any modules selected - EARLY RETURN
       if (!this.hasAnyModulesSelected(moduleSelection)) {
@@ -271,19 +272,116 @@ export class InstanceConfigurationService {
    * 
    * CRITICAL: Maps JSONB database fields to ModuleSelection format
    * 
+   * ✅ FIX: Now queries database for authoritative module configurations
+   * 
    * This 550-line method handles all the complex mapping logic from:
    * - Database JSONB fields (fee_on_transfer, timelock_config, etc.)
    * - To ModuleSelection format expected by InstanceDeploymentService
    * - Includes conversions: percentages → basis points, etc.
    * - Provides fallbacks for old data formats
+   * 
+   * DATABASE-FIRST PRIORITY:
+   * 1. Query database for token-specific module configs
+   * 2. Merge with params.config (form data)
+   * 3. Database values take precedence
    */
-  private static extractModuleSelection(params: FoundryDeploymentParams): ModuleSelection {
+  private static async extractModuleSelection(params: FoundryDeploymentParams): Promise<ModuleSelection> {
     // Check if moduleSelection exists in config (new format)
     const config = params.config as any;
     
     // 🔍 DEBUG: Log received config to understand data structure
     console.log('🔍 [ModuleSelection] Config keys:', Object.keys(config).filter(k => k.includes('enabled') || k.includes('_config') || k.includes('Module')));
     console.log('🔍 [ModuleSelection] Checking modules - fees_enabled:', config.fees_enabled, 'compliance_enabled:', config.compliance_enabled);
+    
+    // ✅ FIX: Query database for authoritative module configurations
+    let dbModuleConfigs: any = {};
+    
+    if (params.tokenId) {
+      try {
+        console.log(`🔍 [ModuleSelection] Querying database for token ${params.tokenId} module configurations...`);
+        
+        // Determine token standard to query correct properties table
+        const tokenStandard = this.getTokenStandard(params.tokenType);
+        
+        // Query token-specific properties table based on standard
+        if (tokenStandard === 'erc20') {
+          const { data, error } = await supabase
+            .from('token_erc20_properties')
+            .select('fees_config, timelock_config, temporary_approval_config, compliance_config, vesting_config')
+            .eq('token_id', params.tokenId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            dbModuleConfigs = data;
+            console.log(`✅ [ModuleSelection] Loaded ERC20 module configs from database:`, {
+              hasFees: !!data.fees_config,
+              hasTimelock: !!data.timelock_config,
+              hasTemporaryApproval: !!data.temporary_approval_config,
+              hasCompliance: !!data.compliance_config,
+              hasVesting: !!data.vesting_config
+            });
+          }
+        } else if (tokenStandard === 'erc721') {
+          const { data, error } = await supabase
+            .from('token_erc721_properties')
+            .select('royalty_config, rental_config, compliance_config, vesting_config')
+            .eq('token_id', params.tokenId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            dbModuleConfigs = data;
+            console.log(`✅ [ModuleSelection] Loaded ERC721 module configs from database`);
+          }
+        } else if (tokenStandard === 'erc1155') {
+          const { data, error } = await supabase
+            .from('token_erc1155_properties')
+            .select('royalty_config, supply_cap_config, uri_management_config, compliance_config, vesting_config')
+            .eq('token_id', params.tokenId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            dbModuleConfigs = data;
+            console.log(`✅ [ModuleSelection] Loaded ERC1155 module configs from database`);
+          }
+        } else if (tokenStandard === 'erc3525') {
+          const { data, error } = await supabase
+            .from('token_erc3525_properties')
+            .select('slot_manager_config, value_exchange_config, compliance_config, vesting_config')
+            .eq('token_id', params.tokenId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            dbModuleConfigs = data;
+            console.log(`✅ [ModuleSelection] Loaded ERC3525 module configs from database`);
+          }
+        } else if (tokenStandard === 'erc4626') {
+          const { data, error } = await supabase
+            .from('token_erc4626_properties')
+            .select('fee_strategy_config, async_vault_config, withdrawal_queue_config, compliance_config, vesting_config')
+            .eq('token_id', params.tokenId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            dbModuleConfigs = data;
+            console.log(`✅ [ModuleSelection] Loaded ERC4626 module configs from database`);
+          }
+        } else if (tokenStandard === 'erc1400') {
+          const { data, error } = await supabase
+            .from('token_erc1400_properties')
+            .select('transfer_restrictions_config, controller_config, compliance_config, vesting_config')
+            .eq('token_id', params.tokenId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            dbModuleConfigs = data;
+            console.log(`✅ [ModuleSelection] Loaded ERC1400 module configs from database`);
+          }
+        }
+      } catch (dbError) {
+        console.warn('⚠️ [ModuleSelection] Failed to query database for module configs:', dbError);
+        // Continue with form data as fallback
+      }
+    }
     
     if (config.moduleSelection) {
       return config.moduleSelection;
@@ -294,19 +392,23 @@ export class InstanceConfigurationService {
 
     // ============ UNIVERSAL MODULES (All Standards) ============
     
-    // COMPLIANCE - Reads from compliance_config JSONB
-    if (config.compliance_enabled || config.complianceModuleAddress || config.compliance_config) {
+    // COMPLIANCE - Reads from DATABASE first, fallback to config
+    // ✅ FIX: Database takes precedence over form data
+    if (config.compliance_enabled || config.complianceModuleAddress || config.compliance_config || dbModuleConfigs.compliance_config) {
       selection.compliance = true;
       
-      if (config.compliance_config) {
+      // Priority: Database > Config > Fallback
+      const complianceConfig = dbModuleConfigs.compliance_config || config.compliance_config;
+      
+      if (complianceConfig) {
         selection.complianceConfig = {
           // Required fields (with defaults for backward compatibility)
-          complianceLevel: config.compliance_config.complianceLevel || 1,
-          maxHoldersPerJurisdiction: config.compliance_config.maxHoldersPerJurisdiction || 0,
-          kycRequired: config.compliance_config.kycRequired || false,
+          complianceLevel: complianceConfig.complianceLevel || 1,
+          maxHoldersPerJurisdiction: complianceConfig.maxHoldersPerJurisdiction || 0,
+          kycRequired: complianceConfig.kycRequired || false,
           // Optional fields
-          whitelistRequired: config.compliance_config.whitelistRequired || false,
-          whitelistAddresses: config.compliance_config.whitelistAddresses || ''
+          whitelistRequired: complianceConfig.whitelistRequired || false,
+          whitelistAddresses: complianceConfig.whitelistAddresses || ''
         };
       } else {
         selection.complianceConfig = {
@@ -318,17 +420,26 @@ export class InstanceConfigurationService {
           whitelistRequired: config.whitelist_required || false
         };
       }
+      
+      console.log('🔐 [ModuleSelection] Compliance enabled - Config Source:', dbModuleConfigs.compliance_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
     }
 
-    // VESTING
-    if (config.vesting_enabled || config.vestingModuleAddress) {
+    // VESTING - Reads from DATABASE first, fallback to config
+    // ✅ FIX: Database takes precedence over form data
+    if (config.vesting_enabled || config.vestingModuleAddress || dbModuleConfigs.vesting_config) {
       selection.vesting = true;
+      
+      // Priority: Database > Config > Fallback
+      const vestingConfig = dbModuleConfigs.vesting_config || config.vesting_config || {};
+      
       selection.vestingConfig = {
-        cliffPeriod: config.vesting_cliff_period || 0,
-        totalPeriod: config.vesting_total_period || 0,
-        releaseFrequency: config.vesting_release_frequency || 'monthly',
-        ...(config.vesting_config || {})
+        cliffPeriod: vestingConfig.cliffPeriod || config.vesting_cliff_period || 0,
+        totalPeriod: vestingConfig.totalPeriod || config.vesting_total_period || 0,
+        releaseFrequency: vestingConfig.releaseFrequency || config.vesting_release_frequency || 'monthly',
+        ...vestingConfig
       };
+      
+      console.log('📅 [ModuleSelection] Vesting enabled - Config Source:', dbModuleConfigs.vesting_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
     }
 
     // DOCUMENT
@@ -352,30 +463,45 @@ export class InstanceConfigurationService {
     // ERC20-specific modules
     if (tokenStandard === 'erc20') {
       
-      // FEES - Reads from BOTH old format (fees_enabled + fee_on_transfer) AND new format (fees_config)
-      if (config.fees_enabled || config.fees_config?.enabled || config.feesModuleAddress || config.fee_on_transfer) {
+      // FEES - Reads from DATABASE first (authoritative), fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.fees_enabled || config.fees_config?.enabled || config.feesModuleAddress || config.fee_on_transfer || dbModuleConfigs.fees_config) {
         selection.fees = true;
         
-        // Extract from BOTH formats - prioritize new format, fallback to old
-        const feesConfig = config.fees_config || config.fee_on_transfer || {};
+        // Priority: Database > Config > Fallback
+        const feesConfig = dbModuleConfigs.fees_config || config.fees_config || config.fee_on_transfer || {};
         const transferFeeBps = feesConfig.transferFeeBps || feesConfig.feePercentage || 0;
+        const buyFeeBps = feesConfig.buyFeeBps || transferFeeBps; // Fallback to transfer fee
+        const sellFeeBps = feesConfig.sellFeeBps || transferFeeBps; // Fallback to transfer fee
         const recipient = feesConfig.feeRecipient || feesConfig.recipient || config.initialOwner || 'DEPLOYER';
         
         selection.feesConfig = {
           transferFeeBps: transferFeeBps,
+          buyFeeBps: buyFeeBps,
+          sellFeeBps: sellFeeBps,
           feeRecipient: recipient
         };
         
-        console.log('💰 [ModuleSelection] Fees enabled - TransferFeeBps:', transferFeeBps, 'Recipient:', recipient);
+        console.log('💰 [ModuleSelection] Fees enabled - Config Source:', dbModuleConfigs.fees_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+        console.log('💰 [ModuleSelection] Fee Config:', {
+          transferFeeBps,
+          buyFeeBps,
+          sellFeeBps,
+          recipient
+        });
       }
       
-      // TIMELOCK - Reads from timelock_config JSONB (individual token locks)
-      if (config.timelock || config.timelockModuleAddress || config.timelock_config) {
+      // TIMELOCK - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.timelock || config.timelockModuleAddress || config.timelock_config || dbModuleConfigs.timelock_config) {
         selection.timelock = true;
         
-        if (config.timelock_config && config.timelock_config.defaultLockDuration !== undefined) {
+        // Priority: Database > Config > Fallback
+        const timelockConfig = dbModuleConfigs.timelock_config || config.timelock_config;
+        
+        if (timelockConfig && timelockConfig.defaultLockDuration !== undefined) {
           selection.timelockConfig = {
-            defaultLockDuration: config.timelock_config.defaultLockDuration || 172800
+            defaultLockDuration: timelockConfig.defaultLockDuration || 172800
           };
         } else if (config.governance_features && config.governance_features.voting_delay !== undefined) {
           const delayInSeconds = (config.governance_features.voting_delay || 1) * 12;
@@ -383,74 +509,365 @@ export class InstanceConfigurationService {
         } else {
           selection.timelockConfig = { defaultLockDuration: config.timelock_min_delay || 172800 };
         }
+        
+        console.log('🔒 [ModuleSelection] Timelock enabled - Config Source:', dbModuleConfigs.timelock_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
       }
       
-      // TEMPORARY APPROVAL - Reads from temporary_approval_config JSONB
-      if (config.temporary_approval || config.temporaryApprovalModuleAddress || config.temporary_approval_config) {
+      // TEMPORARY APPROVAL - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.temporary_approval || config.temporaryApprovalModuleAddress || config.temporary_approval_config || dbModuleConfigs.temporary_approval_config) {
         selection.temporaryApproval = true;
         
-        if (config.temporary_approval_config && config.temporary_approval_config.defaultDuration !== undefined) {
+        // Priority: Database > Config > Fallback
+        const tempApprovalConfig = dbModuleConfigs.temporary_approval_config || config.temporary_approval_config;
+        
+        if (tempApprovalConfig && tempApprovalConfig.defaultDuration !== undefined) {
           selection.temporaryApprovalConfig = {
-            defaultDuration: config.temporary_approval_config.defaultDuration || 3600
+            defaultDuration: tempApprovalConfig.defaultDuration || 3600
           };
         } else {
           selection.temporaryApprovalConfig = { 
             defaultDuration: config.temporary_approval_duration || 3600 
           };
         }
+        
+        console.log('⏰ [ModuleSelection] Temporary Approval enabled - Config Source:', dbModuleConfigs.temporary_approval_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
       }
       
-      // Simple boolean modules (no config needed)
-      if (config.flash_mint || config.flashMintModuleAddress) selection.flashMint = true;
-      if (config.permit || config.permitModuleAddress) selection.permit = true;
-      if (config.snapshot || config.snapshotModuleAddress) selection.snapshot = true;
-      if (config.votes || config.votesModuleAddress) selection.votes = true;
-      if (config.payable_token || config.payableTokenModuleAddress) selection.payableToken = true;
+      // FLASH MINT - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.flash_mint || config.flashMintModuleAddress || config.flash_mint_config || dbModuleConfigs.flash_mint_config) {
+        selection.flashMint = true;
+        
+        // Priority: Database > Config > Fallback
+        const flashMintConfig = dbModuleConfigs.flash_mint_config || config.flash_mint_config;
+        
+        if (flashMintConfig) {
+          selection.flashMintConfig = {
+            flashFeeBasisPoints: flashMintConfig.flashFeeBasisPoints !== undefined ? flashMintConfig.flashFeeBasisPoints : 0,
+            feeRecipient: flashMintConfig.feeRecipient || config.initialOwner || 'DEPLOYER',
+            maxFlashLoan: flashMintConfig.maxFlashLoan !== undefined ? flashMintConfig.maxFlashLoan : 0 // 0 = unlimited
+          };
+        } else {
+          selection.flashMintConfig = {
+            flashFeeBasisPoints: config.flash_mint_fee_bps || 0,
+            feeRecipient: config.flash_mint_fee_recipient || config.initialOwner || 'DEPLOYER',
+            maxFlashLoan: config.flash_mint_max_loan || 0
+          };
+        }
+        
+        console.log('⚡ [ModuleSelection] Flash Mint enabled - Config Source:', dbModuleConfigs.flash_mint_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
+      
+      // PERMIT - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.permit || config.permitModuleAddress || dbModuleConfigs.permit_config) {
+        selection.permit = true;
+        
+        // Priority: Database > Config > Fallback
+        const permitConfig = dbModuleConfigs.permit_config || config.permit_config;
+        
+        if (permitConfig) {
+          selection.permitConfig = {
+            name: permitConfig.name || config.tokenName || config.name,
+            version: permitConfig.version || '1',
+            enabled: permitConfig.enabled !== undefined ? permitConfig.enabled : true
+          };
+        } else {
+          selection.permitConfig = {
+            name: config.tokenName || config.name || '',
+            version: '1',
+            enabled: true
+          };
+        }
+        
+        console.log('✍️ [ModuleSelection] Permit enabled - Config Source:', dbModuleConfigs.permit_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
+      
+      // SNAPSHOT - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.snapshot || config.snapshotModuleAddress || dbModuleConfigs.snapshot_config) {
+        selection.snapshot = true;
+        
+        // Priority: Database > Config > Fallback
+        const snapshotConfig = dbModuleConfigs.snapshot_config || config.snapshot_config;
+        
+        if (snapshotConfig) {
+          selection.snapshotConfig = {
+            autoSnapshotEnabled: snapshotConfig.autoSnapshotEnabled !== undefined ? snapshotConfig.autoSnapshotEnabled : false,
+            snapshotInterval: snapshotConfig.snapshotInterval || 86400, // 1 day default
+            lastSnapshotTime: snapshotConfig.lastSnapshotTime || null,
+            nextSnapshotTime: snapshotConfig.nextSnapshotTime || null
+          };
+        } else {
+          selection.snapshotConfig = {
+            autoSnapshotEnabled: config.snapshot_auto_enabled || false,
+            snapshotInterval: config.snapshot_interval || 86400,
+            lastSnapshotTime: null,
+            nextSnapshotTime: null
+          };
+        }
+        
+        console.log('📸 [ModuleSelection] Snapshot enabled - Config Source:', dbModuleConfigs.snapshot_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
+      
+      // VOTES - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.votes || config.votesModuleAddress || config.governance_enabled || dbModuleConfigs.votes_config) {
+        selection.votes = true;
+        
+        // Priority: Database > Config > Fallback
+        const votesConfig = dbModuleConfigs.votes_config || config.votes_config;
+        
+        if (votesConfig) {
+          selection.votesConfig = {
+            votingDelay: votesConfig.votingDelay !== undefined ? votesConfig.votingDelay : 1,
+            votingPeriod: votesConfig.votingPeriod !== undefined ? votesConfig.votingPeriod : 50400, // ~1 week in blocks
+            proposalThreshold: votesConfig.proposalThreshold !== undefined ? String(votesConfig.proposalThreshold) : '0',
+            quorumPercentage: votesConfig.quorumPercentage !== undefined ? votesConfig.quorumPercentage : 4
+          };
+        } else if (config.governance_features) {
+          selection.votesConfig = {
+            votingDelay: config.governance_features.voting_delay || 1,
+            votingPeriod: config.governance_features.voting_period || 50400,
+            proposalThreshold: String(config.governance_features.proposal_threshold || 0),
+            quorumPercentage: config.governance_features.quorum_percentage || 4
+          };
+        } else {
+          selection.votesConfig = {
+            votingDelay: 1,
+            votingPeriod: 50400,
+            proposalThreshold: '0',
+            quorumPercentage: 4
+          };
+        }
+        
+        console.log('🗳️ [ModuleSelection] Votes enabled - Config Source:', dbModuleConfigs.votes_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
+      
+      // PAYABLE TOKEN - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.payable_token || config.payableTokenModuleAddress || dbModuleConfigs.payable_token_config) {
+        selection.payableToken = true;
+        
+        // Priority: Database > Config > Fallback
+        const payableTokenConfig = dbModuleConfigs.payable_token_config || config.payable_token_config;
+        
+        if (payableTokenConfig) {
+          selection.payableTokenConfig = {
+            callbackGasLimit: payableTokenConfig.callbackGasLimit !== undefined ? payableTokenConfig.callbackGasLimit : 100000,
+            acceptsNativeToken: payableTokenConfig.acceptsNativeToken !== undefined ? payableTokenConfig.acceptsNativeToken : true,
+            nativeTokenPrice: payableTokenConfig.nativeTokenPrice !== undefined ? payableTokenConfig.nativeTokenPrice : 0,
+            autoConversion: payableTokenConfig.autoConversion !== undefined ? payableTokenConfig.autoConversion : false
+          };
+        } else {
+          selection.payableTokenConfig = {
+            callbackGasLimit: config.callback_gas_limit || 100000,
+            acceptsNativeToken: config.accepts_native_token !== undefined ? config.accepts_native_token : true,
+            nativeTokenPrice: config.native_token_price || 0,
+            autoConversion: config.auto_conversion || false
+          };
+        }
+        
+        console.log('💳 [ModuleSelection] Payable Token enabled - Config Source:', dbModuleConfigs.payable_token_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
     }
 
     // ERC721-specific modules  
     if (tokenStandard === 'erc721') {
-      // ROYALTY
-      if (config.has_royalty || config.royalty_enabled || config.royaltyModuleAddress) {
+      // ROYALTY - Reads from DATABASE first (authoritative), fallback to config
+      // ✅ FIX: Database takes precedence over form data (CRITICAL for revenue!)
+      if (config.has_royalty || config.royalty_enabled || config.royaltyModuleAddress || dbModuleConfigs.royalty_config) {
         selection.royalty = true;
         
-        if (config.royalty_percentage !== undefined || config.royalty_receiver) {
+        // Priority: Database > Config > Fallback
+        const royaltyConfig = dbModuleConfigs.royalty_config || config.royalty_config;
+        
+        if (royaltyConfig && royaltyConfig.defaultRoyaltyBps !== undefined) {
+          selection.royaltyConfig = {
+            defaultRoyaltyBps: royaltyConfig.defaultRoyaltyBps,
+            royaltyRecipient: royaltyConfig.defaultRoyaltyReceiver || royaltyConfig.royaltyRecipient || config.initialOwner || '',
+            ...royaltyConfig
+          };
+        } else if (config.royalty_percentage !== undefined || config.royalty_receiver) {
           selection.royaltyConfig = {
             defaultRoyaltyBps: Math.round((parseFloat(config.royalty_percentage) || 2.5) * 100),
             royaltyRecipient: config.royalty_receiver || config.initialOwner || ''
           };
         } else {
           selection.royaltyConfig = {
-            defaultRoyaltyBps: config.default_royalty_bps || 250,
+            defaultRoyaltyBps: config.default_royalty_bps || 250, // Default: 2.5%
             royaltyRecipient: config.royalty_recipient || config.initialOwner || ''
           };
         }
+        
+        console.log('👑 [ModuleSelection] Royalty enabled - Config Source:', dbModuleConfigs.royalty_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+        console.log('👑 [ModuleSelection] Royalty Config:', {
+          defaultRoyaltyBps: selection.royaltyConfig.defaultRoyaltyBps,
+          royaltyRecipient: selection.royaltyConfig.royaltyRecipient
+        });
       }
       
-      // Other ERC721 modules
-      if (config.rental_enabled || config.rentalModuleAddress || config.rental_config) {
+      // RENTAL - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.rental_enabled || config.rentalModuleAddress || config.rental_config || dbModuleConfigs.rental_config) {
         selection.rental = true;
-        selection.rentalConfig = config.rental_config || { maxRentalDuration: 86400 };
+        
+        // Priority: Database > Config > Fallback
+        const rentalConfig = dbModuleConfigs.rental_config || config.rental_config;
+        
+        if (rentalConfig) {
+          selection.rentalConfig = {
+            // Platform fee configuration
+            feeRecipient: rentalConfig.feeRecipient || config.rental_fee_recipient || config.initialOwner,
+            platformFeeBps: rentalConfig.platformFeeBps !== undefined ? rentalConfig.platformFeeBps : 250, // Default 2.5%
+            
+            // Duration constraints
+            minRentalDuration: rentalConfig.minRentalDuration !== undefined ? rentalConfig.minRentalDuration : 86400, // 1 day
+            maxRentalDuration: rentalConfig.maxRentalDuration !== undefined ? rentalConfig.maxRentalDuration : 2592000, // 30 days
+            
+            // Pricing
+            minRentalPrice: rentalConfig.minRentalPrice !== undefined ? rentalConfig.minRentalPrice : 0.01, // 0.01 ETH
+            
+            // Deposit configuration
+            depositRequired: rentalConfig.depositRequired !== undefined ? rentalConfig.depositRequired : true,
+            minDepositBps: rentalConfig.minDepositBps !== undefined ? rentalConfig.minDepositBps : 1000, // 10%
+            
+            // Additional features
+            autoReturnEnabled: rentalConfig.autoReturnEnabled !== undefined ? rentalConfig.autoReturnEnabled : true,
+            subRentalsAllowed: rentalConfig.subRentalsAllowed !== undefined ? rentalConfig.subRentalsAllowed : false,
+            
+            // Spread any additional config
+            ...rentalConfig
+          };
+        } else {
+          // Fallback configuration with sensible defaults
+          selection.rentalConfig = {
+            feeRecipient: config.rental_fee_recipient || config.initialOwner,
+            platformFeeBps: 250, // 2.5%
+            minRentalDuration: 86400, // 1 day
+            maxRentalDuration: 2592000, // 30 days
+            minRentalPrice: '10000000000000000', // 0.01 ETH in wei
+            depositRequired: true,
+            depositBps: 1000, // 10%
+            autoReturnEnabled: true,
+            subRentalsAllowed: false
+          };
+        }
+        
+        console.log('🏠 [ModuleSelection] Rental enabled - Config Source:', dbModuleConfigs.rental_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
       }
       
-      if (config.enable_fractional_ownership || config.fraction_enabled) {
+      // CONSECUTIVE - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.consecutive || config.consecutiveModuleAddress || dbModuleConfigs.consecutive_config) {
+        selection.consecutive = true;
+        
+        // Priority: Database > Config > Fallback
+        const consecutiveConfig = dbModuleConfigs.consecutive_config || config.consecutive_config;
+        
+        if (consecutiveConfig) {
+          selection.consecutiveConfig = {
+            startTokenId: consecutiveConfig.startTokenId !== undefined ? consecutiveConfig.startTokenId : 0,
+            maxBatchSize: consecutiveConfig.maxBatchSize !== undefined ? consecutiveConfig.maxBatchSize : 5000,
+            batchSize: consecutiveConfig.batchSize
+          };
+        } else {
+          selection.consecutiveConfig = {
+            startTokenId: config.consecutive_start_token_id || 0,
+            maxBatchSize: config.consecutive_max_batch || 5000,
+            batchSize: config.consecutive_batch_size
+          };
+        }
+        
+        console.log('🔢 [ModuleSelection] Consecutive enabled - Config Source:', dbModuleConfigs.consecutive_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
+      
+      // FRACTION - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.enable_fractional_ownership || config.fraction_enabled || config.fractionModuleAddress || dbModuleConfigs.fraction_config) {
         selection.fraction = true;
-        selection.fractionConfig = config.fractionalization_config || { minFractions: 100 };
+        
+        // Priority: Database > Config > Fallback
+        const fractionConfig = dbModuleConfigs.fraction_config || config.fraction_config || config.fractionalization_config;
+        
+        if (fractionConfig) {
+          selection.fractionConfig = {
+            minFractions: fractionConfig.minFractions !== undefined ? fractionConfig.minFractions : 100,
+            maxFractions: fractionConfig.maxFractions !== undefined ? fractionConfig.maxFractions : 10000,
+            buyoutMultiplier: fractionConfig.buyoutMultiplier !== undefined ? fractionConfig.buyoutMultiplier : 1.5, // 1.5x buyout
+            fractionPrice: fractionConfig.fractionPrice,
+            tradingEnabled: fractionConfig.tradingEnabled !== undefined ? fractionConfig.tradingEnabled : true
+          };
+        } else {
+          selection.fractionConfig = {
+            minFractions: config.fraction_min || 100,
+            maxFractions: config.fraction_max || 10000,
+            buyoutMultiplier: config.fraction_buyout_multiplier ? config.fraction_buyout_multiplier / 10000 : 1.5, // Convert basis points to decimal
+            fractionPrice: config.fraction_price,
+            tradingEnabled: config.fraction_trading !== undefined ? config.fraction_trading : true
+          };
+        }
+        
+        console.log('🧩 [ModuleSelection] Fraction enabled - Config Source:', dbModuleConfigs.fraction_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
       }
       
-      if (config.soulbound || config.soulboundModuleAddress) selection.soulbound = true;
-      if (config.consecutive || config.consecutiveModuleAddress) selection.consecutive = true;
+      // SOULBOUND - Reads from DATABASE first, fallback to config
+      // ✅ FIX: Database takes precedence over form data
+      if (config.soulbound || config.soulboundModuleAddress || dbModuleConfigs.soulbound_config) {
+        selection.soulbound = true;
+        
+        // Priority: Database > Config > Fallback
+        const soulboundConfig = dbModuleConfigs.soulbound_config || config.soulbound_config;
+        
+        if (soulboundConfig) {
+          selection.soulboundConfig = {
+            transferable: soulboundConfig.transferable !== undefined ? soulboundConfig.transferable : false,
+            burnableByOwner: soulboundConfig.burnableByOwner !== undefined ? soulboundConfig.burnableByOwner : true,
+            burnableByIssuer: soulboundConfig.burnableByIssuer !== undefined ? soulboundConfig.burnableByIssuer : true,
+            expirationEnabled: soulboundConfig.expirationEnabled !== undefined ? soulboundConfig.expirationEnabled : false,
+            expirationPeriod: soulboundConfig.expirationPeriod !== undefined ? soulboundConfig.expirationPeriod : 0
+          };
+        } else {
+          selection.soulboundConfig = {
+            transferable: config.soulbound_one_time_transfer || false,
+            burnableByOwner: config.soulbound_burnable_owner !== undefined ? config.soulbound_burnable_owner : true,
+            burnableByIssuer: config.soulbound_burnable_issuer !== undefined ? config.soulbound_burnable_issuer : true,
+            expirationEnabled: config.soulbound_expiration || false,
+            expirationPeriod: config.soulbound_expiration_period || 0
+          };
+        }
+        
+        console.log('🔗 [ModuleSelection] Soulbound enabled - Config Source:', dbModuleConfigs.soulbound_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
+      }
+      
       if (config.metadata_events || config.metadataEventsModuleAddress) selection.metadataEvents = true;
     }
 
     // ERC1155-specific modules
     if (tokenStandard === 'erc1155') {
-      if (config.has_royalty || config.royalty_enabled) {
+      // ROYALTY - Reads from DATABASE first (authoritative), fallback to config
+      // ✅ FIX: Database takes precedence over form data (CRITICAL for revenue!)
+      if (config.has_royalty || config.royalty_enabled || dbModuleConfigs.royalty_config) {
         selection.royalty = true;
-        selection.royaltyConfig = {
-          defaultRoyaltyBps: Math.round((parseFloat(config.royalty_percentage) || 2.5) * 100),
-          royaltyRecipient: config.royalty_receiver || config.initialOwner || ''
-        };
+        
+        // Priority: Database > Config > Fallback
+        const royaltyConfig = dbModuleConfigs.royalty_config || config.royalty_config;
+        
+        if (royaltyConfig && royaltyConfig.defaultRoyaltyBps !== undefined) {
+          selection.royaltyConfig = {
+            defaultRoyaltyBps: royaltyConfig.defaultRoyaltyBps,
+            royaltyRecipient: royaltyConfig.defaultRoyaltyReceiver || royaltyConfig.royaltyRecipient || config.initialOwner || '',
+            ...royaltyConfig
+          };
+        } else {
+          selection.royaltyConfig = {
+            defaultRoyaltyBps: Math.round((parseFloat(config.royalty_percentage) || 2.5) * 100),
+            royaltyRecipient: config.royalty_receiver || config.initialOwner || ''
+          };
+        }
+        
+        console.log('👑 [ModuleSelection] ERC1155 Royalty enabled - Config Source:', dbModuleConfigs.royalty_config ? 'DATABASE (authoritative)' : 'FORM (fallback)');
       }
       
       if (config.supply_cap_enabled) {
@@ -1091,6 +1508,37 @@ export class InstanceConfigurationService {
     }
   }
 
+  /**
+   * Configure ERC20 Flash Mint Module - DATABASE-FIRST
+   * 
+   * CRITICAL: Flash mint configuration must match database to ensure:
+   * - Correct flash loan fees (basis points)
+   * - Proper fee recipient
+   * - Appropriate max flash loan limits
+   * 
+   * EIP-3156 compliant flash loan implementation.
+   */
+  private static async configureFlashMintModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
+    console.log('⚡ Configuring flash mint module (DATABASE-FIRST)');
+    
+    // Set flash loan fee in basis points
+    if (config.flashFeeBasisPoints !== undefined) {
+      console.log(`   Setting flash fee: ${config.flashFeeBasisPoints} bps (${config.flashFeeBasisPoints / 100}%)`);
+      const tx = await module.setFlashFee(config.flashFeeBasisPoints);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set maximum flash loan amount (0 = unlimited)
+    if (config.maxFlashLoan !== undefined) {
+      const maxLoanValue = config.maxFlashLoan === 0 ? 0 : ethers.parseUnits(config.maxFlashLoan.toString(), 18);
+      console.log(`   Setting max flash loan: ${config.maxFlashLoan === 0 ? 'Unlimited' : ethers.formatUnits(maxLoanValue, 18) + ' tokens'}`);
+      const tx = await module.setMaxFlashLoan(maxLoanValue);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    console.log('✅ Flash mint module configured');
+  }
+
   private static async configureTimelockModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
     console.log('Configuring timelock module');
     if (config.minDelay !== undefined) {
@@ -1119,16 +1567,84 @@ export class InstanceConfigurationService {
     }
   }
 
+  /**
+   * Configure ERC721 Rental Module - DATABASE-FIRST
+   * 
+   * CRITICAL: Rental configuration must match database to ensure:
+   * - Correct platform fees
+   * - Proper duration constraints
+   * - Appropriate deposit requirements
+   * 
+   * Misconfiguration means broken rental functionality!
+   */
   private static async configureRentalModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring rental module');
+    console.log('🏠 Configuring rental module (DATABASE-FIRST)');
+    
+    // Set platform fee recipient (CRITICAL for revenue!)
+    if (config.feeRecipient) {
+      console.log(`  Setting fee recipient: ${config.feeRecipient}`);
+      const tx = await module.setFeeRecipient(config.feeRecipient);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set platform fee percentage
+    if (config.platformFeeBps !== undefined) {
+      console.log(`  Setting platform fee: ${config.platformFeeBps} bps (${(config.platformFeeBps / 100).toFixed(2)}%)`);
+      const tx = await module.setPlatformFee(config.platformFeeBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set minimum rental duration
+    if (config.minRentalDuration !== undefined) {
+      console.log(`  Setting min rental duration: ${config.minRentalDuration}s`);
+      const tx = await module.setMinRentalDuration(config.minRentalDuration);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set maximum rental duration
     if (config.maxRentalDuration !== undefined) {
+      console.log(`  Setting max rental duration: ${config.maxRentalDuration}s`);
       const tx = await module.setMaxRentalDuration(config.maxRentalDuration);
       txHashes.push((await tx.wait()).transactionHash);
     }
-    if (config.platformFeeRecipient && config.platformFeeBps !== undefined) {
-      const tx = await module.setPlatformFee(config.platformFeeRecipient, config.platformFeeBps);
+    
+    // Set minimum rental price
+    if (config.minRentalPrice !== undefined) {
+      console.log(`  Setting min rental price: ${config.minRentalPrice} ETH`);
+      const priceWei = ethers.parseEther(config.minRentalPrice.toString());
+      const tx = await module.setMinRentalPrice(priceWei);
       txHashes.push((await tx.wait()).transactionHash);
     }
+    
+    // Set deposit requirements
+    if (config.depositRequired !== undefined) {
+      console.log(`  Setting deposit required: ${config.depositRequired}`);
+      const tx = await module.setDepositRequired(config.depositRequired);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set minimum deposit percentage
+    if (config.minDepositBps !== undefined) {
+      console.log(`  Setting min deposit: ${config.minDepositBps} bps (${(config.minDepositBps / 100).toFixed(2)}%)`);
+      const tx = await module.setMinDepositBps(config.minDepositBps);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set auto-return feature
+    if (config.autoReturnEnabled !== undefined) {
+      console.log(`  Setting auto-return: ${config.autoReturnEnabled}`);
+      const tx = await module.setAutoReturnEnabled(config.autoReturnEnabled);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    // Set sub-rental permissions
+    if (config.subRentalsAllowed !== undefined) {
+      console.log(`  Setting sub-rentals allowed: ${config.subRentalsAllowed}`);
+      const tx = await module.setSubRentalsAllowed(config.subRentalsAllowed);
+      txHashes.push((await tx.wait()).transactionHash);
+    }
+    
+    console.log(`✅ Rental module configured with ${txHashes.length} transactions`);
   }
 
   // ============ ERC20 ADDITIONAL MODULES ============
@@ -1165,28 +1681,6 @@ export class InstanceConfigurationService {
     if (config.createInitialSnapshot) {
       console.log('  Creating initial snapshot');
       const tx = await module.snapshot();
-      txHashes.push((await tx.wait()).transactionHash);
-    }
-  }
-
-  private static async configureFlashMintModule(module: ethers.Contract, config: any, txHashes: string[]): Promise<void> {
-    console.log('Configuring flash mint module');
-    
-    // Set flash loan fee
-    if (config.flashFeeBps !== undefined) {
-      const tx = await module.setFlashFee(config.flashFeeBps);
-      txHashes.push((await tx.wait()).transactionHash);
-    }
-    
-    // Set fee recipient
-    if (config.feeRecipient) {
-      const tx = await module.setFeeRecipient(config.feeRecipient);
-      txHashes.push((await tx.wait()).transactionHash);
-    }
-    
-    // Set maximum flash loan amount
-    if (config.maxFlashAmount !== undefined) {
-      const tx = await module.setMaxFlashLoan(config.maxFlashAmount);
       txHashes.push((await tx.wait()).transactionHash);
     }
   }

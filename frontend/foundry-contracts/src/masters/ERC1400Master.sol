@@ -190,11 +190,9 @@ contract ERC1400Master is
         decimals = _decimals;
         isControllable = _isControllable;
         
-        // Grant roles
+        // Grant ONLY DEFAULT_ADMIN_ROLE to owner during initialization
+        // Other roles (COMPLIANCE_OFFICER, CONTROLLER, UPGRADER) will be granted via grantRole after deployment
         _grantRole(DEFAULT_ADMIN_ROLE, _owner);
-        _grantRole(COMPLIANCE_OFFICER_ROLE, _owner);
-        _grantRole(CONTROLLER_ROLE, _owner);
-        _grantRole(UPGRADER_ROLE, _owner);
         
         // Create default partitions
         for (uint i = 0; i < _defaultPartitions.length; i++) {

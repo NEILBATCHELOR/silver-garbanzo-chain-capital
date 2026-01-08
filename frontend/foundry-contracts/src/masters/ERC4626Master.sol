@@ -157,11 +157,9 @@ contract ERC4626Master is
         depositCap = depositCap_;
         minimumDeposit = minimumDeposit_;
         
-        // Grant roles to owner
+        // Grant ONLY DEFAULT_ADMIN_ROLE to owner during initialization
+        // Other roles (PAUSER, UPGRADER, ASSET_MANAGER) will be granted via grantRole after deployment
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
-        _grantRole(PAUSER_ROLE, owner_);
-        _grantRole(UPGRADER_ROLE, owner_);
-        _grantRole(ASSET_MANAGER_ROLE, owner_);
     }
     
     // ============ Deposit/Withdraw Overrides ============

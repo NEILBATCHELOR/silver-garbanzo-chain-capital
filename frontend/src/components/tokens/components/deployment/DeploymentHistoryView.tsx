@@ -31,6 +31,7 @@ interface DeploymentHistoryItem {
   contract_address?: string | null;
   blockchain: string;
   environment?: string;
+  networkId: string; // The correctly formatted network identifier for explorer lookups
   timestamp: string;
   error?: string | null;
   source_verified?: boolean;
@@ -99,6 +100,7 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
           // Extract blockchain and environment from network field if available
           let blockchain = 'unknown';
           let environment = 'testnet';
+          let networkId = 'unknown';
           
           if (deployment.network) {
             const parts = deployment.network.split('-');
@@ -106,6 +108,11 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
               blockchain = parts[0];
               if (parts.length > 1) {
                 environment = parts[1];
+                networkId = deployment.network; // Use the full network string (e.g., "hoodi-testnet")
+              } else {
+                // If no hyphen, the network is just the blockchain name (e.g., "hoodi")
+                networkId = parts[0]; // Use just the blockchain name (e.g., "hoodi")
+                environment = ''; // Clear environment since it wasn't specified
               }
             }
           }
@@ -121,6 +128,7 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
             contract_address: deployment.contract_address,
             blockchain,
             environment,
+            networkId, // Add the correctly formatted network ID
             timestamp: deployment.deployed_at,
             error: errorMsg,
             source_verified: deployment.source_verified || false,
@@ -321,7 +329,7 @@ const DeploymentHistoryView: React.FC<DeploymentHistoryViewProps> = ({
                             onClick={() => setVerificationModal({
                               isOpen: true,
                               tokenId: item.token_id,
-                              network: `${item.blockchain}-${item.environment}`
+                              network: item.networkId // Use the correctly formatted network ID
                             })}
                           >
                             <FileCheck className="h-3 w-3 mr-1" />

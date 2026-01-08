@@ -13,6 +13,14 @@ import { Progress } from "@/components/ui/progress";
 import { Spinner } from "@/components/Spinner";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { formatDistanceToNow } from "date-fns";
 import { 
   AlertCircle, 
@@ -23,12 +31,16 @@ import {
   RefreshCw, 
   ArrowLeft,
   XCircle,
-  Loader2
+  Loader2,
+  Wrench
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { transactionMonitorService } from "@/services/wallet/TransactionMonitorService";
 import { ExplorerService } from "@/services/blockchain/ExplorerService";
 import { FeeBumpButton } from "@/components/wallet/components/transfer/FeeBumpButton";
+import { NonceGapFixer } from "@/components/wallet/NonceGapFixer";
+import { ethers } from 'ethers';
+import { getChainId } from "@/infrastructure/web3/utils/chainIds";
 
 export interface TransactionConfirmationProps {
   txHash?: string;
@@ -55,6 +67,10 @@ export interface TransactionConfirmationProps {
   onBack: () => void;
   onRetry?: () => void;
   hideExplorer?: boolean;
+  // Optional props for nonce gap fixing
+  provider?: ethers.JsonRpcProvider;
+  wallet?: ethers.Wallet;
+  fromAddress?: string;
 }
 
 export function TransactionConfirmation({
@@ -70,6 +86,9 @@ export function TransactionConfirmation({
   onBack,
   onRetry,
   hideExplorer = false,
+  provider,
+  wallet,
+  fromAddress,
 }: TransactionConfirmationProps) {
   const [progress, setProgress] = useState(0);
   const [transaction, setTransaction] = useState<any | null>(null);
@@ -187,6 +206,9 @@ export function TransactionConfirmation({
           </div>
         );
       case 'failed':
+        // Check if error is nonce-related
+        const isNonceError = errorMessage?.toLowerCase().includes('nonce');
+        
         return (
           <div className="flex flex-col items-center justify-center space-y-4 my-8 text-center">
             <div className="h-24 w-24 bg-red-50 rounded-full flex items-center justify-center">
@@ -198,6 +220,49 @@ export function TransactionConfirmation({
                 {errorMessage || "Your transaction has failed to execute on the blockchain"}
               </p>
             </div>
+            
+            {/* Nonce Gap Fixer - Show when nonce error detected and required props available */}
+            {isNonceError && provider && wallet && fromAddress && blockchain && (
+              <div className="w-full max-w-md mt-4">
+                <Alert variant="default" className="mb-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Nonce Issue Detected</AlertTitle>
+                  <AlertDescription>
+                    This transaction failed due to a nonce gap. Use the troubleshooter below to fix the issue.
+                  </AlertDescription>
+                </Alert>
+                
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="w-full">
+                      <Wrench className="h-4 w-4 mr-2" />
+                      Fix Nonce Gap
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle>Nonce Gap Troubleshooter</DialogTitle>
+                      <DialogDescription>
+                        Diagnose and fix stuck transactions caused by nonce gaps.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <NonceGapFixer
+                      address={fromAddress}
+                      chainId={getChainId(blockchain) || 1}
+                      provider={provider}
+                      wallet={wallet}
+                      onFixed={() => {
+                        toast({
+                          title: 'Nonce Gap Fixed',
+                          description: 'You can now retry your transaction.',
+                        });
+                      }}
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
+            
             {onRetry && (
               <Button onClick={onRetry} className="mt-4">
                 <RefreshCw className="h-4 w-4 mr-2" />

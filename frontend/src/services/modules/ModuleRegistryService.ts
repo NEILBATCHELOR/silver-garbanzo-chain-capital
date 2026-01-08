@@ -12,6 +12,10 @@ import type {
   TimelockConfig,
   TemporaryApprovalConfig,
   FlashMintConfig,
+  PermitConfig,
+  SnapshotConfig,
+  VotesConfig,
+  PayableTokenConfig,
   RoyaltyConfig,
   RentalConfig,
   FractionalizationConfig,
@@ -118,6 +122,10 @@ export interface ModuleSelection {
   timelockConfig?: TimelockConfig;
   temporaryApprovalConfig?: TemporaryApprovalConfig;
   flashMintConfig?: FlashMintConfig;
+  permitConfig?: PermitConfig;
+  snapshotConfig?: SnapshotConfig;
+  votesConfig?: VotesConfig;
+  payableTokenConfig?: PayableTokenConfig;
   
   // ERC721
   royaltyConfig?: RoyaltyConfig;

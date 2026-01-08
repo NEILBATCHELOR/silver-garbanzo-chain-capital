@@ -23,6 +23,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -50,12 +51,14 @@ import {
   Factory,
   Package,
   Calendar,
-  GitBranch
+  GitBranch,
+  Power
 } from 'lucide-react';
 import { supabase } from '@/infrastructure/database/client';
 import { useToast } from '@/components/ui/use-toast';
 import { DeploymentImportDialog } from './DeploymentImportDialog';
 import { DeploymentDialog } from './DeploymentDialog';
+import { ContractMasterService } from '@/services/admin/ContractMasterService';
 
 // ============================================
 // Types
@@ -256,14 +259,57 @@ const CopyButton: React.FC<CopyButtonProps> = ({ text }) => {
 
 interface ContractCardProps {
   contract: ContractMaster;
+  onToggle: () => void;
+  isSelected?: boolean;
+  onSelect?: (selected: boolean) => void;
 }
 
-const ContractCard: React.FC<ContractCardProps> = ({ contract }) => {
+const ContractCard: React.FC<ContractCardProps> = ({ contract, onToggle, isSelected = false, onSelect }) => {
+  const { toast } = useToast();
+  const [isToggling, setIsToggling] = useState(false);
   const standard = getTokenStandard(contract.contract_type);
   const displayName = getDisplayName(contract.contract_type, contract.contract_details);
   
+  const handleToggle = async () => {
+    setIsToggling(true);
+    try {
+      const result = await ContractMasterService.toggleActive(contract.id, contract.is_active);
+      
+      if (result.success) {
+        toast({
+          title: result.message,
+          description: result.newIsActive 
+            ? 'Contract has been activated' 
+            : `Contract deprecated at ${new Date(result.deprecatedAt || '').toLocaleString()}`
+        });
+        onToggle(); // Refresh the list
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to toggle contract status',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsToggling(false);
+    }
+  };
+  
   return (
-    <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border">
+    <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border">
+      {onSelect && (
+        <Checkbox
+          checked={isSelected}
+          onCheckedChange={(checked) => onSelect(checked === true)}
+          className="flex-shrink-0"
+        />
+      )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="font-medium text-sm truncate">{displayName}</span>
@@ -297,6 +343,20 @@ const ContractCard: React.FC<ContractCardProps> = ({ contract }) => {
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleToggle}
+          disabled={isToggling}
+          className="h-8 w-8 p-0"
+          title={contract.is_active ? 'Deactivate contract' : 'Activate contract'}
+        >
+          {isToggling ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Power className={`h-4 w-4 ${contract.is_active ? 'text-green-500' : 'text-muted-foreground'}`} />
+          )}
+        </Button>
         {contract.is_active ? (
           <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
             <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -316,9 +376,19 @@ interface CategorySectionProps {
   category: string;
   contracts: ContractMaster[];
   config: CategoryConfig;
+  onContractToggle: () => void;
+  selectedIds: Set<string>;
+  onContractSelect: (id: string, selected: boolean) => void;
 }
 
-const CategorySection: React.FC<CategorySectionProps> = ({ category, contracts, config }) => {
+const CategorySection: React.FC<CategorySectionProps> = ({ 
+  category, 
+  contracts, 
+  config, 
+  onContractToggle,
+  selectedIds,
+  onContractSelect
+}) => {
   const [isExpanded, setIsExpanded] = useState(true);
   
   if (contracts.length === 0) return null;
@@ -345,7 +415,13 @@ const CategorySection: React.FC<CategorySectionProps> = ({ category, contracts, 
       {isExpanded && (
         <CardContent className="space-y-2">
           {contracts.map(contract => (
-            <ContractCard key={contract.id} contract={contract} />
+            <ContractCard 
+              key={contract.id} 
+              contract={contract} 
+              onToggle={onContractToggle}
+              isSelected={selectedIds.has(contract.id)}
+              onSelect={(selected) => onContractSelect(contract.id, selected)}
+            />
           ))}
         </CardContent>
       )}
@@ -366,6 +442,10 @@ export const FactoryConfigurationPage: React.FC = () => {
   const [selectedNetwork, setSelectedNetwork] = useState<string>('hoodi');
   const [selectedDeployment, setSelectedDeployment] = useState<string>('latest');
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [deployedAfter, setDeployedAfter] = useState<string>('');
+  const [deployedBefore, setDeployedBefore] = useState<string>('');
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   
   // Get unique deployments from all contracts
   const deployments = useMemo((): Deployment[] => {
@@ -415,8 +495,23 @@ export const FactoryConfigurationPage: React.FC = () => {
       }
     }
     
+    // Filter by deployed_at date range
+    if (deployedAfter) {
+      filtered = filtered.filter(c => {
+        const deployedAt = c.created_at || '';
+        return deployedAt >= deployedAfter;
+      });
+    }
+    
+    if (deployedBefore) {
+      filtered = filtered.filter(c => {
+        const deployedAt = c.created_at || '';
+        return deployedAt <= deployedBefore + 'T23:59:59';
+      });
+    }
+    
     return filtered;
-  }, [allContracts, selectedNetwork, selectedDeployment, deployments]);
+  }, [allContracts, selectedNetwork, selectedDeployment, deployments, deployedAfter, deployedBefore]);
 
   // Filter by search query
   const filteredContracts = useMemo(() => {
@@ -492,6 +587,92 @@ export const FactoryConfigurationPage: React.FC = () => {
     await loadContracts();
     setRefreshing(false);
     toast({ title: 'Contracts refreshed' });
+  };
+
+  // Selection handlers
+  const handleContractSelect = (id: string, selected: boolean) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (selected) {
+        newSet.add(id);
+      } else {
+        newSet.delete(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    setSelectedIds(new Set(filteredContracts.map(c => c.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Bulk action handlers
+  const handleBulkActivate = async () => {
+    if (selectedIds.size === 0) return;
+    
+    setIsBulkProcessing(true);
+    try {
+      const result = await ContractMasterService.bulkActivate(Array.from(selectedIds));
+      
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: result.message
+        });
+        setSelectedIds(new Set());
+        await loadContracts();
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to activate contracts',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDeactivate = async () => {
+    if (selectedIds.size === 0) return;
+    
+    setIsBulkProcessing(true);
+    try {
+      const result = await ContractMasterService.bulkDeactivate(Array.from(selectedIds));
+      
+      if (result.success) {
+        toast({
+          title: 'Success',
+          description: result.message
+        });
+        setSelectedIds(new Set());
+        await loadContracts();
+      } else {
+        toast({
+          title: 'Error',
+          description: result.message,
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to deactivate contracts',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsBulkProcessing(false);
+    }
   };
   
   if (loading) {
@@ -604,6 +785,111 @@ export const FactoryConfigurationPage: React.FC = () => {
         </CardContent>
       </Card>
       
+      {/* Deployed At Date Filter */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">
+                <Calendar className="h-4 w-4 inline mr-2" />
+                Deployed After
+              </label>
+              <Input
+                type="date"
+                value={deployedAfter}
+                onChange={(e) => setDeployedAfter(e.target.value)}
+                placeholder="Start date"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-2 block">
+                <Calendar className="h-4 w-4 inline mr-2" />
+                Deployed Before
+              </label>
+              <Input
+                type="date"
+                value={deployedBefore}
+                onChange={(e) => setDeployedBefore(e.target.value)}
+                placeholder="End date"
+              />
+            </div>
+            {(deployedAfter || deployedBefore) && (
+              <div className="flex items-end">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDeployedAfter('');
+                    setDeployedBefore('');
+                  }}
+                  className="whitespace-nowrap"
+                >
+                  Clear Dates
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Badge variant="secondary" className="text-base px-3 py-1">
+                  {selectedIds.size} selected
+                </Badge>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                    disabled={isBulkProcessing}
+                  >
+                    Select All ({filteredContracts.length})
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDeselectAll}
+                    disabled={isBulkProcessing}
+                  >
+                    Clear Selection
+                  </Button>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="default"
+                  onClick={handleBulkActivate}
+                  disabled={isBulkProcessing}
+                >
+                  {isBulkProcessing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                  )}
+                  Activate Selected
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleBulkDeactivate}
+                  disabled={isBulkProcessing}
+                >
+                  {isBulkProcessing ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Power className="h-4 w-4 mr-2" />
+                  )}
+                  Deactivate Selected
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Architecture Info */}
       <Alert>
         <Info className="h-4 w-4" />
@@ -681,6 +967,9 @@ export const FactoryConfigurationPage: React.FC = () => {
               category={category}
               contracts={categorizedContracts[category] || []}
               config={config}
+              onContractToggle={loadContracts}
+              selectedIds={selectedIds}
+              onContractSelect={handleContractSelect}
             />
           ))}
         </TabsContent>
@@ -690,11 +979,17 @@ export const FactoryConfigurationPage: React.FC = () => {
             category="factories"
             contracts={categorizedContracts.factories || []}
             config={CATEGORY_CONFIG.factories}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
           <CategorySection
             category="extensionFactories"
             contracts={categorizedContracts.extensionFactories || []}
             config={CATEGORY_CONFIG.extensionFactories}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
         </TabsContent>
         
@@ -703,6 +998,9 @@ export const FactoryConfigurationPage: React.FC = () => {
             category="beacons"
             contracts={categorizedContracts.beacons || []}
             config={CATEGORY_CONFIG.beacons}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
         </TabsContent>
         
@@ -711,6 +1009,9 @@ export const FactoryConfigurationPage: React.FC = () => {
             category="masters"
             contracts={categorizedContracts.masters || []}
             config={CATEGORY_CONFIG.masters}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
         </TabsContent>
         
@@ -719,6 +1020,9 @@ export const FactoryConfigurationPage: React.FC = () => {
             category="modules"
             contracts={categorizedContracts.modules || []}
             config={CATEGORY_CONFIG.modules}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
         </TabsContent>
         
@@ -727,11 +1031,17 @@ export const FactoryConfigurationPage: React.FC = () => {
             category="infrastructure"
             contracts={categorizedContracts.infrastructure || []}
             config={CATEGORY_CONFIG.infrastructure}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
           <CategorySection
             category="governance"
             contracts={categorizedContracts.governance || []}
             config={CATEGORY_CONFIG.governance}
+            onContractToggle={loadContracts}
+            selectedIds={selectedIds}
+            onContractSelect={handleContractSelect}
           />
         </TabsContent>
       </Tabs>

@@ -22,15 +22,17 @@ import {
   ModuleDeploymentData
 } from '../types';
 import {
-  ERC20VestingModuleVerifier,
-  ERC20TimelockModuleVerifier,
   ERC20VotesModuleVerifier,
   ERC20PermitModuleVerifier,
   ERC20SnapshotModuleVerifier,
-  ERC20FlashMintModuleVerifier,
-  ERC20TemporaryApprovalModuleVerifier,
-  ERC20ComplianceModuleVerifier
+  ERC20FlashMintModuleVerifier
 } from './erc20ModuleVerifiers';
+// Enhanced verifiers with database-first verification
+import { EnhancedERC20FeesModuleVerifier } from './enhancedERC20FeesModuleVerifier';
+import { EnhancedTimelockModuleVerifier } from './enhancedTimelockModuleVerifier';
+import { EnhancedTemporaryApprovalModuleVerifier } from './enhancedTemporaryApprovalModuleVerifier';
+import { EnhancedComplianceModuleVerifier } from './enhancedComplianceModuleVerifier';
+import { EnhancedVestingModuleVerifier } from './enhancedVestingModuleVerifier';
 
 // ERC20 ABI (minimal for verification)
 const ERC20_ABI = [
@@ -62,15 +64,18 @@ export class ERC20Verifier implements ITokenStandardVerifier {
     this.moduleVerifiers = new Map();
     
     // Register all ERC20 module verifiers
-    this.moduleVerifiers.set('fees', new ERC20FeesModuleVerifier());
-    this.moduleVerifiers.set('vesting', new ERC20VestingModuleVerifier());
-    this.moduleVerifiers.set('timelock', new ERC20TimelockModuleVerifier());
+    // ✅ ENHANCED: Database-first verification for critical modules
+    this.moduleVerifiers.set('fees', new EnhancedERC20FeesModuleVerifier());
+    this.moduleVerifiers.set('timelock', new EnhancedTimelockModuleVerifier());
+    this.moduleVerifiers.set('temporaryApproval', new EnhancedTemporaryApprovalModuleVerifier());
+    this.moduleVerifiers.set('compliance', new EnhancedComplianceModuleVerifier());
+    this.moduleVerifiers.set('vesting', new EnhancedVestingModuleVerifier());
+    
+    // Basic verifiers (not yet enhanced)
     this.moduleVerifiers.set('votes', new ERC20VotesModuleVerifier());
     this.moduleVerifiers.set('permit', new ERC20PermitModuleVerifier());
     this.moduleVerifiers.set('snapshot', new ERC20SnapshotModuleVerifier());
     this.moduleVerifiers.set('flashMint', new ERC20FlashMintModuleVerifier());
-    this.moduleVerifiers.set('temporaryApproval', new ERC20TemporaryApprovalModuleVerifier());
-    this.moduleVerifiers.set('compliance', new ERC20ComplianceModuleVerifier());
   }
 
   /**

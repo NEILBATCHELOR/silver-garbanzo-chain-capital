@@ -122,6 +122,8 @@ export const getDefaultModuleConfigs = (): ExtensionModuleConfigs => ({
   },
   permit: {
     enabled: false,
+    name: '',
+    version: '1',
   },
   snapshot: {
     enabled: false,

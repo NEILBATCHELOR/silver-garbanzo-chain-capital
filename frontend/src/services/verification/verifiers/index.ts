@@ -9,15 +9,24 @@ export { ERC20Verifier } from './erc20Verifier';
 
 // ERC20 Module Verifiers
 export {
-  ERC20VestingModuleVerifier,
-  ERC20TimelockModuleVerifier,
   ERC20VotesModuleVerifier,
   ERC20PermitModuleVerifier,
   ERC20SnapshotModuleVerifier,
-  ERC20FlashMintModuleVerifier,
-  ERC20TemporaryApprovalModuleVerifier,
-  ERC20ComplianceModuleVerifier
+  ERC20FlashMintModuleVerifier
 } from './erc20ModuleVerifiers';
+
+// Enhanced ERC20 Module Verifiers (Database-First)
+export { EnhancedERC20FeesModuleVerifier } from './enhancedERC20FeesModuleVerifier';
+export { EnhancedTimelockModuleVerifier } from './enhancedTimelockModuleVerifier';
+export { EnhancedTemporaryApprovalModuleVerifier } from './enhancedTemporaryApprovalModuleVerifier';
+
+// Enhanced Universal Module Verifiers (Database-First)
+export { EnhancedComplianceModuleVerifier } from './enhancedComplianceModuleVerifier';
+export { EnhancedVestingModuleVerifier } from './enhancedVestingModuleVerifier';
+
+// Enhanced ERC721 Module Verifiers (Database-First)
+export { EnhancedERC721RoyaltyModuleVerifier } from './enhancedERC721RoyaltyModuleVerifier';
+export { EnhancedERC721RentalModuleVerifier } from './enhancedERC721RentalModuleVerifier';
 
 // ERC721 Standard Verifier
 export { ERC721Verifier } from './erc721Verifier';

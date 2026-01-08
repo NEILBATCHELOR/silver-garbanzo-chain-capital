@@ -4,12 +4,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, ArrowRight, Edit2, Fuel, Info } from "lucide-react";
+import { AlertCircle, ArrowRight, Edit2, Fuel, Info, Wrench } from "lucide-react";
 import { useWallet } from "@/services/wallet/UnifiedWalletContext";
 import { ethers } from 'ethers';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import type { GasEstimate } from "@/services/wallet/TransferService";
 import { getChainId, getChainInfo } from "@/infrastructure/web3/utils/chainIds";
+import { NonceGapFixer } from "@/components/wallet/NonceGapFixer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 // Add appropriate props type for WalletRiskCheck
 interface WalletRiskCheckProps {
@@ -49,10 +59,13 @@ interface TransferConfirmationProps {
     asset: string;
     gasOption: "slow" | "standard" | "fast";
   };
-  gasEstimate?: GasEstimate; // CRITICAL: Add actual gas estimate data
-  onConfirm: (updatedGasEstimate?: GasEstimate) => void; // Allow passing updated gas params
+  gasEstimate?: GasEstimate;
+  onConfirm: (updatedGasEstimate?: GasEstimate) => void;
   onBack: () => void;
   isProcessing?: boolean;
+  // Props for nonce gap troubleshooting
+  provider?: ethers.JsonRpcProvider;
+  wallet?: ethers.Wallet;
 }
 
 export const TransferConfirmation: React.FC<TransferConfirmationProps> = ({
@@ -61,6 +74,8 @@ export const TransferConfirmation: React.FC<TransferConfirmationProps> = ({
   onConfirm,
   onBack,
   isProcessing = false,
+  provider,
+  wallet,
 }) => {
   const { wallets } = useWallet();
   const fromWallet = wallets.find((w) => w.id === formData.fromWallet);
@@ -457,6 +472,38 @@ export const TransferConfirmation: React.FC<TransferConfirmationProps> = ({
       <div className="pt-2 border-t">
         <div className="mb-2 font-medium">Security Verification</div>
         <WalletRiskCheck address={formData.toAddress} />
+        
+        {/* Nonce Gap Troubleshooter - Shows when provider and wallet are available */}
+        {provider && wallet && fromWallet && (
+          <div className="mt-4">
+            <Collapsible>
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Troubleshoot Transaction Issues
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent className="mt-3">
+                <Alert className="mb-3">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Transaction Troubleshooting</AlertTitle>
+                  <AlertDescription>
+                    If you're seeing nonce gap errors or stuck transactions, use this tool to diagnose and fix the issue.
+                  </AlertDescription>
+                </Alert>
+                <NonceGapFixer
+                  address={fromWallet.address}
+                  chainId={getChainId(fromWallet.network) || 1}
+                  provider={provider}
+                  wallet={wallet}
+                  onFixed={() => {
+                    console.log('✅ Nonce gap fixed - transaction can now proceed');
+                  }}
+                />
+              </CollapsibleContent>
+            </Collapsible>
+          </div>
+        )}
       </div>
       
       <Alert className="bg-amber-50 border-amber-200 dark:bg-amber-900/20">

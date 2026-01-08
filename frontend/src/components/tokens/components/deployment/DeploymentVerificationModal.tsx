@@ -67,6 +67,8 @@ export const DeploymentVerificationModal: React.FC<VerificationModalProps> = ({
   }, [isOpen]);
 
   const performVerification = async () => {
+    // ✅ FIX: Reset result state to allow re-verification
+    setResult(null);
     setIsVerifying(true);
     setError(null);
     
