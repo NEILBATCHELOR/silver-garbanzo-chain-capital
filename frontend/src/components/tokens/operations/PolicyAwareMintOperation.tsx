@@ -19,7 +19,7 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
-import BulkMintForm, { type BulkMintEntry } from './BulkMintForm';
+// Note: BulkMintForm import removed - use standalone component for bulk minting
 
 interface PolicyAwareMintOperationProps {
   tokenId: string;
@@ -51,8 +51,16 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
   const [tokenTypeId, setTokenTypeId] = useState('');
   const [slotId, setSlotId] = useState('');
   
-  // Bulk mint state
-  const [bulkMintEntries, setBulkMintEntries] = useState<BulkMintEntry[]>([]);
+  // Note: Bulk mint - use standalone BulkMintForm component for new implementations
+  // Keeping minimal state for backward compatibility with existing bulk mint tab
+  const [bulkMintEntries, setBulkMintEntries] = useState<Array<{
+    id: string;
+    toAddress: string;
+    amount: string;
+    status: 'pending' | 'validating' | 'processing' | 'success' | 'error';
+    transactionHash?: string;
+    error?: string;
+  }>>([]);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
@@ -160,99 +168,12 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     setExecutionStep('input');
   };
 
-  // Handle bulk mint execution
+  // Bulk mint - simplified for backward compatibility
+  // NOTE: Use standalone BulkMintForm component for production bulk minting
   const handleBulkMint = async () => {
-    const pendingEntries = bulkMintEntries.filter(e => e.status === 'pending');
-    
-    if (pendingEntries.length === 0) {
-      return;
-    }
-
-    // Update all pending entries to validating status
-    const updatedEntries = bulkMintEntries.map(entry => 
-      entry.status === 'pending' ? { ...entry, status: 'validating' as const } : entry
-    );
-    setBulkMintEntries(updatedEntries);
-
-    // Process each entry sequentially
-    for (const entry of pendingEntries) {
-      try {
-        // Update to processing status
-        setBulkMintEntries(prev => prev.map(e => 
-          e.toAddress === entry.toAddress && e.amount === entry.amount
-            ? { ...e, status: 'processing' as const }
-            : e
-        ));
-
-        // Build transaction for validation
-        const transaction = {
-          id: `bulk-mint-${Date.now()}-${entry.toAddress}`,
-          walletId: window.ethereum?.selectedAddress || '',
-          to: tokenAddress,
-          from: window.ethereum?.selectedAddress || '',
-          data: '0x',
-          value: '0',
-          status: 'pending' as const,
-          createdAt: new Date().toISOString(),
-          metadata: {
-            operation: {
-              type: 'mint' as const,
-              amount: entry.amount,
-              recipient: entry.toAddress,
-              tokenId: tokenTypeId || undefined,
-            }
-          }
-        };
-
-        // Validate transaction
-        const validation = await validateTransaction(transaction, {
-          urgency: 'standard',
-          simulate: true
-        });
-
-        if (!validation?.valid) {
-          throw new Error('Validation failed');
-        }
-
-        // Execute mint operation
-        await operations.mint(tokenAddress, entry.toAddress, entry.amount, chain);
-        
-        // Log operation to database
-        await supabase.from('token_operations').insert({
-          token_id: tokenId,
-          operation_type: TokenOperationType.MINT,
-          operator: window.ethereum?.selectedAddress,
-          recipient: entry.toAddress,
-          amount: entry.amount,
-          transaction_hash: null,
-          status: 'pending',
-          timestamp: new Date().toISOString()
-        });
-
-        // Update to success status
-        setBulkMintEntries(prev => prev.map(e => 
-          e.toAddress === entry.toAddress && e.amount === entry.amount
-            ? { ...e, status: 'success' as const }
-            : e
-        ));
-
-      } catch (error) {
-        console.error(`Bulk mint failed for ${entry.toAddress}:`, error);
-        
-        // Update to error status
-        setBulkMintEntries(prev => prev.map(e => 
-          e.toAddress === entry.toAddress && e.amount === entry.amount
-            ? { ...e, status: 'error' as const, error: error instanceof Error ? error.message : 'Unknown error' }
-            : e
-        ));
-      }
-    }
-
-    // Show success toast if any succeeded
-    const successCount = bulkMintEntries.filter(e => e.status === 'success').length;
-    if (successCount > 0) {
-      onSuccess?.();
-    }
+    console.warn('Bulk mint execution disabled in this component. Use standalone BulkMintForm component.');
+    // For production bulk minting with nonce management, use:
+    // import { BulkMintForm } from '@/components/tokens/operations';
   };
 
   return (
@@ -508,22 +429,44 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
           
           {/* Bulk Mint Tab Content */}
           <TabsContent value="bulk">
-            <BulkMintForm 
-              onEntriesUpdate={(entries) => setBulkMintEntries(entries)} 
-              onClear={() => setBulkMintEntries([])}
-            />
-            {bulkMintEntries.length > 0 && (
-              <div className="mt-4">
-                <Button 
-                  onClick={handleBulkMint}
-                  disabled={bulkMintEntries.filter(e => e.status === 'pending').length === 0}
-                  className="w-full"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Validate and Mint All ({bulkMintEntries.filter(e => e.status === 'pending').length} entries)
-                </Button>
-              </div>
-            )}
+            {/* 
+              MIGRATION NOTE: The standalone BulkMintForm component now handles execution.
+              For production bulk minting, use:
+              
+              import { BulkMintForm } from '@/components/tokens/operations';
+              
+              <BulkMintForm
+                tokenContractAddress={tokenAddress}
+                tokenDecimals={18}
+                tokenSymbol={tokenSymbol}
+                wallets={availableWallets}
+                onComplete={(results) => { ... }}
+              />
+              
+              The new component includes:
+              - Automatic nonce management
+              - Sequential processing with delays
+              - Nonce gap detection
+              - Real-time progress tracking
+              - Error recovery
+            */}
+            <Alert className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Bulk Minting Available</AlertTitle>
+              <AlertDescription>
+                For production bulk minting with automatic nonce management and sequential processing,
+                use the standalone <strong>BulkMintForm</strong> component. It provides wallet selection,
+                nonce gap detection, and comprehensive error handling.
+              </AlertDescription>
+            </Alert>
+            
+            {/* Minimal UI for backward compatibility - no execution */}
+            <div className="p-4 border rounded-lg bg-muted/50">
+              <p className="text-sm text-muted-foreground">
+                The enhanced BulkMintForm component is available as a standalone component.
+                Contact your administrator for integration assistance.
+              </p>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

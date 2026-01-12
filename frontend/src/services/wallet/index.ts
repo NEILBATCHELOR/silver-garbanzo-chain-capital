@@ -288,4 +288,6 @@ export {
   WalletConnectionStatus
 } from './UnifiedWalletContext';
 export * from './TransferService';
+export * from './TokenMintingService';
+export * from './NonceManager';
 
