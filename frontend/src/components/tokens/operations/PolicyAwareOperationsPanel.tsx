@@ -102,7 +102,7 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
     pendingApprovals: 0
   });
   const [loading, setLoading] = useState(true);
-  const { supabase } = useSupabase();
+  const supabase = useSupabase(); // ✅ Fixed: Direct return, not destructured
 
   // Load policy status for the token
   useEffect(() => {
@@ -253,7 +253,7 @@ const PolicyAwareOperationsPanel: React.FC<PolicyAwareOperationsPanelProps> = ({
             </div>
           ) : (
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className={`grid w-full ${gridCols}`}>
+              <TabsList className={`grid w-full ${gridCols} grid-cols-8 padding-y-4 h-12"mb-6`}>
                 {operations.mint && <TabsTrigger value="mint">Mint</TabsTrigger>}
                 {operations.burn && <TabsTrigger value="burn">Burn</TabsTrigger>}
                 {operations.transfer && <TabsTrigger value="transfer">Transfer</TabsTrigger>}

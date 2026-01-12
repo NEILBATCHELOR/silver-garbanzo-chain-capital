@@ -487,7 +487,7 @@ const TokenOperationsPage: React.FC<TokenOperationsPageProps> = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => window.open(
-                          getExplorerUrl(token.chain || 'ethereum', module.module_address),
+                          getExplorerUrl(token.chain || 'ethereum', module.module_address, 'address'),
                           '_blank'
                         )}
                       >

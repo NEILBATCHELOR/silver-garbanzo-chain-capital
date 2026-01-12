@@ -1041,7 +1041,11 @@ export class FoundryDeploymentService {
       // Each token gets its OWN module instances, not shared masters
       // ✅ FIX: Add timeout to prevent hanging
       try {
-        console.log('🔄 Starting module deployment with 60s timeout...');
+        // Testnets have slower block times (30-60s per block) and module configuration
+        // sends multiple sequential transactions that each need mining confirmation
+        // Example: 4 fee config txs × 30s block time = 120s minimum
+        const timeoutMs = environment === NetworkEnvironment.TESTNET ? 180000 : 120000;  // 3 minutes for testnet, 2 minutes for mainnet
+        console.log(`🔄 Starting module deployment with ${timeoutMs/1000}s timeout...`);
         
         const moduleDeploymentPromise = InstanceConfigurationService.deployAndConfigureModules(
           deploymentResult.address,
@@ -1051,9 +1055,9 @@ export class FoundryDeploymentService {
           userId
         );
         
-        // Create timeout promise (60 seconds)
+        // Create timeout promise
         const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Module deployment timed out after 60 seconds')), 60000);
+          setTimeout(() => reject(new Error(`Module deployment timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
         });
         
         // Race between deployment and timeout

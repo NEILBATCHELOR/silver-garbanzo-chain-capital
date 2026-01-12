@@ -107,13 +107,13 @@ const EXPLORER_URLS: Record<string, { base: string; transaction: string; address
     block: '/block/'
   },
   hoodi: {
-    base: 'https://eth-hoodi.blockscout.com',
+    base: 'https://hoodi.etherscan.io',
     transaction: '/tx/',
     address: '/address/',
     block: '/block/'
   },
   'hoodi-testnet': {
-    base: 'https://eth-hoodi.blockscout.com',
+    base: 'https://hoodi.etherscan.io',
     transaction: '/tx/',
     address: '/address/',
     block: '/block/'
@@ -248,6 +248,8 @@ const NETWORK_DISPLAY_NAMES: Record<string, string> = {
   'avalanche-fuji': 'Avalanche Fuji Testnet',
   bsc: 'BNB Smart Chain',
   'bsc-testnet': 'BNB Smart Chain Testnet',
+  hoodi: 'Hoodi Testnet',
+  'hoodi-testnet': 'Hoodi Testnet',
   solana: 'Solana Mainnet',
   'solana-devnet': 'Solana Devnet',
   bitcoin: 'Bitcoin Mainnet',
@@ -277,5 +279,6 @@ export function isTestnet(blockchain: string): boolean {
          normalizedBlockchain.includes('mumbai') ||
          normalizedBlockchain.includes('amoy') ||
          normalizedBlockchain.includes('fuji') ||
+         normalizedBlockchain.includes('hoodi') ||
          normalizedBlockchain.includes('devnet');
 }

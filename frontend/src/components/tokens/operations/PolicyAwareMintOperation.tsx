@@ -1,6 +1,7 @@
 /**
  * Policy-Aware Mint Operation Component
  * Integrates with Policy Engine for pre-transaction validation
+ * Now includes bulk minting functionality
  */
 
 import React, { useState, useEffect } from 'react';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Shield, Check, X, ChevronRight, Loader2 } from 'lucide-react';
+import { AlertCircle, Shield, Check, X, ChevronRight, Loader2, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -18,6 +19,7 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
+import BulkMintForm, { type BulkMintEntry } from './BulkMintForm';
 
 interface PolicyAwareMintOperationProps {
   tokenId: string;
@@ -40,11 +42,17 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
   isDeployed,
   onSuccess
 }) => {
-  // Form state
+  // Tabs state
+  const [mintMode, setMintMode] = useState<'single' | 'bulk'>('single');
+  
+  // Single mint form state
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [tokenTypeId, setTokenTypeId] = useState('');
   const [slotId, setSlotId] = useState('');
+  
+  // Bulk mint state
+  const [bulkMintEntries, setBulkMintEntries] = useState<BulkMintEntry[]>([]);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
@@ -152,6 +160,101 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     setExecutionStep('input');
   };
 
+  // Handle bulk mint execution
+  const handleBulkMint = async () => {
+    const pendingEntries = bulkMintEntries.filter(e => e.status === 'pending');
+    
+    if (pendingEntries.length === 0) {
+      return;
+    }
+
+    // Update all pending entries to validating status
+    const updatedEntries = bulkMintEntries.map(entry => 
+      entry.status === 'pending' ? { ...entry, status: 'validating' as const } : entry
+    );
+    setBulkMintEntries(updatedEntries);
+
+    // Process each entry sequentially
+    for (const entry of pendingEntries) {
+      try {
+        // Update to processing status
+        setBulkMintEntries(prev => prev.map(e => 
+          e.toAddress === entry.toAddress && e.amount === entry.amount
+            ? { ...e, status: 'processing' as const }
+            : e
+        ));
+
+        // Build transaction for validation
+        const transaction = {
+          id: `bulk-mint-${Date.now()}-${entry.toAddress}`,
+          walletId: window.ethereum?.selectedAddress || '',
+          to: tokenAddress,
+          from: window.ethereum?.selectedAddress || '',
+          data: '0x',
+          value: '0',
+          status: 'pending' as const,
+          createdAt: new Date().toISOString(),
+          metadata: {
+            operation: {
+              type: 'mint' as const,
+              amount: entry.amount,
+              recipient: entry.toAddress,
+              tokenId: tokenTypeId || undefined,
+            }
+          }
+        };
+
+        // Validate transaction
+        const validation = await validateTransaction(transaction, {
+          urgency: 'standard',
+          simulate: true
+        });
+
+        if (!validation?.valid) {
+          throw new Error('Validation failed');
+        }
+
+        // Execute mint operation
+        await operations.mint(tokenAddress, entry.toAddress, entry.amount, chain);
+        
+        // Log operation to database
+        await supabase.from('token_operations').insert({
+          token_id: tokenId,
+          operation_type: TokenOperationType.MINT,
+          operator: window.ethereum?.selectedAddress,
+          recipient: entry.toAddress,
+          amount: entry.amount,
+          transaction_hash: null,
+          status: 'pending',
+          timestamp: new Date().toISOString()
+        });
+
+        // Update to success status
+        setBulkMintEntries(prev => prev.map(e => 
+          e.toAddress === entry.toAddress && e.amount === entry.amount
+            ? { ...e, status: 'success' as const }
+            : e
+        ));
+
+      } catch (error) {
+        console.error(`Bulk mint failed for ${entry.toAddress}:`, error);
+        
+        // Update to error status
+        setBulkMintEntries(prev => prev.map(e => 
+          e.toAddress === entry.toAddress && e.amount === entry.amount
+            ? { ...e, status: 'error' as const, error: error instanceof Error ? error.message : 'Unknown error' }
+            : e
+        ));
+      }
+    }
+
+    // Show success toast if any succeeded
+    const successCount = bulkMintEntries.filter(e => e.status === 'success').length;
+    if (successCount > 0) {
+      onSuccess?.();
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -172,14 +275,26 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
       </CardHeader>
 
       <CardContent>
-        <Tabs value={executionStep} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="input" disabled={executionStep !== 'input'}>
-              Input
+        {/* Outer tabs for single vs bulk */}
+        <Tabs value={mintMode} onValueChange={(v) => setMintMode(v as 'single' | 'bulk')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsTrigger value="single">Single Mint</TabsTrigger>
+            <TabsTrigger value="bulk">
+              <Users className="h-4 w-4 mr-2" />
+              Bulk Mint
             </TabsTrigger>
-            <TabsTrigger value="validation" disabled={executionStep === 'input'}>
-              Validation
-            </TabsTrigger>
+          </TabsList>
+
+          {/* Single Mint Tab Content */}
+          <TabsContent value="single">
+            <Tabs value={executionStep} className="w-full">
+              <TabsList className="grid w-full grid-cols-4 mb-6">
+                <TabsTrigger value="input" disabled={executionStep !== 'input'}>
+                  Input
+                </TabsTrigger>
+                <TabsTrigger value="validation" disabled={executionStep === 'input'}>
+                  Validation
+                </TabsTrigger>
             <TabsTrigger value="execution" disabled={executionStep !== 'execution'}>
               Execution
             </TabsTrigger>
@@ -387,6 +502,28 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
             <Button onClick={handleReset} className="w-full">
               New Operation
             </Button>
+          </TabsContent>
+            </Tabs>
+          </TabsContent>
+          
+          {/* Bulk Mint Tab Content */}
+          <TabsContent value="bulk">
+            <BulkMintForm 
+              onEntriesUpdate={(entries) => setBulkMintEntries(entries)} 
+              onClear={() => setBulkMintEntries([])}
+            />
+            {bulkMintEntries.length > 0 && (
+              <div className="mt-4">
+                <Button 
+                  onClick={handleBulkMint}
+                  disabled={bulkMintEntries.filter(e => e.status === 'pending').length === 0}
+                  className="w-full"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Validate and Mint All ({bulkMintEntries.filter(e => e.status === 'pending').length} entries)
+                </Button>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </CardContent>
