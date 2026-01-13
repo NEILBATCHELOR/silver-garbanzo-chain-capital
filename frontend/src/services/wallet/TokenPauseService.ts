@@ -1,7 +1,10 @@
 /**
- * Token Pause Service
+ * Token Pause Service - Multi-Standard Support
  * Handles token pause/unpause with automatic nonce management
+ * Supports: ERC-20, ERC-721, ERC-1155, ERC-1400, ERC-3525, ERC-4626
  * Pattern: Exact match with TokenMintingService.ts for consistency
+ * 
+ * Note: pause()/unpause() functions are standard across all pausable contracts
  */
 
 import { ethers } from 'ethers';
@@ -15,11 +18,15 @@ import {
 } from '@/infrastructure/web3/utils/chainIds';
 import type { NetworkType } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
+// Token Standards
+export type TokenStandard = 'ERC-20' | 'ERC-721' | 'ERC-1155' | 'ERC-1400' | 'ERC-3525' | 'ERC-4626';
+
 // Pause Types
 export interface PauseParams {
   contractAddress: string; // Token contract address
   pause: boolean; // true = pause, false = unpause
   reason?: string; // Optional reason for pause/unpause
+  standard?: TokenStandard; // Optional: for diagnostics
   chainId: number; // Chain ID from wallet data
   walletId: string; // Database ID of admin wallet
   walletType: 'project' | 'user'; // Wallet type for key retrieval
@@ -45,6 +52,7 @@ export interface PauseDiagnostics {
   chainId: number;
   nonce: number;
   action: 'pause' | 'unpause';
+  standard?: TokenStandard;
   gasEstimate?: {
     gasLimit: string;
     gasPrice: string;
@@ -71,6 +79,40 @@ export class TokenPauseService {
   }
 
   /**
+   * Detect token standard via ERC-165 (optional for pause operations)
+   * @private
+   */
+  private async detectStandard(
+    contractAddress: string,
+    provider: ethers.Provider
+  ): Promise<TokenStandard> {
+    const contract = new ethers.Contract(contractAddress, [
+      'function supportsInterface(bytes4 interfaceId) view returns (bool)'
+    ], provider);
+
+    try {
+      const ERC721_INTERFACE = '0x80ac58cd';
+      const ERC1155_INTERFACE = '0xd9b67a26';
+      const ERC3525_INTERFACE = '0xd5358140';
+
+      if (await contract.supportsInterface(ERC721_INTERFACE)) {
+        return 'ERC-721';
+      }
+      if (await contract.supportsInterface(ERC1155_INTERFACE)) {
+        return 'ERC-1155';
+      }
+      if (await contract.supportsInterface(ERC3525_INTERFACE)) {
+        return 'ERC-3525';
+      }
+
+      return 'ERC-20'; // Default
+    } catch (error) {
+      console.warn('Failed to detect standard, defaulting to ERC-20:', error);
+      return 'ERC-20';
+    }
+  }
+
+  /**
    * Get provider from chainId
    * @private
    */
@@ -89,27 +131,33 @@ export class TokenPauseService {
 
   /**
    * Execute pause/unpause operation with automatic nonce management
+   * 
+   * Note: pause() and unpause() are standard functions across all pausable contracts
+   * regardless of token standard (ERC-20, ERC-721, ERC-1155, etc.)
    */
   async executePause(params: PauseParams): Promise<PauseResult> {
     const startTime = Date.now();
     const action = params.pause ? 'pause' : 'unpause';
     
     try {
-      console.log(`⏸️  Starting ${action} operation:`, {
+      // 1. Get provider
+      const provider = await this.getProvider(params.chainId);
+
+      // 2. Detect standard if not provided (for diagnostics only)
+      const standard = params.standard || await this.detectStandard(params.contractAddress, provider);
+      
+      console.log(`⏸️  Starting ${action} operation for ${standard}:`, {
         contractAddress: params.contractAddress,
         chainId: params.chainId,
         reason: params.reason
       });
 
-      // 1. Validate parameters
+      // 3. Validate parameters
       if (!ethers.isAddress(params.contractAddress)) {
         throw new Error('Invalid token contract address');
       }
 
-      // 2. Get provider
-      const provider = await this.getProvider(params.chainId);
-
-      // 3. Get private key
+      // 4. Get private key
       let privateKey: string;
       if (params.walletType === 'project') {
         privateKey = await internalWalletService.getProjectWalletPrivateKey(params.walletId);
@@ -119,14 +167,15 @@ export class TokenPauseService {
       
       const wallet = new ethers.Wallet(privateKey, provider);
 
-      // 4. Get next nonce (or use forced nonce for replacement)
+      // 5. Get next nonce (or use forced nonce for replacement)
       const nonce = params.nonce !== undefined
         ? params.nonce
         : await nonceManager.getNextNonce(wallet.address, provider);
 
-      console.log(`🔢 Using nonce ${nonce} for ${action}`);
+      console.log(`🔢 Using nonce ${nonce} for ${action} on ${standard} token`);
 
-      // 5. Encode pause/unpause transaction
+      // 6. Encode pause/unpause transaction
+      // NOTE: These functions are identical across all pausable token standards
       const pausableInterface = new ethers.Interface([
         'function pause()',
         'function unpause()'
@@ -136,7 +185,7 @@ export class TokenPauseService {
         ? pausableInterface.encodeFunctionData('pause', [])
         : pausableInterface.encodeFunctionData('unpause', []);
 
-      // 6. Build transaction
+      // 7. Build transaction
       const tx: any = {
         to: params.contractAddress,
         data,
@@ -159,12 +208,12 @@ export class TokenPauseService {
         }
       }
 
-      // 7. Sign and send
-      console.log(`📡 Broadcasting ${action} transaction...`);
+      // 8. Sign and send
+      console.log(`📡 Broadcasting ${action} transaction for ${standard} token...`);
       const signedTx = await wallet.signTransaction(tx);
       const txResponse = await provider.broadcastTransaction(signedTx);
 
-      // 8. Wait for confirmation
+      // 9. Wait for confirmation
       console.log(`⏳ Waiting for confirmation: ${txResponse.hash}`);
       const receipt = await txResponse.wait(1);
 
@@ -173,10 +222,10 @@ export class TokenPauseService {
         throw new Error('Transaction reverted');
       }
 
-      // 9. Mark nonce as confirmed
+      // 10. Mark nonce as confirmed
       nonceManager.confirmNonce(wallet.address, nonce);
 
-      console.log(`✅ ${action} confirmed: Block ${receipt.blockNumber}`);
+      console.log(`✅ ${action} confirmed for ${standard} token: Block ${receipt.blockNumber}`);
 
       return {
         success: true,
@@ -188,10 +237,11 @@ export class TokenPauseService {
           chainId: params.chainId,
           nonce,
           action,
+          standard,
           gasEstimate: {
             gasLimit: receipt.gasUsed.toString(),
             gasPrice: tx.gasPrice?.toString() || tx.maxFeePerGas?.toString() || '0',
-            estimatedCost: (receipt.gasUsed * (tx.gasPrice || tx.maxFeePerGas || 0n)).toString()
+            estimatedCost: ethers.formatEther(receipt.gasUsed * (receipt.gasPrice || 0n))
           },
           rpcVerification: {
             verified: true,

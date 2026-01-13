@@ -41,7 +41,7 @@ const ENHANCED_TOKEN_ABI = [
 
 export interface FoundryExecutorConfig {
   provider: ethers.Provider;
-  signer: ethers.Signer;
+  signer?: ethers.Signer; // Optional: only required when Foundry validation is enabled
   policyEngineAddress: string;
   defaultGasLimit?: bigint;
 }

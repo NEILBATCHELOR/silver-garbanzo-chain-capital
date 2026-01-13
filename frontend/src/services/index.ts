@@ -21,6 +21,11 @@ export * from './products';
 export * from './wallet';
 
 // ============================================
+// ROUTING SERVICES
+// ============================================
+export * from './routing';
+
+// ============================================
 // BLOCKCHAIN SERVICES
 // ============================================
 // Export blockchain services, but rename GasEstimate to avoid conflict with wallet's GasEstimate

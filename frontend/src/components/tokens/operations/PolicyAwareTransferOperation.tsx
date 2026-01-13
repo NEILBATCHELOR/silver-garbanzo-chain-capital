@@ -12,12 +12,15 @@ import { AlertCircle, Shield, Check, X, ChevronRight, Loader2, ArrowRight } from
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useCryptoOperationGateway } from '@/infrastructure/gateway/hooks/useCryptoOperationGateway';
 import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreTransactionHooks';
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
 import { transferService, nonceManager } from '@/services/wallet';
+import { useOperationRouting } from '@/services/routing';
+import { ExecutionModeSelector } from '@/components/routing';
 import { ethers } from 'ethers';
 import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -79,6 +82,15 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
   
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
   const { supabase } = useSupabase();
+
+  // 🆕 Routing hook - Intelligent execution mode selection
+  const { decision, executionMode, setExecutionMode, useGateway } = useOperationRouting({
+    operation: 'transfer',
+    requiresPolicy: true,
+    requiresCompliance: true,
+    requiresAudit: true,
+    isBatch: false
+  });
 
   // Validate input before submission
   const validateInput = (): boolean => {
@@ -199,42 +211,61 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
     setExecutionStep('execution');
     
     try {
-      // Use TransferService with automatic nonce management
-      const result = await transferService.executeTransfer({
-        from: wallet.address,
-        to: recipient,
-        amount: amount || '0',
-        chainId: wallet.chainId || 0,
-        walletId: wallet.id,
-        walletType: wallet.type
-      });
+      // 🆕 Route based on intelligent decision
+      if (useGateway) {
+        // Route through Gateway (enhanced/foundry/basic mode)
+        console.log(`Using Gateway (${executionMode} mode):`, decision?.reason);
+        
+        await operations.transfer(
+          tokenAddress,
+          recipient,
+          amount || '0', // Keep as string - Gateway expects string | bigint
+          chain
+        );
+        
+        setExecutionStep('complete');
+        onSuccess?.();
+      } else {
+        // Route directly to service (direct mode)
+        console.log('Using direct service:', decision?.reason);
+        
+        const result = await transferService.executeTransfer({
+          from: wallet.address,
+          to: recipient,
+          amount: amount || '0',
+          chainId: wallet.chainId || 0,
+          walletId: wallet.id,
+          walletType: wallet.type
+        });
 
-      if (!result.success) {
-        throw new Error(result.error || 'Transfer failed');
-      }
-
-      // Store transaction hash and nonce for diagnostics
-      setTransactionHash(result.transactionHash || null);
-      
-      // Log operation to database with nonce tracking
-      await supabase.from('token_operations').insert({
-        token_id: tokenId,
-        operation_type: TokenOperationType.TRANSFER,
-        operator: wallet.address,
-        sender: wallet.address,
-        recipient,
-        amount: amount || null,
-        transaction_hash: result.transactionHash,
-        status: 'success',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce for tracking
-          memo
+        if (!result.success) {
+          throw new Error(result.error || 'Transfer failed');
         }
-      });
 
-      setExecutionStep('complete');
-      onSuccess?.();
+        // Store transaction hash and nonce for diagnostics
+        setTransactionHash(result.transactionHash || null);
+        
+        // Manual logging (since bypassing Gateway)
+        await supabase.from('token_operations').insert({
+          token_id: tokenId,
+          operation_type: TokenOperationType.TRANSFER,
+          operator: wallet.address,
+          sender: wallet.address,
+          recipient,
+          amount: amount || null,
+          transaction_hash: result.transactionHash,
+          status: 'success',
+          timestamp: new Date().toISOString(),
+          metadata: {
+            nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce for tracking
+            memo,
+            routing: 'direct-service'
+          }
+        });
+
+        setExecutionStep('complete');
+        onSuccess?.();
+      }
       
     } catch (error) {
       console.error('Transfer operation failed:', error);
@@ -275,6 +306,24 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
       </CardHeader>
 
       <CardContent>
+        {/* 🆕 Execution Mode Selector (Collapsible) */}
+        <Collapsible className="mb-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full flex items-center justify-between">
+              <span>Execution Mode: {executionMode}</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <ExecutionModeSelector
+              value={executionMode}
+              onChange={setExecutionMode}
+              decision={decision}
+              showDecisionInfo={true}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+
         <Tabs value={executionStep} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="input" disabled={executionStep !== 'input'}>

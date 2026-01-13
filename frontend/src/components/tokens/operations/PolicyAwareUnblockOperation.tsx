@@ -12,6 +12,7 @@ import { AlertCircle, Shield, Check, X, ChevronRight, Loader2, UserCheck } from 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Textarea } from '@/components/ui/textarea';
 import { useCryptoOperationGateway } from '@/infrastructure/gateway/hooks/useCryptoOperationGateway';
 import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreTransactionHooks';
@@ -19,6 +20,8 @@ import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
 import { tokenUnblockingService, nonceManager } from '@/services/wallet';
+import { useOperationRouting } from '@/services/routing';
+import { ExecutionModeSelector } from '@/components/routing';
 import { ethers } from 'ethers';
 import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -81,6 +84,15 @@ export const PolicyAwareUnblockOperation: React.FC<PolicyAwareUnblockOperationPr
   
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
   const { supabase } = useSupabase();
+
+  // 🆕 Routing hook - Intelligent execution mode selection
+  const { decision, executionMode, setExecutionMode, useGateway } = useOperationRouting({
+    operation: 'unblock',
+    requiresPolicy: true,
+    requiresCompliance: true,
+    requiresAudit: true,
+    isBatch: false
+  });
 
   // Load blocked addresses
   useEffect(() => {
@@ -209,41 +221,60 @@ export const PolicyAwareUnblockOperation: React.FC<PolicyAwareUnblockOperationPr
     setExecutionStep('execution');
     
     try {
-      // Use TokenUnblockingService with automatic nonce management
-      const result = await tokenUnblockingService.executeUnblock({
-        contractAddress: tokenAddress,
-        addressToUnblock: selectedAddress.address,
-        chainId: wallet.chainId || 0,
-        walletId: wallet.id,
-        walletType: wallet.type,
-        reason: unblockReason
-      });
+      // 🆕 Route based on intelligent decision
+      if (useGateway) {
+        // Route through Gateway (enhanced/foundry/basic mode)
+        console.log(`Using Gateway (${executionMode} mode):`, decision?.reason);
+        
+        await operations.unblock(
+          tokenAddress,
+          selectedAddress.address,
+          unblockReason,
+          chain
+        );
+        
+        setExecutionStep('complete');
+        onSuccess?.();
+      } else {
+        // Route directly to service (direct mode)
+        console.log('Using direct service:', decision?.reason);
+        
+        const result = await tokenUnblockingService.executeUnblock({
+          contractAddress: tokenAddress,
+          addressToUnblock: selectedAddress.address,
+          chainId: wallet.chainId || 0,
+          walletId: wallet.id,
+          walletType: wallet.type,
+          reason: unblockReason
+        });
 
-      if (!result.success) {
-        throw new Error(result.error || 'Unblock operation failed');
-      }
-
-      // Store transaction hash
-      setTransactionHash(result.transactionHash || null);
-      
-      // Log operation to database with nonce tracking
-      await supabase.from('token_operations').insert({
-        token_id: tokenId,
-        operation_type: TokenOperationType.UNBLOCK,
-        operator: wallet.address,
-        unblocked_address: selectedAddress.address,
-        unblock_reason: unblockReason,
-        transaction_hash: result.transactionHash,
-        status: 'success',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce
-          originalBlockReason: selectedAddress.blockReason
+        if (!result.success) {
+          throw new Error(result.error || 'Unblock operation failed');
         }
-      });
 
-      setExecutionStep('complete');
-      onSuccess?.();
+        // Store transaction hash
+        setTransactionHash(result.transactionHash || null);
+        
+        // Manual logging (since bypassing Gateway)
+        await supabase.from('token_operations').insert({
+          token_id: tokenId,
+          operation_type: TokenOperationType.UNBLOCK,
+          operator: wallet.address,
+          unblocked_address: selectedAddress.address,
+          unblock_reason: unblockReason,
+          transaction_hash: result.transactionHash,
+          status: 'success',
+          timestamp: new Date().toISOString(),
+          metadata: {
+            nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce
+            originalBlockReason: selectedAddress.blockReason,
+            routing: 'direct-service'
+          }
+        });
+
+        setExecutionStep('complete');
+        onSuccess?.();
+      }
       
     } catch (error) {
       console.error('Unblock operation failed:', error);
@@ -282,6 +313,24 @@ export const PolicyAwareUnblockOperation: React.FC<PolicyAwareUnblockOperationPr
       </CardHeader>
 
       <CardContent>
+        {/* 🆕 Execution Mode Selector (Collapsible) */}
+        <Collapsible className="mb-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full flex items-center justify-between">
+              <span>Execution Mode: {executionMode}</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <ExecutionModeSelector
+              value={executionMode}
+              onChange={setExecutionMode}
+              decision={decision}
+              showDecisionInfo={true}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+
         <Tabs value={executionStep} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="selection" disabled={executionStep !== 'selection'}>

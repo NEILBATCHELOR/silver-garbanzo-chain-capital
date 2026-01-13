@@ -26,8 +26,10 @@ export class CryptoOperationGateway {
   private tokenManager: EnhancedTokenManager;
   private validators: Map<string, OperationValidator>;
   private executors: Map<string, OperationExecutor>;
+  private config: GatewayConfig; // Store config for executor initialization
   
   constructor(config: GatewayConfig = {}) {
+    this.config = config;
     this.policyEngine = new PolicyEngine(config.policyConfig || {});
     this.tokenManager = new EnhancedTokenManager();
     this.validators = new Map();
@@ -35,7 +37,18 @@ export class CryptoOperationGateway {
     
     // Initialize validators and executors
     this.initializeValidators();
-    this.initializeExecutors();
+    
+    // Choose executor initialization based on execution mode
+    const mode = config.executionMode || 'basic';
+    console.log(`🔧 Initializing Gateway with ${mode} executors`);
+    
+    if (mode === 'enhanced') {
+      this.initializeEnhancedExecutors();
+    } else if (mode === 'foundry' || config.useFoundry) {
+      this.initializeFoundryExecutors();
+    } else {
+      this.initializeExecutors(); // Basic mode (default)
+    }
   }
   
   /**
@@ -416,5 +429,76 @@ export class CryptoOperationGateway {
     this.executors.set('unblock', new UnblockExecutor(this.tokenManager));
     this.executors.set('pause', new PauseExecutor(this.tokenManager));
     this.executors.set('unpause', new UnpauseExecutor(this.tokenManager));
+  }
+
+  /**
+   * Initialize Foundry executors (smart contract based)
+   */
+  private async initializeFoundryExecutors(): Promise<void> {
+    if (!this.config.foundryConfig) {
+      console.warn('⚠️ Foundry mode enabled but no foundryConfig provided, falling back to basic executors');
+      return this.initializeExecutors();
+    }
+
+    const { FoundryMintExecutor } = await import('./executors/FoundryMintExecutor');
+    const { FoundryBurnExecutor } = await import('./executors/FoundryBurnExecutor');
+    const { FoundryTransferExecutor } = await import('./executors/FoundryTransferExecutor');
+    
+    this.executors.set('mint', new FoundryMintExecutor(this.config.foundryConfig));
+    this.executors.set('burn', new FoundryBurnExecutor(this.config.foundryConfig));
+    this.executors.set('transfer', new FoundryTransferExecutor(this.config.foundryConfig));
+    
+    // For operations not yet implemented in Foundry, fall back to basic
+    const { LockExecutor, UnlockExecutor, BlockExecutor, UnblockExecutor, PauseExecutor, UnpauseExecutor } = 
+      await import('./executors');
+    this.executors.set('lock', new LockExecutor(this.tokenManager));
+    this.executors.set('unlock', new UnlockExecutor(this.tokenManager));
+    this.executors.set('block', new BlockExecutor(this.tokenManager));
+    this.executors.set('unblock', new UnblockExecutor(this.tokenManager));
+    this.executors.set('pause', new PauseExecutor(this.tokenManager));
+    this.executors.set('unpause', new UnpauseExecutor(this.tokenManager));
+    
+    console.log('✅ Foundry executors initialized');
+  }
+
+  /**
+   * Initialize Enhanced executors (Gateway + Foundry + Services with Nonce Management)
+   * This is the RECOMMENDED configuration for production use
+   */
+  private async initializeEnhancedExecutors(): Promise<void> {
+    const {
+      EnhancedMintExecutor,
+      EnhancedBurnExecutor,
+      EnhancedTransferExecutor,
+      EnhancedPauseExecutor,
+      EnhancedLockExecutor,
+      EnhancedUnlockExecutor,
+      EnhancedBlockExecutor,
+      EnhancedUnblockExecutor
+    } = await import('./executors');
+
+    // Create enhanced config with optional Foundry validation
+    const enhancedConfig = {
+      enableFoundryValidation: this.config.enhancedConfig?.enableFoundryValidation || false,
+      foundryConfig: this.config.foundryConfig,
+      walletConfig: this.config.enhancedConfig?.walletConfig
+    };
+
+    this.executors.set('mint', new EnhancedMintExecutor(enhancedConfig));
+    this.executors.set('burn', new EnhancedBurnExecutor(enhancedConfig));
+    this.executors.set('transfer', new EnhancedTransferExecutor(enhancedConfig));
+    this.executors.set('pause', new EnhancedPauseExecutor(enhancedConfig));
+    this.executors.set('unpause', new EnhancedPauseExecutor(enhancedConfig)); // Same executor handles both
+    this.executors.set('lock', new EnhancedLockExecutor(enhancedConfig));
+    this.executors.set('unlock', new EnhancedUnlockExecutor(enhancedConfig));
+    this.executors.set('block', new EnhancedBlockExecutor(enhancedConfig));
+    this.executors.set('unblock', new EnhancedUnblockExecutor(enhancedConfig));
+    
+    console.log('✅ Enhanced executors initialized with nonce management');
+    if (enhancedConfig.enableFoundryValidation) {
+      console.log('✅ Foundry on-chain validation ENABLED');
+    } else {
+      console.log('ℹ️ Foundry on-chain validation DISABLED (off-chain policy validation only)');
+    }
   }
 }

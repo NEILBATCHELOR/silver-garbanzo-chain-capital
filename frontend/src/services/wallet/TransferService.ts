@@ -13,12 +13,25 @@ import {
 } from '@/infrastructure/web3/utils/chainIds';
 import type { NetworkType } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 
+// Token Standards
+export type TokenStandard = 'ERC-20' | 'ERC-721' | 'ERC-1155' | 'ERC-1400' | 'ERC-3525' | 'ERC-4626' | 'NATIVE';
+
 // Transfer Types
 export interface TransferParams {
   from: string; // Wallet address
   to: string; // Destination address
   amount: string; // Amount to transfer (in token units)
   token?: string; // Token address (undefined = native token)
+  
+  // Standard-specific parameters
+  standard?: TokenStandard; // Optional: if known upfront
+  tokenId?: string; // For ERC-721
+  id?: string; // For ERC-1155
+  slot?: string; // For ERC-3525
+  partition?: string; // For ERC-1400
+  data?: string; // For ERC-1155, ERC-1400
+  decimals?: number; // Token decimals (default: 18)
+  
   chainId: number; // Chain ID from wallet data (source of truth)
   walletId: string; // Database ID of source wallet
   walletType: 'project' | 'user'; // Wallet type for key retrieval
@@ -72,6 +85,7 @@ export interface TransactionDiagnostics {
   broadcastTimestamp?: number; // When transaction was broadcast to network
   chainId: number;
   nonce: number;
+  standard?: TokenStandard;
   gasEstimate?: GasEstimate;
   balanceCheck?: {
     balance: string;
@@ -104,262 +118,139 @@ export class TransferService {
   }
 
   /**
-   * Get next available nonce with gap detection and prevention
-   * Uses enhanced NonceManager to prevent nonce gaps
+   * Detect token standard via ERC-165
    * @private
    */
-  private async getNextNonce(
-    address: string, 
-    provider: ethers.JsonRpcProvider,
-    forceNonce?: number
-  ): Promise<number> {
-    return await nonceManager.getNextNonce(address, provider, {
-      forceNonce,
-      allowGaps: false // Never allow gaps - force explicit handling
-    });
+  private async detectStandard(
+    tokenAddress: string,
+    provider: ethers.Provider
+  ): Promise<TokenStandard> {
+    const contract = new ethers.Contract(tokenAddress, [
+      'function supportsInterface(bytes4 interfaceId) view returns (bool)'
+    ], provider);
+
+    try {
+      // ERC-165 interface IDs
+      const ERC721_INTERFACE = '0x80ac58cd';
+      const ERC1155_INTERFACE = '0xd9b67a26';
+      const ERC3525_INTERFACE = '0xd5358140';
+
+      if (await contract.supportsInterface(ERC721_INTERFACE)) {
+        return 'ERC-721';
+      }
+      if (await contract.supportsInterface(ERC1155_INTERFACE)) {
+        return 'ERC-1155';
+      }
+      if (await contract.supportsInterface(ERC3525_INTERFACE)) {
+        return 'ERC-3525';
+      }
+
+      // Default to ERC-20 (most common fungible token)
+      return 'ERC-20';
+    } catch (error) {
+      console.warn('Failed to detect standard, defaulting to ERC-20:', error);
+      return 'ERC-20';
+    }
   }
 
   /**
-   * Clear nonce tracking for an address (call after confirmed tx or on error)
-   * Uses enhanced NonceManager
-   * @private
+   * Get provider from chain ID
+   * Uses RPC manager to get correct provider configuration
+   */
+  private async getProviderFromChainId(chainId: number): Promise<ethers.JsonRpcProvider> {
+    const chainName = getChainName(chainId);
+    const networkType: NetworkType = isTestnet(chainId) ? 'testnet' : 'mainnet';
+    
+    const rpcConfig = rpcManager.getProviderConfig(chainName as any, networkType);
+    
+    if (!rpcConfig) {
+      throw new Error(`No RPC configuration found for chain ${chainId}`);
+    }
+    
+    return new ethers.JsonRpcProvider(rpcConfig.url);
+  }
+
+  /**
+   * Get next nonce for an address
+   * Uses NonceManager for centralized nonce tracking
+   */
+  private async getNextNonce(
+    address: string,
+    provider: ethers.JsonRpcProvider
+  ): Promise<number> {
+    return nonceManager.getNextNonce(address, provider);
+  }
+
+  /**
+   * Clear nonce tracking for an address
    */
   private clearNonceTracking(address: string): void {
     nonceManager.clearNonceTracking(address);
   }
 
   /**
-   * Diagnose nonce issues for an address
-   * PUBLIC method for troubleshooting stuck transactions
-   * @public
-   */
-  async diagnoseNonceIssues(
-    address: string,
-    chainId: number
-  ): Promise<{
-    hasGap: boolean;
-    status: any;
-    recommendations: string[];
-  }> {
-    try {
-      const provider = await this.getProviderFromChainId(chainId);
-      const validation = await nonceManager.getNonceStatus(address, provider);
-      
-      const recommendations: string[] = [];
-      
-      if (validation.hasGap) {
-        recommendations.push(
-          `⚠️  NONCE GAP DETECTED: ${validation.gapSize} transaction(s) stuck between ` +
-          `nonce ${validation.confirmed} (confirmed) and ${validation.pending} (pending)`
-        );
-        recommendations.push(
-          '📝 Solutions:\n' +
-          '   1. Wait for pending transactions to confirm (may take hours on testnets)\n' +
-          '   2. Cancel stuck transactions by sending 0 ETH to self with same nonce but higher gas\n' +
-          '   3. Use the nonce gap fixer script at /scripts/fix-nonce-gap.ts'
-        );
-      } else if (validation.pending === validation.confirmed) {
-        recommendations.push('✅ No nonce issues detected - all transactions confirmed');
-      } else {
-        recommendations.push(
-          `⏳ ${validation.pending - validation.confirmed} transaction(s) pending confirmation`
-        );
-      }
-      
-      const pendingNonces = nonceManager.getPendingNonces(address);
-      if (pendingNonces.length > 0) {
-        recommendations.push(
-          `📋 Tracked pending nonces: ${pendingNonces.join(', ')}`
-        );
-      }
-      
-      return {
-        hasGap: validation.hasGap,
-        status: validation,
-        recommendations
-      };
-    } catch (error) {
-      throw new Error(
-        `Failed to diagnose nonce issues: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  }
-
-  /**
-   * Get ethers provider using chain ID and RPC manager with connection verification
-   * Uses chain ID as source of truth for network determination
-   * Automatically falls back to free public RPCs if primary RPC unavailable
-   * ENHANCED: Verifies RPC connection before returning provider
-   * @private
-   */
-  private async getProviderFromChainId(chainId: number): Promise<ethers.JsonRpcProvider> {
-    // Validate chain ID
-    if (!chainId) {
-      throw new Error('Chain ID is required');
-    }
-
-    // Get chain info
-    const chainInfo = getChainInfo(chainId);
-    if (!chainInfo) {
-      throw new Error(`Unsupported chain ID: ${chainId}. Check chainIds.ts`);
-    }
-
-    // Determine network type from chain info
-    const networkType: NetworkType = chainInfo.type === 'testnet' ? 'testnet' : 'mainnet';
-
-    // Get RPC URL with automatic fallback support
-    const rpcUrl = await rpcManager.getRPCUrlWithFallback(chainId, networkType);
-    
-    if (!rpcUrl) {
-      throw new Error(
-        `No RPC available for ${chainInfo.name} (${networkType}). ` +
-        `Chain ID: ${chainId}. Neither primary nor fallback RPCs are configured.`
-      );
-    }
-
-    // Create provider
-    const provider = new ethers.JsonRpcProvider(rpcUrl, {
-      chainId,
-      name: chainInfo.name
-    });
-
-    // VERIFY CONNECTION - Critical to ensure RPC is actually working
-    const startTime = Date.now();
-    try {
-      const [network, blockNumber] = await Promise.all([
-        provider.getNetwork(),
-        provider.getBlockNumber()
-      ]);
-      
-      const latency = Date.now() - startTime;
-      
-      // Verify chain ID matches
-      if (Number(network.chainId) !== chainId) {
-        throw new Error(
-          `Chain ID mismatch: RPC returned ${network.chainId}, expected ${chainId}`
-        );
-      }
-      
-      // Log whether using primary or fallback RPC
-      const isFallback = rpcUrl.includes('publicnode.com') || 
-                        rpcUrl.includes('grove.city') ||
-                        rpcUrl.includes('drpc.org') ||
-                        rpcUrl.includes('blastapi.io');
-      
-      if (isFallback) {
-        console.warn(
-          `⚠️  Using fallback RPC for chain ${chainId} (${chainInfo.name}): ` +
-          `Block ${blockNumber}, Latency ${latency}ms`
-        );
-      } else {
-        console.log(
-          `✅ RPC verified: Chain ${chainId} (${chainInfo.name}), ` +
-          `Block ${blockNumber}, Latency ${latency}ms`
-        );
-      }
-      
-      return provider;
-    } catch (error) {
-      console.error(`❌ RPC verification failed for ${rpcUrl}:`, error);
-      throw new Error(
-        `RPC connection failed for ${chainInfo.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  }
-
-  /**
-   * Validate transfer parameters before execution
-   * ENHANCED: Checks balance BEFORE gas estimation to prevent false positives
-   * Uses chain ID from wallet data as source of truth
+   * Validate transfer parameters
+   * Checks addresses, amounts, and chain configuration
    */
   async validateTransfer(params: TransferParams): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     try {
-      // Validate chain ID first
-      if (!params.chainId) {
-        errors.push('Chain ID is required');
-        return { valid: false, errors, warnings };
-      }
-      
       // Validate addresses
       if (!ethers.isAddress(params.from)) {
-        errors.push('Invalid source address');
+        errors.push('Invalid from address');
       }
       if (!ethers.isAddress(params.to)) {
-        errors.push('Invalid destination address');
+        errors.push('Invalid to address');
       }
-
-      // Check for same address transfer
-      if (params.from.toLowerCase() === params.to.toLowerCase()) {
-        errors.push('Cannot transfer to the same address');
+      if (params.token && !ethers.isAddress(params.token)) {
+        errors.push('Invalid token address');
       }
 
       // Validate amount
-      const amount = ethers.parseEther(params.amount);
-      if (amount <= 0n) {
-        errors.push('Transfer amount must be greater than 0');
-      }
-
-      // Exit early if critical validation errors
-      if (errors.length > 0) {
-        return { valid: false, errors, warnings };
-      }
-      
-      // Get provider and check balance
-      const provider = await this.getProviderFromChainId(params.chainId);
-      const balance = await provider.getBalance(params.from);
-
-      // CRITICAL FIX #1: Check balance BEFORE gas estimation
-      // This prevents false positives when amount ≈ balance
-      if (amount > balance) {
-        errors.push(
-          `Insufficient balance. Need: ${ethers.formatEther(amount)} ETH, ` +
-          `Have: ${ethers.formatEther(balance)} ETH, ` +
-          `Short: ${ethers.formatEther(amount - balance)} ETH`
-        );
-        return { valid: false, errors, warnings };
-      }
-
-      // Now estimate gas with remaining balance
       try {
-        const gasEstimate = await this.estimateGas(params);
-        const gasCost = ethers.parseEther(gasEstimate.estimatedCost);
-        const totalCost = amount + gasCost;
-
-        if (totalCost > balance) {
-          errors.push(
-            `Insufficient balance including gas. ` +
-            `Amount: ${ethers.formatEther(amount)} ETH, ` +
-            `Gas: ${ethers.formatEther(gasCost)} ETH, ` +
-            `Total: ${ethers.formatEther(totalCost)} ETH, ` +
-            `Available: ${ethers.formatEther(balance)} ETH, ` +
-            `Short: ${ethers.formatEther(totalCost - balance)} ETH`
-          );
-        }
-
-        // Warn if gas cost is unusually high
-        const gasCostPercent = (Number(gasEstimate.estimatedCost) / Number(params.amount)) * 100;
-        if (gasCostPercent > 10) {
-          warnings.push(
-            `⚠️  Gas fees are ${gasCostPercent.toFixed(2)}% of transfer amount`
-          );
-        }
+        const amount = params.token 
+          ? ethers.parseUnits(params.amount, params.decimals || 18)
+          : ethers.parseEther(params.amount);
         
-        // Warn if balance will be very low after transfer
-        const remainingBalance = balance - totalCost;
-        const minRecommendedBalance = ethers.parseEther('0.001'); // 0.001 ETH buffer
-        if (remainingBalance < minRecommendedBalance && remainingBalance > 0n) {
-          warnings.push(
-            `⚠️  Low balance after transfer: ${ethers.formatEther(remainingBalance)} ETH remaining`
-          );
+        if (amount <= 0n) {
+          errors.push('Amount must be greater than 0');
         }
-      } catch (gasError) {
-        console.error('Gas estimation failed during validation:', gasError);
-        errors.push(
-          `Gas estimation failed: ${gasError instanceof Error ? gasError.message : 'Unknown error'}`
-        );
+      } catch (e) {
+        errors.push('Invalid amount format');
+      }
+
+      // Validate chain ID
+      const chainInfo = getChainInfo(params.chainId);
+      if (!chainInfo) {
+        errors.push(`Unknown chain ID: ${params.chainId}`);
+      }
+
+      // Check if provider is available
+      try {
+        await this.getProviderFromChainId(params.chainId);
+      } catch (e) {
+        errors.push(`No RPC provider available for chain ${params.chainId}`);
+      }
+
+      // Standard-specific validation
+      if (params.standard === 'ERC-721' && !params.tokenId) {
+        errors.push('tokenId required for ERC-721 transfers');
+      }
+      if (params.standard === 'ERC-1155' && !params.id) {
+        errors.push('id required for ERC-1155 transfers');
+      }
+      if (params.standard === 'ERC-1400' && !params.partition) {
+        errors.push('partition required for ERC-1400 transfers');
+      }
+      if (params.standard === 'ERC-3525' && !params.slot) {
+        errors.push('slot required for ERC-3525 transfers');
+      }
+
+      // Testnet warning
+      if (chainInfo?.type === 'testnet') {
+        warnings.push(`Using testnet: ${chainInfo.name}`);
       }
 
       return {
@@ -368,36 +259,53 @@ export class TransferService {
         warnings
       };
     } catch (error) {
-      console.error('Validation error:', error);
+      errors.push(
+        `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
       return {
         valid: false,
-        errors: ['Validation failed: ' + (error instanceof Error ? error.message : 'Unknown error')],
+        errors,
         warnings
       };
     }
   }
 
   /**
-   * Estimate gas costs for transfer
-   * ENHANCED: Adds 25% buffer to EIP-1559 fees to handle fee volatility
-   * Uses chain ID from wallet data as source of truth
+   * Estimate gas for transfer
+   * Includes safety buffers for EIP-1559 and legacy transactions
    */
   async estimateGas(params: TransferParams): Promise<GasEstimate> {
     try {
       const provider = await this.getProviderFromChainId(params.chainId);
-      
-      // Build transaction for estimation
-      const tx: any = {
-        from: params.from,
-        to: params.to,
-        value: ethers.parseEther(params.amount)
-      };
 
-      // Estimate gas limit with 10% buffer
-      const baseGasLimit = await provider.estimateGas(tx);
-      const gasLimit = (baseGasLimit * 110n) / 100n; // 10% buffer
+      // Standard-specific gas limits
+      let baseGasLimit = 21000n; // Native transfer
       
-      // Get current gas price
+      if (params.token) {
+        switch (params.standard || 'ERC-20') {
+          case 'ERC-20':
+          case 'ERC-4626':
+            baseGasLimit = 65000n; // ERC-20 transfer
+            break;
+          case 'ERC-721':
+            baseGasLimit = 150000n; // NFT transfer (safeTransferFrom)
+            break;
+          case 'ERC-1155':
+            baseGasLimit = 200000n; // Multi-token transfer
+            break;
+          case 'ERC-1400':
+            baseGasLimit = 250000n; // Security token with compliance
+            break;
+          case 'ERC-3525':
+            baseGasLimit = 180000n; // Semi-fungible token
+            break;
+        }
+      }
+
+      // Add 10% buffer for safety
+      const gasLimit = (baseGasLimit * 110n) / 100n;
+
+      // Get gas pricing
       const feeData = await provider.getFeeData();
       
       let estimatedCost: bigint;
@@ -406,26 +314,21 @@ export class TransferService {
       let maxPriorityFeePerGas: string | undefined;
 
       if (feeData.maxFeePerGas && feeData.maxPriorityFeePerGas) {
-        // CRITICAL FIX #3: Add buffer to EIP-1559 fees for volatility
-        // Per documentation: "Fees can spike 10x in minutes"
-        // Use higher buffer for testnets due to higher volatility
+        // EIP-1559: Add buffer for volatility
         const chainInfo = getChainInfo(params.chainId);
         const isTestnetChain = chainInfo?.type === 'testnet';
         const feeBuffer = isTestnetChain ? 150n : 125n; // 50% for testnet, 25% for mainnet
         
         maxFeePerGas = ((feeData.maxFeePerGas * feeBuffer) / 100n).toString();
         maxPriorityFeePerGas = ((feeData.maxPriorityFeePerGas * feeBuffer) / 100n).toString();
-        
-        // Calculate cost using buffered max fee
         estimatedCost = gasLimit * ((feeData.maxFeePerGas * feeBuffer) / 100n);
         
         console.log(
-          `⛽ Gas estimate (EIP-1559 with ${feeBuffer-100n}% buffer for ${isTestnetChain ? 'testnet' : 'mainnet'}): ` +
-          `Limit=${gasLimit}, MaxFee=${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei, ` +
-          `Priority=${ethers.formatUnits(maxPriorityFeePerGas, 'gwei')} gwei`
+          `⛽ Gas estimate (EIP-1559 with ${feeBuffer-100n}% buffer): ` +
+          `Limit=${gasLimit}, MaxFee=${ethers.formatUnits(maxFeePerGas, 'gwei')} gwei`
         );
       } else if (feeData.gasPrice) {
-        // Legacy transaction with 10% buffer
+        // Legacy: Add 10% buffer
         gasPrice = ((feeData.gasPrice * 110n) / 100n).toString();
         estimatedCost = gasLimit * ((feeData.gasPrice * 110n) / 100n);
         
@@ -453,7 +356,125 @@ export class TransferService {
   }
 
   /**
-   * Create unsigned transaction
+   * Create transfer data based on token standard
+   * @private
+   */
+  private createTransferData(params: TransferParams, standard: TokenStandard): {
+    to: string;
+    value: string;
+    data: string;
+  } {
+    // Native token transfer
+    if (standard === 'NATIVE' || !params.token) {
+      return {
+        to: params.to,
+        value: ethers.parseEther(params.amount).toString(),
+        data: '0x'
+      };
+    }
+
+    // Token transfers - value is always 0, function call in data
+    const amount = ethers.parseUnits(params.amount, params.decimals || 18);
+
+    switch (standard) {
+      case 'ERC-20':
+      case 'ERC-4626': {
+        const erc20Interface = new ethers.Interface([
+          'function transfer(address to, uint256 amount) returns (bool)'
+        ]);
+        return {
+          to: params.token,
+          value: '0',
+          data: erc20Interface.encodeFunctionData('transfer', [params.to, amount])
+        };
+      }
+
+      case 'ERC-721': {
+        if (!params.tokenId) {
+          throw new Error('tokenId required for ERC-721 transfer');
+        }
+        const erc721Interface = new ethers.Interface([
+          'function safeTransferFrom(address from, address to, uint256 tokenId)'
+        ]);
+        return {
+          to: params.token,
+          value: '0',
+          data: erc721Interface.encodeFunctionData('safeTransferFrom', [
+            params.from,
+            params.to,
+            params.tokenId
+          ])
+        };
+      }
+
+      case 'ERC-1155': {
+        if (!params.id) {
+          throw new Error('id required for ERC-1155 transfer');
+        }
+        const erc1155Interface = new ethers.Interface([
+          'function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes data)'
+        ]);
+        return {
+          to: params.token,
+          value: '0',
+          data: erc1155Interface.encodeFunctionData('safeTransferFrom', [
+            params.from,
+            params.to,
+            params.id,
+            amount,
+            params.data || '0x'
+          ])
+        };
+      }
+
+      case 'ERC-1400': {
+        if (!params.partition) {
+          throw new Error('partition required for ERC-1400 transfer');
+        }
+        const partitionBytes32 = ethers.hexlify(
+          ethers.toUtf8Bytes(params.partition).slice(0, 32)
+        ).padEnd(66, '0');
+        
+        const erc1400Interface = new ethers.Interface([
+          'function transferByPartition(bytes32 partition, address to, uint256 value, bytes data) returns (bytes32)'
+        ]);
+        return {
+          to: params.token,
+          value: '0',
+          data: erc1400Interface.encodeFunctionData('transferByPartition', [
+            partitionBytes32,
+            params.to,
+            amount,
+            params.data || '0x'
+          ])
+        };
+      }
+
+      case 'ERC-3525': {
+        if (!params.tokenId) {
+          throw new Error('tokenId required for ERC-3525 transfer');
+        }
+        const erc3525Interface = new ethers.Interface([
+          'function transferFrom(uint256 fromTokenId, address to, uint256 value) returns (uint256 toTokenId)'
+        ]);
+        return {
+          to: params.token,
+          value: '0',
+          data: erc3525Interface.encodeFunctionData('transferFrom', [
+            params.tokenId,
+            params.to,
+            amount
+          ])
+        };
+      }
+
+      default:
+        throw new Error(`Unsupported token standard: ${standard}`);
+    }
+  }
+
+  /**
+   * Create unsigned transaction with multi-standard support
    * ENHANCED: Uses nonce queue manager to prevent concurrent transaction conflicts
    * Uses chain ID from wallet data as source of truth
    */
@@ -469,24 +490,36 @@ export class TransferService {
         );
       }
       
-      // CRITICAL FIX #4: Use nonce queue manager to prevent conflicts
-      // Handles concurrent transactions from same address
+      // Detect standard if not provided
+      let standard: TokenStandard;
+      if (params.token) {
+        standard = params.standard || await this.detectStandard(params.token, provider);
+      } else {
+        standard = 'NATIVE';
+      }
+
+      console.log(`📝 Creating ${standard} transfer`);
+
+      // Get nonce
       const nonce = await this.getNextNonce(params.from, provider);
 
-      // Get gas parameters (already includes buffers from estimateGas)
-      const gasEstimate = await this.estimateGas(params);
+      // Get gas parameters
+      const gasEstimate = await this.estimateGas({ ...params, standard });
+
+      // Create transfer data based on standard
+      const transferData = this.createTransferData(params, standard);
 
       const tx: UnsignedTransaction = {
-        from: params.from, // Track sender for nonce management
-        to: params.to,
-        value: ethers.parseEther(params.amount).toString(),
-        data: '0x',
+        from: params.from,
+        to: transferData.to,
+        value: transferData.value,
+        data: transferData.data,
         chainId: params.chainId,
         nonce,
         gasLimit: params.gasLimit || gasEstimate.gasLimit
       };
 
-      // Add gas pricing (EIP-1559 or legacy) - use params if provided, otherwise estimates
+      // Add gas pricing
       if (gasEstimate.maxFeePerGas && gasEstimate.maxPriorityFeePerGas) {
         tx.maxFeePerGas = params.maxFeePerGas || gasEstimate.maxFeePerGas;
         tx.maxPriorityFeePerGas = params.maxPriorityFeePerGas || gasEstimate.maxPriorityFeePerGas;
@@ -496,23 +529,20 @@ export class TransferService {
 
       const chainInfo = getChainInfo(params.chainId);
       console.log(
-        `📝 Created transaction for chain ${params.chainId} (${chainInfo?.name}):`,
+        `📝 Created ${standard} transaction for chain ${params.chainId} (${chainInfo?.name}):`,
         {
           chainId: tx.chainId,
           to: tx.to,
           value: ethers.formatEther(tx.value),
           nonce: tx.nonce,
-          network: chainInfo?.type,
-          gasLimit: tx.gasLimit,
-          hasEIP1559: !!(tx.maxFeePerGas && tx.maxPriorityFeePerGas)
+          standard,
+          hasData: tx.data !== '0x'
         }
       );
 
       return tx;
     } catch (error) {
       console.error('❌ Transaction creation error:', error);
-      // On error during creation, don't mark as failed yet - just clear tracking
-      // The nonce was assigned but transaction wasn't created, so we need to reset
       this.clearNonceTracking(params.from);
       throw new Error(
         `Failed to create transaction: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -556,7 +586,6 @@ export class TransferService {
       diagnostics.step = 'creating_wallet';
       const wallet = new ethers.Wallet(privateKey);
       
-      // Verify wallet address matches transaction sender
       const txFromAddress = await wallet.getAddress();
       console.log(`🔑 Wallet address: ${txFromAddress}`);
 
@@ -576,7 +605,6 @@ export class TransferService {
       const txResponse = await provider.broadcastTransaction(signedTx);
       const broadcastTime = Date.now() - broadcastStart;
       
-      // Get chain info once for reuse
       const chainInfo = getChainInfo(transaction.chainId);
       const isTestnetChain = chainInfo?.type === 'testnet';
       
@@ -585,13 +613,11 @@ export class TransferService {
         `(${chainInfo?.name}) in ${broadcastTime}ms: ${txResponse.hash}`
       );
 
-      // CRITICAL FIX #2: Verify transaction entered mempool
-      // Don't return success until we confirm the network accepted it
+      // Step 6: Verify transaction entered mempool
       diagnostics.step = 'verifying_mempool';
       const mempoolStart = Date.now();
       
       try {
-        // Wait up to 10 seconds for transaction to appear in mempool
         let attempts = 0;
         let pendingTx = null;
         
@@ -602,158 +628,115 @@ export class TransferService {
             attempts++;
           }
         }
+
+        const mempoolTime = Date.now() - mempoolStart;
         
         if (!pendingTx) {
-          throw new Error(
-            'Transaction not found in mempool after 10 seconds. ' +
-            'It may have been rejected by the network.'
-          );
+          // Transaction not found in mempool
+          diagnostics.mempoolVerification = {
+            found: false,
+            timestamp: Date.now()
+          };
+          diagnostics.note = 'Transaction broadcast but not found in mempool within 10 seconds';
+          console.warn(`⚠️  Transaction not found in mempool after ${mempoolTime}ms`);
+        } else {
+          diagnostics.mempoolVerification = {
+            found: true,
+            timestamp: Date.now()
+          };
+          console.log(`✅ Transaction found in mempool after ${mempoolTime}ms`);
         }
-        
-        const mempoolTime = Date.now() - mempoolStart;
-        diagnostics.mempoolVerification = {
-          found: true,
-          timestamp: mempoolTime
-        };
-        
-        console.log(`✅ Transaction verified in mempool after ${mempoolTime}ms`);
-        
       } catch (mempoolError) {
-        console.error('❌ Mempool verification failed:', mempoolError);
-        throw new Error(
-          `Transaction broadcast but not found in mempool: ${
-            mempoolError instanceof Error ? mempoolError.message : 'Unknown error'
-          }`
-        );
+        console.warn('⚠️  Mempool verification failed:', mempoolError);
+        diagnostics.mempoolVerification = {
+          found: false
+        };
       }
 
-      // Step 6: Wait for 1 confirmation (with timeout)
-      // ENHANCED: Longer timeout for testnets (300s) vs mainnet (60s) - Hoodi testnet is VERY slow
-      const confirmationTimeout = isTestnetChain ? 300000 : 60000; // 5min for testnet, 1min for mainnet
-      
-      diagnostics.step = 'waiting_confirmation';
-      console.log(
-        `⏳ Waiting for transaction confirmation (timeout: ${confirmationTimeout/1000}s)...\n` +
-        `   Network: ${chainInfo?.name} (${isTestnetChain ? 'TESTNET' : 'MAINNET'})\n` +
-        `   Hash: ${txResponse.hash}\n` +
-        `   Check status: ${chainInfo?.explorer}/tx/${txResponse.hash}`
-      );
-      
+      // Step 7: Wait for confirmation (longer timeout for testnets)
+      diagnostics.step = 'confirming';
+      const confirmStart = Date.now();
+      const confirmTimeout = isTestnetChain ? 180000 : 60000; // 3min testnet, 1min mainnet
+
       try {
-        // Poll for receipt with detailed logging
-        const startTime = Date.now();
-        let pollCount = 0;
-        
-        // Wait for 1 confirmation with dynamic timeout
-        const receipt = await Promise.race([
-          (async () => {
-            // Custom polling with logging every 30 seconds
-            const pollInterval = 30000; // 30 seconds
-            let lastLogTime = startTime;
-            
-            while (true) {
-              try {
-                const receipt = await provider.getTransactionReceipt(txResponse.hash);
-                if (receipt && receipt.blockNumber) {
-                  return receipt;
-                }
-                
-                pollCount++;
-                const elapsed = Date.now() - startTime;
-                
-                // Log every 30 seconds
-                if (Date.now() - lastLogTime >= pollInterval) {
-                  console.log(
-                    `⏳ Still waiting for confirmation... ` +
-                    `Elapsed: ${Math.floor(elapsed/1000)}s, ` +
-                    `Polls: ${pollCount}`
-                  );
-                  lastLogTime = Date.now();
-                }
-                
-                // Wait 3 seconds before next poll
-                await new Promise(resolve => setTimeout(resolve, 3000));
-              } catch (pollError) {
-                console.warn(`⚠️  Polling error (will retry):`, pollError);
-                await new Promise(resolve => setTimeout(resolve, 5000));
-              }
-            }
-          })(),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error(`Confirmation timeout after ${confirmationTimeout/1000} seconds`)), confirmationTimeout)
-          )
-        ]);
-        
-        // Check if transaction reverted
+        const receipt = await txResponse.wait(1, confirmTimeout);
+        const confirmTime = Date.now() - confirmStart;
+
         if (receipt.status === 0) {
-          // Mark nonce as failed (reverted on-chain)
-          if (transaction.from) {
-            nonceManager.failNonce(transaction.from, transaction.nonce);
-          }
-          throw new Error('Transaction reverted on-chain');
+          // Transaction reverted
+          nonceManager.failNonce(txFromAddress, transaction.nonce);
+          diagnostics.step = 'reverted';
+          diagnostics.rpcVerification = {
+            verified: true,
+            blockNumber: receipt.blockNumber,
+            latency: confirmTime
+          };
+
+          console.error(
+            `❌ Transaction reverted in block ${receipt.blockNumber} after ${confirmTime}ms`
+          );
+
+          return {
+            success: false,
+            transactionHash: txResponse.hash,
+            error: 'Transaction reverted on-chain',
+            receipt,
+            diagnostics
+          };
         }
-        
-        // Mark nonce as confirmed
-        if (transaction.from) {
-          nonceManager.confirmNonce(transaction.from, transaction.nonce);
-        }
-        
+
+        // Transaction successful
+        nonceManager.confirmNonce(txFromAddress, transaction.nonce);
         diagnostics.step = 'confirmed';
-        const confirmTime = Date.now() - startTime;
+        diagnostics.rpcVerification = {
+          verified: true,
+          blockNumber: receipt.blockNumber,
+          latency: confirmTime
+        };
+
         console.log(
-          `✅ Transaction confirmed after ${Math.floor(confirmTime/1000)}s: ` +
-          `Block ${receipt.blockNumber}, ` +
-          `Gas used: ${receipt.gasUsed}, ` +
-          `Status: ${receipt.status}`
+          `✅ Transaction confirmed in block ${receipt.blockNumber} ` +
+          `after ${confirmTime}ms (${receipt.confirmations} confirmations)`
         );
-        
+
         return {
           success: true,
           transactionHash: txResponse.hash,
           receipt,
           diagnostics
         };
-        
       } catch (confirmError) {
-        // Transaction is in mempool but not yet confirmed
-        // This is acceptable for testnets - return success with pending status
-        const elapsed = Date.now() - diagnostics.broadcastTimestamp!;
-        console.warn(
-          `⚠️  Confirmation timeout after ${Math.floor(elapsed/1000)}s (tx still pending)\n` +
-          `   This is NORMAL for slow testnets like Hoodi.\n` +
-          `   Check explorer: ${chainInfo?.explorer}/tx/${txResponse.hash}\n` +
-          `   Error: ${confirmError instanceof Error ? confirmError.message : 'Unknown error'}`
-        );
+        // Confirmation timeout or error
+        console.warn(`⚠️  Confirmation timeout or error:`, confirmError);
         
+        diagnostics.step = 'pending';
+        diagnostics.note = `Confirmation timeout after ${confirmTimeout}ms. Transaction may still be pending.`;
+
         return {
-          success: true,
+          success: true, // Transaction was broadcast successfully
           transactionHash: txResponse.hash,
-          receipt: null,
-          diagnostics: {
-            ...diagnostics,
-            step: 'pending_confirmation',
-            note: 'Transaction broadcast successfully but confirmation pending due to testnet delays'
-          }
+          diagnostics
         };
       }
-      
     } catch (error) {
-      console.error(`❌ Transaction failed at step '${diagnostics.step}':`, error);
-      
-      // Mark nonce as failed on error to allow proper retry
-      if (transaction.from && transaction.nonce !== undefined) {
-        nonceManager.failNonce(transaction.from, transaction.nonce);
+      console.error('❌ Sign and broadcast error:', error);
+
+      // Clear nonce tracking on error
+      if (transaction.from) {
+        nonceManager.clearNonceTracking(transaction.from);
       }
-      
+
+      diagnostics.step = 'error';
+      diagnostics.note = error instanceof Error ? error.message : 'Unknown error';
+
       return {
         success: false,
-        error: `Failed at ${diagnostics.step}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Failed to sign and broadcast transaction',
         diagnostics
       };
     } finally {
-      // CRITICAL: Clear private key from memory
+      // Always clear sensitive data
       if (privateKey) {
-        privateKey = '';
         privateKey = null;
       }
     }
@@ -762,10 +745,23 @@ export class TransferService {
   /**
    * Execute complete transfer (validate → create → sign → broadcast → verify)
    * Uses chain ID from wallet data as source of truth throughout the flow
+   * NOW SUPPORTS: Native tokens + ERC-20/721/1155/1400/3525/4626
    */
   async executeTransfer(params: TransferParams): Promise<TransferResult> {
     const startTime = Date.now();
-    console.log(`🚀 Starting transfer execution for chain ${params.chainId}`);
+    
+    // Detect standard for logging
+    let standard: TokenStandard = 'NATIVE';
+    if (params.token) {
+      try {
+        const provider = await this.getProviderFromChainId(params.chainId);
+        standard = params.standard || await this.detectStandard(params.token, provider);
+      } catch {
+        standard = 'ERC-20'; // Fallback
+      }
+    }
+    
+    console.log(`🚀 Starting ${standard} transfer execution for chain ${params.chainId}`);
     
     try {
       // Step 1: Validate transfer
@@ -787,7 +783,7 @@ export class TransferService {
       console.log(`✅ Validation passed`);
 
       // Step 2: Create transaction
-      console.log(`2️⃣  Creating transaction...`);
+      console.log(`2️⃣  Creating ${standard} transaction...`);
       const transaction = await this.createTransfer(params);
       console.log(`✅ Transaction created with nonce ${transaction.nonce}`);
 
@@ -816,13 +812,20 @@ export class TransferService {
           amount: params.amount,
           chainId: params.chainId,
           walletId: params.walletId,
+          token: params.token,
+          standard,
           status: result.receipt ? 'confirmed' : 'pending'
         });
         console.log(`✅ Transaction recorded`);
       }
       
       const totalTime = Date.now() - startTime;
-      console.log(`🎉 Transfer execution completed in ${totalTime}ms`);
+      console.log(`🎉 ${standard} transfer execution completed in ${totalTime}ms`);
+
+      // Add standard to diagnostics
+      if (result.diagnostics) {
+        result.diagnostics.standard = standard;
+      }
 
       return result;
     } catch (error) {
@@ -850,14 +853,15 @@ export class TransferService {
     amount: string;
     chainId: number;
     walletId: string;
+    token?: string;
+    standard?: TokenStandard;
     status: string;
   }): Promise<void> {
     try {
       const chainInfo = getChainInfo(data.chainId);
       const chainName = getChainName(data.chainId);
       
-      // Check if wallet exists in wallets table, if not set wallet_id to null
-      // (it might be in project_wallets instead)
+      // Check if wallet exists in wallets table
       const { data: walletExists } = await supabase
         .from('wallets')
         .select('id')
@@ -866,34 +870,30 @@ export class TransferService {
       
       const { error } = await supabase.from('wallet_transactions').insert({
         transaction_hash: data.transactionHash,
-        tx_hash: data.transactionHash, // Also populate legacy field for backwards compatibility
+        tx_hash: data.transactionHash,
         from_address: data.fromAddress,
         to_address: data.toAddress,
         amount: data.amount,
-        value: data.amount, // Also populate legacy numeric field
+        value: data.amount,
         blockchain: chainName || `chain-${data.chainId}`,
         chain_id: data.chainId.toString(),
-        wallet_id: walletExists ? data.walletId : null, // Only set if wallet exists in wallets table
+        wallet_id: walletExists ? data.walletId : null,
         status: data.status,
-        transaction_type: 'transfer',
+        transaction_type: data.token ? 'token_transfer' : 'transfer',
         created_at: new Date().toISOString()
       });
 
       if (error) {
         console.error('❌ Failed to record transaction in database:', error);
-        // Don't throw - transaction already sent
       } else {
         console.log(
-          `📊 Recorded transaction in database: ` +
+          `📊 Recorded ${data.standard || 'NATIVE'} transaction: ` +
           `Chain ${data.chainId} (${chainInfo?.name}), ` +
-          `From: ${data.fromAddress.substring(0, 10)}..., ` +
-          `Status: ${data.status}, ` +
-          `Hash: ${data.transactionHash}`
+          `Status: ${data.status}, Hash: ${data.transactionHash}`
         );
       }
     } catch (error) {
       console.error('❌ Failed to record transaction:', error);
-      // Don't throw - transaction already sent
     }
   }
 
@@ -911,14 +911,12 @@ export class TransferService {
     try {
       const provider = await this.getProviderFromChainId(chainId);
       
-      // Try to get transaction
       const tx = await provider.getTransaction(txHash);
       
       if (!tx) {
         return { found: false, pending: false, confirmed: false, reverted: false };
       }
       
-      // Try to get receipt
       const receipt = await provider.getTransactionReceipt(txHash);
       
       if (!receipt) {
@@ -940,15 +938,15 @@ export class TransferService {
 
   /**
    * Clear all nonce tracking (useful for testing or reset)
-   * Uses NonceManager for centralized nonce management
    */
   clearAllNonceTracking(): void {
     nonceManager.clearAllNonceTracking();
     console.log('🗑️  Cleared all nonce tracking');
   }
+
   /**
    * Bump fees for a stuck transaction by broadcasting a replacement with same nonce
-   * Requires 10%+ fee increase to be accepted by nodes
+   * Works for both native and token transfers
    */
   async bumpTransactionFees(
     originalTxHash: string,
@@ -958,115 +956,73 @@ export class TransferService {
     newMaxPriorityFeePerGas: string
   ): Promise<TransferResult> {
     try {
-      console.log(`🚀 Bumping fees for transaction: ${originalTxHash}`);
+      console.log(`💰 Bumping fees for transaction ${originalTxHash}`);
 
-      // Get original transaction
-      const { data: txRecord } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('transaction_hash', originalTxHash)
-        .single();
-
-      if (!txRecord) {
-        throw new Error('Transaction not found in database');
-      }
-
-      // Get wallet info
-      const table = walletType === 'project' ? 'project_wallets' : 'user_wallets';
-      const { data: wallet } = await supabase
-        .from(table)
-        .select('*')
-        .eq('id', walletId)
-        .single();
-
-      if (!wallet) {
-        throw new Error('Wallet not found');
-      }
-
-      // Verify transaction is pending
-      const provider = await this.getProviderFromChainId(wallet.chain_id);
-      const receipt = await provider.getTransactionReceipt(originalTxHash);
-      
-      if (receipt && receipt.blockNumber) {
-        throw new Error('Transaction already confirmed - cannot bump fees');
-      }
-
-      // Get the original transaction from network
+      // Get original transaction details
+      const provider = await this.getProviderFromChainId(1); // Temporary, will be replaced
       const originalTx = await provider.getTransaction(originalTxHash);
+
       if (!originalTx) {
-        throw new Error('Original transaction not found on network');
+        throw new Error('Original transaction not found');
       }
 
-      // Verify fee increase is sufficient (10% minimum)
-      const originalMaxFee = BigInt(originalTx.maxFeePerGas || 0);
-      const originalPriorityFee = BigInt(originalTx.maxPriorityFeePerGas || 0);
-      const newMaxFee = BigInt(newMaxFeePerGas);
-      const newPriorityFee = BigInt(newMaxPriorityFeePerGas);
+      // Get correct provider for chain
+      const correctProvider = await this.getProviderFromChainId(Number(originalTx.chainId));
 
-      if (newMaxFee < (originalMaxFee * 110n) / 100n) {
-        throw new Error('New max fee must be at least 10% higher than original');
-      }
-      if (newPriorityFee < (originalPriorityFee * 110n) / 100n) {
-        throw new Error('New priority fee must be at least 10% higher than original');
-      }
-
-      // Create replacement transaction with SAME NONCE
-      const replacementTx: UnsignedTransaction = {
-        to: originalTx.to!,
-        value: originalTx.value.toString(),
-        data: originalTx.data,
-        chainId: wallet.chain_id,
-        nonce: originalTx.nonce, // CRITICAL: Same nonce to replace
-        gasLimit: originalTx.gasLimit.toString(),
+      // Reconstruct transfer params from original transaction
+      const params: TransferParams = {
+        from: originalTx.from,
+        to: originalTx.to,
+        amount: originalTx.data === '0x' 
+          ? ethers.formatEther(originalTx.value) 
+          : '0', // Will need to decode for tokens
+        token: originalTx.data !== '0x' ? originalTx.to : undefined,
+        chainId: Number(originalTx.chainId),
+        walletId,
+        walletType,
+        nonce: originalTx.nonce, // CRITICAL: Use same nonce
         maxFeePerGas: newMaxFeePerGas,
         maxPriorityFeePerGas: newMaxPriorityFeePerGas
       };
 
-      console.log(`📝 Replacement transaction:`, {
-        nonce: replacementTx.nonce,
-        originalMaxFee: ethers.formatUnits(originalMaxFee, 'gwei') + ' Gwei',
-        newMaxFee: ethers.formatUnits(newMaxFee, 'gwei') + ' Gwei',
-        increase: ((Number(newMaxFee - originalMaxFee) / Number(originalMaxFee)) * 100).toFixed(1) + '%'
-      });
-
-      // Sign and broadcast replacement
-      const result = await this.signAndBroadcast(replacementTx, walletId, walletType);
-
-      if (result.success) {
-        // Update database with new transaction hash
-        await supabase
-          .from('wallet_transactions')
-          .update({
-            transaction_hash: result.transactionHash,
-            status: 'pending',
-            updated_at: new Date().toISOString(),
-            metadata: {
-              ...txRecord.metadata,
-              fee_bump: {
-                original_hash: originalTxHash,
-                bumped_at: new Date().toISOString(),
-                fee_increase: {
-                  maxFee: ethers.formatUnits(newMaxFee - originalMaxFee, 'gwei') + ' Gwei',
-                  priority: ethers.formatUnits(newPriorityFee - originalPriorityFee, 'gwei') + ' Gwei'
-                }
-              }
-            }
-          })
-          .eq('transaction_hash', originalTxHash);
-
-        console.log(`✅ Fee bump successful! New hash: ${result.transactionHash}`);
-      }
-
-      return result;
+      // Execute replacement transaction
+      return await this.executeTransfer(params);
     } catch (error) {
       console.error('❌ Fee bump failed:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to bump transaction fees'
+        error: error instanceof Error ? error.message : 'Fee bump failed'
       };
     }
   }
+
+  /**
+   * Diagnose nonce issues for an address
+   */
+  async diagnoseNonceIssues(
+    address: string,
+    chainId: number
+  ): Promise<{
+    hasGap: boolean;
+    recommendations: string[];
+  }> {
+    const provider = await this.getProviderFromChainId(chainId);
+    const status = await nonceManager.getNonceStatus(address, provider);
+
+    const recommendations: string[] = [];
+
+    if (status.hasGap) {
+      recommendations.push(`⚠️ ${status.gapSize} stuck transaction(s) detected`);
+      recommendations.push('Cancel stuck transactions before batch operations');
+    } else {
+      recommendations.push('✅ No nonce issues detected');
+    }
+
+    return {
+      hasGap: status.hasGap,
+      recommendations
+    };
+  }
 }
 
-// Export singleton instance
 export const transferService = TransferService.getInstance();

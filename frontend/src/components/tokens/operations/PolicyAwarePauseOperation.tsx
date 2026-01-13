@@ -12,12 +12,15 @@ import { AlertCircle, Shield, Check, X, ChevronRight, Loader2, PauseCircle, Play
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useCryptoOperationGateway } from '@/infrastructure/gateway/hooks/useCryptoOperationGateway';
 import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreTransactionHooks';
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
 import { tokenPauseService, nonceManager } from '@/services/wallet';
+import { useOperationRouting } from '@/services/routing';
+import { ExecutionModeSelector } from '@/components/routing';
 import { ethers } from 'ethers';
 import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -76,6 +79,15 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
   
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
   const { supabase } = useSupabase();
+
+  // 🆕 Routing hook - Intelligent execution mode selection
+  const { decision, executionMode, setExecutionMode, useGateway } = useOperationRouting({
+    operation: 'pause',
+    requiresPolicy: true,
+    requiresCompliance: true,
+    requiresAudit: true,
+    isBatch: false
+  });
 
   // Determine operation action
   const action = isPaused ? 'unpause' : 'pause';
@@ -160,39 +172,58 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
     setExecutionStep('execution');
     
     try {
-      // Use TokenPauseService with automatic nonce management
-      const result = await tokenPauseService.executePause({
-        contractAddress: tokenAddress,
-        pause: !isPaused, // true to pause, false to unpause
-        chainId: wallet.chainId || 0,
-        walletId: wallet.id,
-        walletType: wallet.type,
-        reason: reason || undefined
-      });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Pause/unpause operation failed');
-      }
-
-      // Store transaction hash
-      setTransactionHash(result.transactionHash || null);
-      
-      // Log operation to database with nonce tracking
-      await supabase.from('token_operations').insert({
-        token_id: tokenId,
-        operation_type: isPaused ? TokenOperationType.UNPAUSE : TokenOperationType.PAUSE,
-        operator: wallet.address,
-        transaction_hash: result.transactionHash,
-        status: 'success',
-        timestamp: new Date().toISOString(),
-        metadata: {
-          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce
-          reason: reason || `Manual ${action} operation`
+      // 🆕 Route based on intelligent decision
+      if (useGateway) {
+        // Route through Gateway (enhanced/foundry/basic mode)
+        console.log(`Using Gateway (${executionMode} mode):`, decision?.reason);
+        
+        // Conditionally call pause or unpause based on current state
+        if (!isPaused) {
+          await operations.pause(tokenAddress, chain, reason || undefined);
+        } else {
+          await operations.unpause(tokenAddress, chain, reason || undefined);
         }
-      });
+        
+        setExecutionStep('complete');
+        onSuccess?.();
+      } else {
+        // Route directly to service (direct mode)
+        console.log('Using direct service:', decision?.reason);
+        
+        const result = await tokenPauseService.executePause({
+          contractAddress: tokenAddress,
+          pause: !isPaused, // true to pause, false to unpause
+          chainId: wallet.chainId || 0,
+          walletId: wallet.id,
+          walletType: wallet.type,
+          reason: reason || undefined
+        });
 
-      setExecutionStep('complete');
-      onSuccess?.();
+        if (!result.success) {
+          throw new Error(result.error || 'Pause/unpause operation failed');
+        }
+
+        // Store transaction hash
+        setTransactionHash(result.transactionHash || null);
+        
+        // Manual logging (since bypassing Gateway)
+        await supabase.from('token_operations').insert({
+          token_id: tokenId,
+          operation_type: isPaused ? TokenOperationType.UNPAUSE : TokenOperationType.PAUSE,
+          operator: wallet.address,
+          transaction_hash: result.transactionHash,
+          status: 'success',
+          timestamp: new Date().toISOString(),
+          metadata: {
+            nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce
+            reason: reason || `Manual ${action} operation`,
+            routing: 'direct-service'
+          }
+        });
+
+        setExecutionStep('complete');
+        onSuccess?.();
+      }
       
     } catch (error) {
       console.error(`${actionLabel} operation failed:`, error);
@@ -240,6 +271,24 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
       </CardHeader>
 
       <CardContent>
+        {/* 🆕 Execution Mode Selector (Collapsible) */}
+        <Collapsible className="mb-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full flex items-center justify-between">
+              <span>Execution Mode: {executionMode}</span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <ExecutionModeSelector
+              value={executionMode}
+              onChange={setExecutionMode}
+              decision={decision}
+              showDecisionInfo={true}
+            />
+          </CollapsibleContent>
+        </Collapsible>
+
         {!isDeployed && (
           <Alert variant="destructive" className="mb-4">
             <AlertCircle className="h-4 w-4" />

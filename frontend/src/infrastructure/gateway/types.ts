@@ -168,9 +168,19 @@ export interface GatewayConfig {
   cacheEnabled?: boolean;
   retryCount?: number;
   timeout?: number;
+  // 🆕 Executor Mode Selection
+  executionMode?: 'basic' | 'foundry' | 'enhanced';
   // 🆕 Foundry Integration
-  useFoundry?: boolean; // Enable Foundry smart contract execution
+  useFoundry?: boolean; // Enable Foundry smart contract execution (deprecated: use executionMode)
   foundryConfig?: FoundryGatewayConfig;
+  // 🆕 Enhanced Executor Config (for nonce-aware execution)
+  enhancedConfig?: {
+    enableFoundryValidation?: boolean; // Add on-chain validation to enhanced executors
+    walletConfig?: {
+      walletId: string;
+      walletType: 'project' | 'user';
+    };
+  };
 }
 
 // Foundry Gateway Configuration
