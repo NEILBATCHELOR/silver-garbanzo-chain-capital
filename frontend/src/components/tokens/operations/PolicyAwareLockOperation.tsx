@@ -19,6 +19,9 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
+import { tokenLockingService, nonceManager } from '@/services/wallet';
+import { ethers } from 'ethers';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
 
 interface PolicyAwareLockOperationProps {
   tokenId: string;
@@ -28,6 +31,14 @@ interface PolicyAwareLockOperationProps {
   tokenSymbol: string;
   chain: SupportedChain;
   isDeployed: boolean;
+  wallets?: Array<{
+    id: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
+    chainId?: number;
+    blockchain?: string;
+  }>;
   onSuccess?: () => void;
 }
 
@@ -49,14 +60,18 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
   tokenSymbol,
   chain,
   isDeployed,
+  wallets = [],
   onSuccess
 }) => {
   // Form state
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [amount, setAmount] = useState('');
   const [duration, setDuration] = useState('');
   const [customDuration, setCustomDuration] = useState('');
   const [reason, setReason] = useState('');
   const [tokenIdToLock, setTokenIdToLock] = useState('');
+  const [nonceGapWarning, setNonceGapWarning] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
@@ -76,6 +91,11 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
   // Validate input before submission
   const validateInput = (): boolean => {
     if (!isDeployed) {
+      return false;
+    }
+
+    // Require wallet selection if wallets are available
+    if (wallets.length > 0 && !selectedWallet) {
       return false;
     }
     
@@ -110,15 +130,39 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
   // Handle pre-transaction validation
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setNonceGapWarning(null);
+
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
+    // Check for nonce gaps (CRITICAL for transaction success)
+    try {
+      const rpcConfig = rpcManager.getProviderConfig(wallet.blockchain as any, 'testnet');
+      if (rpcConfig) {
+        const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+        const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+
+        if (nonceStatus.hasGap) {
+          const warning = `⚠️ NONCE GAP DETECTED: ${nonceStatus.gapSize} pending transaction(s) may cause failures. Consider fixing gaps before proceeding.`;
+          setNonceGapWarning(warning);
+        }
+      }
+    } catch (error) {
+      console.error('Nonce gap check failed:', error);
+    }
     
     const effectiveDuration = duration === 'custom' ? customDuration : duration;
     
     // Build transaction for validation
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: wallet.address,
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
+      from: wallet.address,
       data: '0x', // Will be built by gateway
       value: '0',
       status: 'pending' as const,
@@ -148,35 +192,59 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
       return;
     }
 
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
     setExecutionStep('execution');
     
     const effectiveDuration = duration === 'custom' ? customDuration : duration;
     
     try {
-      await operations.lock(
-        tokenAddress,
-        amount || '0',
-        Number(effectiveDuration),
-        reason,
-        chain
-      );
+      // Use TokenLockingService with automatic nonce management
+      const result = await tokenLockingService.executeLock({
+        contractAddress: tokenAddress,
+        amount: amount || '0',
+        duration: Number(effectiveDuration),
+        chainId: wallet.chainId || 0,
+        walletId: wallet.id,
+        walletType: wallet.type,
+        reason
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Lock operation failed');
+      }
+
+      // Store transaction hash and nonce for diagnostics
+      setTransactionHash(result.transactionHash || null);
       
       // Calculate unlock time
       const unlockTime = new Date(Date.now() + Number(effectiveDuration) * 1000);
       
-      // Log operation to database
+      // Log operation to database with nonce tracking
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: TokenOperationType.LOCK,
-        operator: window.ethereum?.selectedAddress,
+        operator: wallet.address,
         amount: amount || null,
         lock_duration: Number(effectiveDuration),
         lock_reason: reason,
         unlock_time: unlockTime.toISOString(),
-        transaction_hash: null, // Will be updated by gateway
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        transaction_hash: result.transactionHash,
+        status: 'success',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce for tracking
+          lockId: result.diagnostics?.lockId // Store lock ID for future unlock
+        }
       });
+
+      setExecutionStep('complete');
+      onSuccess?.();
       
     } catch (error) {
       console.error('Lock operation failed:', error);
@@ -203,9 +271,10 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
             <CardTitle className="flex items-center gap-2">
               <Lock className="h-5 w-5 text-blue-500" />
               Policy-Protected Lock Operation
+              <Badge variant="outline" className="ml-2">Nonce-Aware</Badge>
             </CardTitle>
             <CardDescription>
-              Lock {tokenSymbol} tokens for a specified duration with policy validation
+              Lock {tokenSymbol} tokens for a specified duration with policy validation and nonce management
             </CardDescription>
           </div>
           <Badge variant={isDeployed ? 'default' : 'secondary'}>
@@ -232,6 +301,29 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* Wallet Selection */}
+            {wallets.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="wallet">Operator Wallet *</Label>
+                <Select
+                  value={selectedWallet}
+                  onValueChange={setSelectedWallet}
+                  disabled={!isDeployed}
+                >
+                  <SelectTrigger id="wallet">
+                    <SelectValue placeholder="Select wallet to lock tokens from" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wallets.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {(tokenStandard === 'ERC-20' || tokenStandard === 'ERC-1400') && (
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount to Lock *</Label>
@@ -330,6 +422,15 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
 
             {validationResult && !validating && (
               <div className="space-y-4">
+                {/* Nonce Gap Warning */}
+                {nonceGapWarning && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Nonce Gap Detected</AlertTitle>
+                    <AlertDescription>{nonceGapWarning}</AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Overall Status */}
                 <Alert variant={validationResult.valid ? 'default' : 'destructive'}>
                   <AlertTitle className="flex items-center gap-2">
@@ -434,6 +535,19 @@ export const PolicyAwareLockOperation: React.FC<PolicyAwareLockOperationProps> =
               <AlertTitle>Lock Complete!</AlertTitle>
               <AlertDescription>
                 Successfully locked {amount} {tokenSymbol} until {calculateUnlockTime()}
+                {transactionHash && (
+                  <>
+                    <br />
+                    <a 
+                      href={`https://explorer.hoodi.network/tx/${transactionHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 underline text-xs"
+                    >
+                      View on Explorer →
+                    </a>
+                  </>
+                )}
               </AlertDescription>
             </Alert>
             <Button onClick={handleReset} className="w-full">

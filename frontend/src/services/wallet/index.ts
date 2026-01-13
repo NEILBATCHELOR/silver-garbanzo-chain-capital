@@ -291,3 +291,12 @@ export * from './TransferService';
 export * from './TokenMintingService';
 export * from './NonceManager';
 
+
+// 🆕 Token Operation Services with Nonce Management
+export * from './TokenBurningService';
+export * from './TokenPauseService';
+export * from './TokenLockingService';
+export * from './TokenUnlockingService';
+export * from './TokenBlockingService';
+export * from './TokenUnblockingService';
+export * from './TokenMaxSupplyService';

@@ -17,6 +17,10 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
+import { transferService, nonceManager } from '@/services/wallet';
+import { ethers } from 'ethers';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PolicyAwareTransferOperationProps {
   tokenId: string;
@@ -27,6 +31,14 @@ interface PolicyAwareTransferOperationProps {
   chain: SupportedChain;
   isDeployed: boolean;
   balance?: string;
+  wallets?: Array<{
+    id: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
+    chainId?: number;
+    blockchain?: string;
+  }>;
   onSuccess?: () => void;
 }
 
@@ -39,15 +51,19 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
   chain,
   isDeployed,
   balance,
+  wallets = [],
   onSuccess
 }) => {
   // Form state
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [tokenIdToTransfer, setTokenIdToTransfer] = useState('');
   const [tokenTypeId, setTokenTypeId] = useState('');
   const [partition, setPartition] = useState('');
   const [memo, setMemo] = useState('');
+  const [nonceGapWarning, setNonceGapWarning] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
@@ -67,6 +83,11 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
   // Validate input before submission
   const validateInput = (): boolean => {
     if (!isDeployed) {
+      return false;
+    }
+
+    // Require wallet selection if wallets are available
+    if (wallets.length > 0 && !selectedWallet) {
       return false;
     }
     
@@ -107,13 +128,37 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
   // Handle pre-transaction validation
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setNonceGapWarning(null);
+
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
+    // Check for nonce gaps (CRITICAL for transaction success)
+    try {
+      const rpcConfig = rpcManager.getProviderConfig(wallet.blockchain as any, 'testnet');
+      if (rpcConfig) {
+        const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+        const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+
+        if (nonceStatus.hasGap) {
+          const warning = `⚠️ NONCE GAP DETECTED: ${nonceStatus.gapSize} pending transaction(s) may cause failures. Consider fixing gaps before proceeding.`;
+          setNonceGapWarning(warning);
+        }
+      }
+    } catch (error) {
+      console.error('Nonce gap check failed:', error);
+    }
     
     // Build transaction for validation
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: wallet.address,
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
+      from: wallet.address,
       data: '0x', // Will be built by gateway
       value: '0',
       status: 'pending' as const,
@@ -144,28 +189,52 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
       return;
     }
 
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
     setExecutionStep('execution');
     
     try {
-      await operations.transfer(
-        tokenAddress,
-        recipient,
-        amount || '0',
-        chain
-      );
+      // Use TransferService with automatic nonce management
+      const result = await transferService.executeTransfer({
+        from: wallet.address,
+        to: recipient,
+        amount: amount || '0',
+        chainId: wallet.chainId || 0,
+        walletId: wallet.id,
+        walletType: wallet.type
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Transfer failed');
+      }
+
+      // Store transaction hash and nonce for diagnostics
+      setTransactionHash(result.transactionHash || null);
       
-      // Log operation to database
+      // Log operation to database with nonce tracking
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: TokenOperationType.TRANSFER,
-        operator: window.ethereum?.selectedAddress,
-        sender: window.ethereum?.selectedAddress,
+        operator: wallet.address,
+        sender: wallet.address,
         recipient,
         amount: amount || null,
-        transaction_hash: null, // Will be updated by gateway
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        transaction_hash: result.transactionHash,
+        status: 'success',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce for tracking
+          memo
+        }
       });
+
+      setExecutionStep('complete');
+      onSuccess?.();
       
     } catch (error) {
       console.error('Transfer operation failed:', error);
@@ -193,9 +262,10 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
             <CardTitle className="flex items-center gap-2">
               <ArrowRight className="h-5 w-5 text-green-500" />
               Policy-Protected Transfer Operation
+              <Badge variant="outline" className="ml-2">Nonce-Aware</Badge>
             </CardTitle>
             <CardDescription>
-              Transfer {tokenSymbol} tokens with automated policy validation
+              Transfer {tokenSymbol} tokens with automated policy validation and nonce management
             </CardDescription>
           </div>
           <Badge variant={isDeployed ? 'default' : 'secondary'}>
@@ -222,6 +292,29 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* Wallet Selection */}
+            {wallets.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="wallet">Transfer From Wallet *</Label>
+                <Select
+                  value={selectedWallet}
+                  onValueChange={setSelectedWallet}
+                  disabled={!isDeployed}
+                >
+                  <SelectTrigger id="wallet">
+                    <SelectValue placeholder="Select wallet to transfer from" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wallets.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="recipient">Recipient Address *</Label>
               <Input
@@ -340,6 +433,15 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
 
             {validationResult && !validating && (
               <div className="space-y-4">
+                {/* Nonce Gap Warning */}
+                {nonceGapWarning && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Nonce Gap Detected</AlertTitle>
+                    <AlertDescription>{nonceGapWarning}</AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Overall Status */}
                 <Alert variant={validationResult.valid ? 'default' : 'destructive'}>
                   <AlertTitle className="flex items-center gap-2">
@@ -457,6 +559,19 @@ export const PolicyAwareTransferOperation: React.FC<PolicyAwareTransferOperation
               <AlertTitle>Transfer Complete!</AlertTitle>
               <AlertDescription>
                 Successfully transferred {amount} {tokenSymbol} to {recipient.slice(0, 6)}...{recipient.slice(-4)}
+                {transactionHash && (
+                  <>
+                    <br />
+                    <a 
+                      href={`https://explorer.hoodi.network/tx/${transactionHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 underline text-xs"
+                    >
+                      View on Explorer →
+                    </a>
+                  </>
+                )}
               </AlertDescription>
             </Alert>
             <Button onClick={handleReset} className="w-full">

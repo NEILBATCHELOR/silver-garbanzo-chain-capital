@@ -1,6 +1,7 @@
 /**
  * Update Max Supply Operation Component
- * Allows increasing or removing the token supply cap
+ * 🆕 ENHANCED: Now uses TokenMaxSupplyService with automatic nonce management
+ * Allows increasing or removing the token supply cap with nonce-aware execution
  */
 
 import React, { useState, useEffect } from 'react';
@@ -8,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Shield, Check, X, ChevronRight, Loader2, TrendingUp, Infinity } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +21,10 @@ import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
 import { ethers } from 'ethers';
+// 🆕 Import TokenMaxSupplyService for nonce-aware execution
+import { tokenMaxSupplyService, nonceManager } from '@/services/wallet';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
 interface UpdateMaxSupplyOperationProps {
   tokenId: string;
@@ -31,6 +37,14 @@ interface UpdateMaxSupplyOperationProps {
   currentMaxSupply: string;
   currentTotalSupply: string;
   decimals: number;
+  wallets?: Array<{
+    id: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
+    chainId?: number;
+    blockchain?: string;
+  }>;
   onSuccess?: () => void;
 }
 
@@ -45,21 +59,29 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
   currentMaxSupply,
   currentTotalSupply,
   decimals,
+  wallets = [],
   onSuccess
 }) => {
   // Form state
   const [newMaxSupply, setNewMaxSupply] = useState('');
   const [unlimitedSupply, setUnlimitedSupply] = useState(false);
   
+  // 🆕 Wallet selection state
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
+  
   // UI state
   const [showValidation, setShowValidation] = useState(false);
   const [executionStep, setExecutionStep] = useState<'input' | 'validation' | 'execution' | 'complete'>('input');
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  
+  // 🆕 Nonce management state
+  const [nonceGapWarning, setNonceGapWarning] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
   
   // Hooks
   const { operations, loading: gatewayLoading, error: gatewayError } = useCryptoOperationGateway({
     onSuccess: (result) => {
-      setExecutionStep('complete');
-      onSuccess?.();
+      // Note: Now using TokenMaxSupplyService directly, but keeping gateway for policy validation
     }
   });
   
@@ -85,6 +107,11 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
   // Validate input
   const validateInput = (): boolean => {
     if (!isDeployed) return false;
+    
+    // Require wallet selection if wallets are available
+    if (wallets.length > 0 && !selectedWallet) {
+      return false;
+    }
     
     if (unlimitedSupply) {
       return true; // Setting to unlimited (0) is always valid
@@ -128,18 +155,44 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
     return null;
   };
 
-  // Handle pre-transaction validation
+  // 🆕 Handle pre-transaction validation with nonce gap detection
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setNonceGapWarning(null);
+
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet && wallets.length > 0) {
+      console.error('No wallet selected');
+      return;
+    }
+
+    // 🆕 Check for nonce gaps if wallet is available
+    if (wallet) {
+      try {
+        const rpcConfig = rpcManager.getProviderConfig(wallet.blockchain as any, 'testnet');
+        if (rpcConfig) {
+          const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+          const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+
+          if (nonceStatus.hasGap) {
+            const warning = `⚠️ NONCE GAP DETECTED: ${nonceStatus.gapSize} pending transaction(s) may cause failures.`;
+            setNonceGapWarning(warning);
+          }
+        }
+      } catch (error) {
+        console.error('Nonce gap check failed:', error);
+      }
+    }
     
     const supplyValue = unlimitedSupply ? '0' : newMaxSupplyBigInt.toString();
     
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: wallet?.address || window.ethereum?.selectedAddress || '',
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
-      data: '0x', // Will be built by gateway
+      from: wallet?.address || window.ethereum?.selectedAddress || '',
+      data: '0x', // Will be built by service
       value: '0',
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
@@ -161,19 +214,41 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
     setShowValidation(true);
   };
 
-  // Handle execution
+  // 🆕 Handle execution with TokenMaxSupplyService
   const handleExecute = async () => {
-    if (!validationResult?.valid) return;
+    if (!validationResult?.valid) {
+      setUpdateError('Transaction failed validation');
+      return;
+    }
 
     setExecutionStep('execution');
+    setUpdateError(null);
     
     try {
+      const wallet = wallets.find(w => w.id === selectedWallet);
+      if (!wallet) {
+        throw new Error('No wallet selected');
+      }
+      
+      const chainIdNum = getChainId(chain);
       const supplyValue = unlimitedSupply ? '0' : newMaxSupplyBigInt.toString();
       
-      // Call updateMaxSupply on contract
-      await operations.updateMaxSupply(tokenAddress, supplyValue, chain);
+      // 🆕 Execute update with TokenMaxSupplyService (nonce-aware)
+      const result = await tokenMaxSupplyService.executeUpdateMaxSupply({
+        contractAddress: tokenAddress,
+        newMaxSupply: supplyValue,
+        chainId: chainIdNum,
+        walletId: wallet.id,
+        walletType: wallet.type
+      });
       
-      // Update database
+      if (!result.success) {
+        throw new Error(result.error || 'Max supply update failed');
+      }
+      
+      setTransactionHash(result.transactionHash || null);
+      
+      // Update database - properties table
       const propertiesTable = `token_${tokenStandard.toLowerCase().replace('-', '')}_properties`;
       
       await supabase
@@ -184,23 +259,29 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
         })
         .eq('token_id', tokenId);
 
-      // Log operation
+      // 🆕 Log operation with nonce tracking
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: TokenOperationType.UPDATE_MAX_SUPPLY,
-        operator: window.ethereum?.selectedAddress,
+        operator: wallet.address,
         amount: supplyValue,
+        transaction_hash: result.transactionHash,
+        status: 'confirmed',
+        timestamp: new Date().toISOString(),
         metadata: {
+          nonce: result.diagnostics?.nonce, // 🆕 Store nonce for diagnostics
           previousMaxSupply: currentMaxSupply,
-          newMaxSupply: supplyValue
-        },
-        transaction_hash: null,
-        status: 'pending',
-        timestamp: new Date().toISOString()
+          newMaxSupply: supplyValue,
+          gasUsed: result.diagnostics?.gasUsed
+        }
       });
       
+      setExecutionStep('complete');
+      onSuccess?.();
+      
     } catch (error) {
-      console.error('Update max supply operation failed:', error);
+      console.error('Max supply update failed:', error);
+      setUpdateError(error instanceof Error ? error.message : 'Update failed');
       setExecutionStep('validation');
     }
   };
@@ -211,6 +292,9 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
     setUnlimitedSupply(false);
     setShowValidation(false);
     setExecutionStep('input');
+    setUpdateError(null);
+    setTransactionHash(null);
+    setNonceGapWarning(null);
   };
 
   const validationError = getValidationError();
@@ -219,15 +303,41 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Update Maximum Supply
-          </CardTitle>
-          <CardDescription>
-            Adjust the supply cap for {tokenName} ({tokenSymbol})
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Update Maximum Supply
+                {/* 🆕 Badge indicating nonce management */}
+                <Badge variant="outline" className="ml-2">
+                  Nonce-Aware
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                Adjust the supply cap for {tokenName} ({tokenSymbol}) with automated nonce management
+              </CardDescription>
+            </div>
+            <Badge variant={isDeployed ? 'default' : 'secondary'}>
+              {isDeployed ? 'Deployed' : 'Not Deployed'}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* 🆕 Nonce Gap Warning */}
+          {nonceGapWarning && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Nonce Gap Detected</AlertTitle>
+              <AlertDescription>
+                {nonceGapWarning}
+                <br />
+                <span className="text-xs">
+                  Recommended: Cancel stuck transactions before proceeding to avoid failures.
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Tabs value={executionStep} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="input">Input</TabsTrigger>
@@ -244,6 +354,40 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
 
             {/* STEP 1: Input */}
             <TabsContent value="input" className="space-y-4 mt-4">
+              {/* 🆕 Wallet Selection */}
+              {wallets.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="wallet">Operator Wallet *</Label>
+                  <Select
+                    value={selectedWallet}
+                    onValueChange={setSelectedWallet}
+                    disabled={!isDeployed}
+                  >
+                    <SelectTrigger id="wallet">
+                      <SelectValue placeholder="Select operator wallet..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {wallets.map((wallet) => (
+                        <SelectItem key={wallet.id} value={wallet.id}>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{wallet.name}</span>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                            </span>
+                            <Badge variant="outline" className="text-xs">
+                              {wallet.type}
+                            </Badge>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This wallet will execute the max supply update transaction
+                  </p>
+                </div>
+              )}
+
               {/* Current Supply Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
                 <div className="space-y-1">
@@ -415,6 +559,15 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
                 </>
               )}
 
+              {/* Show update error if any */}
+              {updateError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Update Error</AlertTitle>
+                  <AlertDescription>{updateError}</AlertDescription>
+                </Alert>
+              )}
+
               <Button onClick={handleReset} variant="outline" className="w-full">
                 Reset
               </Button>
@@ -426,13 +579,20 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
                 <Loader2 className="h-4 w-4 animate-spin" />
                 <span>Updating maximum supply...</span>
               </div>
+              {gatewayError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Execution Error</AlertTitle>
+                  <AlertDescription>{gatewayError.message}</AlertDescription>
+                </Alert>
+              )}
             </TabsContent>
 
             {/* STEP 4: Complete */}
             <TabsContent value="complete" className="space-y-4 mt-4">
               <Alert>
                 <Check className="h-4 w-4" />
-                <AlertTitle>Max Supply Updated</AlertTitle>
+                <AlertTitle>Max Supply Updated!</AlertTitle>
                 <AlertDescription>
                   Successfully updated maximum supply to{' '}
                   {unlimitedSupply ? (
@@ -442,6 +602,31 @@ export const UpdateMaxSupplyOperation: React.FC<UpdateMaxSupplyOperationProps> =
                   )}
                 </AlertDescription>
               </Alert>
+
+              {/* 🆕 Transaction Hash */}
+              {transactionHash && (
+                <Alert>
+                  <AlertTitle>Transaction Details</AlertTitle>
+                  <AlertDescription className="space-y-2">
+                    <div>
+                      <span className="font-medium">Transaction Hash:</span>
+                      <br />
+                      <code className="text-xs break-all">{transactionHash}</code>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const explorerUrl = `https://explorer.hoodi.io/tx/${transactionHash}`;
+                        window.open(explorerUrl, '_blank');
+                      }}
+                      className="w-full mt-2"
+                    >
+                      View on Hoodi Explorer →
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
 
               <Button onClick={handleReset} className="w-full">
                 Update Again

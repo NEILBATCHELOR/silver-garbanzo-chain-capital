@@ -17,6 +17,10 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
+import { tokenPauseService, nonceManager } from '@/services/wallet';
+import { ethers } from 'ethers';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PolicyAwarePauseOperationProps {
   tokenId: string;
@@ -27,8 +31,16 @@ interface PolicyAwarePauseOperationProps {
   chain: SupportedChain;
   isDeployed: boolean;
   isPaused: boolean;
-  onSuccess?: () => void;
   hasPauseFeature: boolean;
+  wallets?: Array<{
+    id: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
+    chainId?: number;
+    blockchain?: string;
+  }>;
+  onSuccess?: () => void;
 }
 
 export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps> = ({
@@ -40,11 +52,15 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
   chain,
   isDeployed,
   isPaused,
-  onSuccess,
-  hasPauseFeature
+  hasPauseFeature,
+  wallets = [],
+  onSuccess
 }) => {
   // Form state
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [reason, setReason] = useState('');
+  const [nonceGapWarning, setNonceGapWarning] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
@@ -69,20 +85,46 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
   const validateInput = (): boolean => {
     if (!isDeployed) return false;
     if (!hasPauseFeature) return false;
+    // Require wallet selection if wallets are available
+    if (wallets.length > 0 && !selectedWallet) return false;
     return true; // Reason is optional
   };
 
   // Handle pre-transaction validation
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setNonceGapWarning(null);
+
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
+    // Check for nonce gaps
+    try {
+      const rpcConfig = rpcManager.getProviderConfig(wallet.blockchain as any, 'testnet');
+      if (rpcConfig) {
+        const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+        const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+
+        if (nonceStatus.hasGap) {
+          const warning = `⚠️ NONCE GAP DETECTED: ${nonceStatus.gapSize} pending transaction(s) may cause failures.`;
+          setNonceGapWarning(warning);
+        }
+      }
+    } catch (error) {
+      console.error('Nonce gap check failed:', error);
+    }
     
     // Build transaction for validation
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: wallet.address,
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
-      data: '0x', // Will be built by gateway
+      from: wallet.address,
+      data: '0x',
       value: '0',
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
@@ -108,28 +150,49 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
       return;
     }
 
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
     setExecutionStep('execution');
     
     try {
-      // Execute pause or unpause via gateway
-      if (isPaused) {
-        await operations.unpause(tokenAddress, chain, reason || undefined);
-      } else {
-        await operations.pause(tokenAddress, chain, reason || undefined);
+      // Use TokenPauseService with automatic nonce management
+      const result = await tokenPauseService.executePause({
+        contractAddress: tokenAddress,
+        pause: !isPaused, // true to pause, false to unpause
+        chainId: wallet.chainId || 0,
+        walletId: wallet.id,
+        walletType: wallet.type,
+        reason: reason || undefined
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Pause/unpause operation failed');
       }
+
+      // Store transaction hash
+      setTransactionHash(result.transactionHash || null);
       
-      // Log operation to database
+      // Log operation to database with nonce tracking
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: isPaused ? TokenOperationType.UNPAUSE : TokenOperationType.PAUSE,
-        operator: window.ethereum?.selectedAddress,
-        transaction_hash: null, // Will be updated by gateway
-        status: 'pending',
+        operator: wallet.address,
+        transaction_hash: result.transactionHash,
+        status: 'success',
         timestamp: new Date().toISOString(),
         metadata: {
+          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce
           reason: reason || `Manual ${action} operation`
         }
       });
+
+      setExecutionStep('complete');
+      onSuccess?.();
       
     } catch (error) {
       console.error(`${actionLabel} operation failed:`, error);
@@ -157,11 +220,12 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
               )}
               <Shield className="h-5 w-5" />
               Policy-Protected {actionLabel} Operation
+              <Badge variant="outline" className="ml-2">Nonce-Aware</Badge>
             </CardTitle>
             <CardDescription>
               {isPaused 
-                ? `Resume ${tokenSymbol} token operations with automated policy validation`
-                : `Temporarily halt ${tokenSymbol} token operations with automated policy validation`}
+                ? `Resume ${tokenSymbol} token operations with automated policy validation and nonce management`
+                : `Temporarily halt ${tokenSymbol} token operations with automated policy validation and nonce management`}
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -213,6 +277,29 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* Wallet Selection */}
+            {wallets.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="wallet">Operator Wallet *</Label>
+                <Select
+                  value={selectedWallet}
+                  onValueChange={setSelectedWallet}
+                  disabled={!isDeployed || !hasPauseFeature}
+                >
+                  <SelectTrigger id="wallet">
+                    <SelectValue placeholder="Select wallet to execute operation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wallets.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="py-2">
               {isPaused ? (
                 <div className="p-4 bg-amber-50 rounded-md border border-amber-200">
@@ -258,6 +345,15 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
 
             {validationResult && !validating && (
               <div className="space-y-4">
+                {/* Nonce Gap Warning */}
+                {nonceGapWarning && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Nonce Gap Detected</AlertTitle>
+                    <AlertDescription>{nonceGapWarning}</AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Overall Status */}
                 <Alert variant={validationResult.valid ? 'default' : 'destructive'}>
                   <AlertTitle className="flex items-center gap-2">
@@ -367,6 +463,19 @@ export const PolicyAwarePauseOperation: React.FC<PolicyAwarePauseOperationProps>
                   <>
                     <br />
                     <span className="text-xs text-muted-foreground mt-1">Reason: {reason}</span>
+                  </>
+                )}
+                {transactionHash && (
+                  <>
+                    <br />
+                    <a 
+                      href={`https://explorer.hoodi.network/tx/${transactionHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 underline text-xs"
+                    >
+                      View on Explorer →
+                    </a>
                   </>
                 )}
               </AlertDescription>

@@ -18,6 +18,10 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
+import { tokenBlockingService, nonceManager } from '@/services/wallet';
+import { ethers } from 'ethers';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface PolicyAwareBlockOperationProps {
   tokenId: string;
@@ -27,6 +31,14 @@ interface PolicyAwareBlockOperationProps {
   tokenSymbol: string;
   chain: SupportedChain;
   isDeployed: boolean;
+  wallets?: Array<{
+    id: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
+    chainId?: number;
+    blockchain?: string;
+  }>;
   onSuccess?: () => void;
 }
 
@@ -38,11 +50,15 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
   tokenSymbol,
   chain,
   isDeployed,
+  wallets = [],
   onSuccess
 }) => {
   // Form state
+  const [selectedWallet, setSelectedWallet] = useState<string>('');
   const [addressToBlock, setAddressToBlock] = useState('');
   const [reason, setReason] = useState('');
+  const [nonceGapWarning, setNonceGapWarning] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
@@ -64,6 +80,11 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
     if (!isDeployed) {
       return false;
     }
+
+    // Require wallet selection if wallets are available
+    if (wallets.length > 0 && !selectedWallet) {
+      return false;
+    }
     
     if (!addressToBlock) {
       return false;
@@ -79,7 +100,8 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
     }
     
     // Don't allow blocking your own address
-    if (addressToBlock.toLowerCase() === window.ethereum?.selectedAddress?.toLowerCase()) {
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (wallet && addressToBlock.toLowerCase() === wallet.address.toLowerCase()) {
       return false;
     }
     
@@ -89,13 +111,37 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
   // Handle pre-transaction validation
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setNonceGapWarning(null);
+
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
+    // Check for nonce gaps
+    try {
+      const rpcConfig = rpcManager.getProviderConfig(wallet.blockchain as any, 'testnet');
+      if (rpcConfig) {
+        const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+        const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+
+        if (nonceStatus.hasGap) {
+          const warning = `⚠️ NONCE GAP DETECTED: ${nonceStatus.gapSize} pending transaction(s) may cause failures.`;
+          setNonceGapWarning(warning);
+        }
+      }
+    } catch (error) {
+      console.error('Nonce gap check failed:', error);
+    }
     
     // Build transaction for validation
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: wallet.address,
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
+      from: wallet.address,
       data: '0x', // Will be built by gateway
       value: '0',
       status: 'pending' as const,
@@ -123,27 +169,51 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
       return;
     }
 
+    // Get selected wallet
+    const wallet = wallets.find(w => w.id === selectedWallet);
+    if (!wallet) {
+      console.error('No wallet selected');
+      return;
+    }
+
     setExecutionStep('execution');
     
     try {
-      await operations.block(
-        tokenAddress,
+      // Use TokenBlockingService with automatic nonce management
+      const result = await tokenBlockingService.executeBlock({
+        contractAddress: tokenAddress,
         addressToBlock,
-        reason,
-        chain
-      );
+        chainId: wallet.chainId || 0,
+        walletId: wallet.id,
+        walletType: wallet.type,
+        reason
+      });
+
+      if (!result.success) {
+        throw new Error(result.error || 'Block operation failed');
+      }
+
+      // Store transaction hash
+      setTransactionHash(result.transactionHash || null);
       
-      // Log operation to database
+      // Log operation to database with nonce tracking
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: TokenOperationType.BLOCK,
-        operator: window.ethereum?.selectedAddress,
+        operator: wallet.address,
         blocked_address: addressToBlock,
         block_reason: reason,
-        transaction_hash: null, // Will be updated by gateway
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        transaction_hash: result.transactionHash,
+        status: 'success',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          nonce: result.diagnostics?.nonce, // CRITICAL: Store nonce
+          blockId: result.diagnostics?.blockId // Store block ID for future unblock
+        }
       });
+
+      setExecutionStep('complete');
+      onSuccess?.();
       
     } catch (error) {
       console.error('Block operation failed:', error);
@@ -167,9 +237,10 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
             <CardTitle className="flex items-center gap-2">
               <Ban className="h-5 w-5 text-red-500" />
               Policy-Protected Block Operation
+              <Badge variant="outline" className="ml-2">Nonce-Aware</Badge>
             </CardTitle>
             <CardDescription>
-              Block an address from {tokenSymbol} operations with policy validation
+              Block an address from {tokenSymbol} operations with policy validation and nonce management
             </CardDescription>
           </div>
           <Badge variant={isDeployed ? 'default' : 'secondary'}>
@@ -196,6 +267,29 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* Wallet Selection */}
+            {wallets.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="wallet">Operator Wallet *</Label>
+                <Select
+                  value={selectedWallet}
+                  onValueChange={setSelectedWallet}
+                  disabled={!isDeployed}
+                >
+                  <SelectTrigger id="wallet">
+                    <SelectValue placeholder="Select wallet to execute block operation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wallets.map((wallet) => (
+                      <SelectItem key={wallet.id} value={wallet.id}>
+                        {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="addressToBlock">Address to Block *</Label>
               <Input
@@ -205,7 +299,7 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
                 onChange={(e) => setAddressToBlock(e.target.value)}
                 disabled={!isDeployed}
               />
-              {addressToBlock && addressToBlock.toLowerCase() === window.ethereum?.selectedAddress?.toLowerCase() && (
+              {addressToBlock && wallets.find(w => w.id === selectedWallet && addressToBlock.toLowerCase() === w.address.toLowerCase()) && (
                 <p className="text-xs text-destructive">
                   You cannot block your own address
                 </p>
@@ -253,6 +347,15 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
 
             {validationResult && !validating && (
               <div className="space-y-4">
+                {/* Nonce Gap Warning */}
+                {nonceGapWarning && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Nonce Gap Detected</AlertTitle>
+                    <AlertDescription>{nonceGapWarning}</AlertDescription>
+                  </Alert>
+                )}
+
                 {/* Overall Status */}
                 <Alert variant={validationResult.valid ? 'default' : 'destructive'}>
                   <AlertTitle className="flex items-center gap-2">
@@ -357,6 +460,19 @@ export const PolicyAwareBlockOperation: React.FC<PolicyAwareBlockOperationProps>
               <AlertDescription>
                 Successfully blocked address {addressToBlock.slice(0, 6)}...{addressToBlock.slice(-4)}<br />
                 Reason: {reason}
+                {transactionHash && (
+                  <>
+                    <br />
+                    <a 
+                      href={`https://explorer.hoodi.network/tx/${transactionHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 underline text-xs"
+                    >
+                      View on Explorer →
+                    </a>
+                  </>
+                )}
               </AlertDescription>
             </Alert>
             <Button onClick={handleReset} className="w-full">

@@ -1,9 +1,10 @@
 /**
  * Policy-Aware Burn Operation Component
+ * 🆕 ENHANCED: Now uses TokenBurningService with automatic nonce management
  * Integrates with Policy Engine for pre-transaction validation
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,12 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
+// 🆕 Import TokenBurningService for nonce-aware execution
+import { tokenBurningService } from '@/services/wallet/TokenBurningService';
+import { nonceManager } from '@/services/wallet/NonceManager';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { ethers } from 'ethers';
+import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
 interface PolicyAwareBurnOperationProps {
   tokenId: string;
@@ -44,26 +51,113 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
   const [tokenTypeId, setTokenTypeId] = useState('');
   const [tokenIdToBurn, setTokenIdToBurn] = useState('');
   
+  // 🆕 Wallet selection state
+  const [selectedWallet, setSelectedWallet] = useState('');
+  const [availableWallets, setAvailableWallets] = useState<Array<{
+    id: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
+  }>>([]);
+  
   // UI state
   const [showValidation, setShowValidation] = useState(false);
   const [executionStep, setExecutionStep] = useState<'input' | 'validation' | 'execution' | 'complete'>('input');
+  const [burnError, setBurnError] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
+  
+  // 🆕 Nonce management state
+  const [nonceGapWarning, setNonceGapWarning] = useState<{
+    hasGap: boolean;
+    gapSize: number;
+  } | null>(null);
   
   // Hooks
   const { operations, loading: gatewayLoading, error: gatewayError } = useCryptoOperationGateway({
     onSuccess: (result) => {
-      setExecutionStep('complete');
-      onSuccess?.();
+      // Note: Now using TokenBurningService directly
     }
   });
   
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
   const { supabase } = useSupabase();
 
+  // Load available burner wallets
+  useEffect(() => {
+    loadBurnerWallets();
+  }, [tokenId]);
+
+  const loadBurnerWallets = async () => {
+    try {
+      const { data: wallets } = await supabase
+        .from('project_wallets')
+        .select('id, address, name, type')
+        .eq('project_id', tokenId);
+      
+      if (wallets) {
+        setAvailableWallets(wallets.map(w => ({
+          id: w.id,
+          address: w.address || '',
+          name: w.name || 'Unnamed Wallet',
+          type: w.type || 'project'
+        })));
+        
+        if (wallets.length > 0) {
+          setSelectedWallet(wallets[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load burner wallets:', error);
+    }
+  };
+
+  // 🆕 Check for nonce gaps before execution
+  const checkNonceGaps = async (): Promise<boolean> => {
+    if (!selectedWallet) return true;
+    
+    const wallet = availableWallets.find(w => w.id === selectedWallet);
+    if (!wallet) return true;
+    
+    try {
+      const chainIdNum = getChainId(chain);
+      const rpcConfig = rpcManager.getProviderConfig(chain, 'testnet');
+      
+      if (!rpcConfig) {
+        console.warn('No RPC config for nonce check');
+        return true;
+      }
+      
+      const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+      const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+      
+      if (nonceStatus.hasGap) {
+        setNonceGapWarning({
+          hasGap: true,
+          gapSize: nonceStatus.gapSize
+        });
+        
+        const shouldContinue = window.confirm(
+          `⚠️ NONCE GAP DETECTED!\n\n` +
+          `There are ${nonceStatus.gapSize} pending transaction(s) blocking the queue.\n` +
+          `Starting burn now may cause failures.\n\n` +
+          `Recommended: Cancel stuck transactions first.\n\n` +
+          `Do you want to continue anyway?`
+        );
+        
+        return shouldContinue;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Nonce check failed:', error);
+      return true;
+    }
+  };
+
   // Validate input before submission
   const validateInput = (): boolean => {
-    if (!isDeployed) {
-      return false;
-    }
+    if (!isDeployed) return false;
+    if (!selectedWallet) return false;
     
     if (tokenStandard === 'ERC-20' || tokenStandard === 'ERC-1400' || tokenStandard === 'ERC-4626') {
       return !!amount && Number(amount) > 0;
@@ -87,14 +181,20 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
   // Handle pre-transaction validation
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setBurnError(null);
     
-    // Build transaction for validation
+    const canProceed = await checkNonceGaps();
+    if (!canProceed) {
+      setExecutionStep('input');
+      return;
+    }
+    
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: selectedWallet,
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
-      data: '0x', // Will be built by gateway
+      from: availableWallets.find(w => w.id === selectedWallet)?.address || '',
+      data: '0x',
       value: '0',
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
@@ -115,30 +215,62 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
     setShowValidation(true);
   };
 
-  // Handle execution after validation
+  // 🆕 Handle execution with TokenBurningService
   const handleExecute = async () => {
     if (!validationResult?.valid) {
+      setBurnError('Transaction failed validation');
       return;
     }
 
     setExecutionStep('execution');
+    setBurnError(null);
     
     try {
-      await operations.burn(tokenAddress, amount || '0', chain);
+      const wallet = availableWallets.find(w => w.id === selectedWallet);
+      if (!wallet) {
+        throw new Error('No wallet selected');
+      }
+      
+      const chainIdNum = getChainId(chain);
+      
+      // 🆕 Execute burn with TokenBurningService (nonce-aware)
+      const result = await tokenBurningService.executeBurn({
+        contractAddress: tokenAddress,
+        amount,
+        decimals: 18,
+        tokenId: tokenIdToBurn || tokenTypeId,
+        chainId: chainIdNum,
+        walletId: wallet.id,
+        walletType: wallet.type
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Burn failed');
+      }
+      
+      setTransactionHash(result.transactionHash || null);
       
       // Log operation to database
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: TokenOperationType.BURN,
-        operator: window.ethereum?.selectedAddress,
+        operator: wallet.address,
         amount: amount || null,
-        transaction_hash: null, // Will be updated by gateway
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        transaction_hash: result.transactionHash,
+        status: 'confirmed',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          nonce: result.diagnostics?.nonce,
+          gasUsed: result.diagnostics?.gasEstimate?.estimatedCost
+        }
       });
+      
+      setExecutionStep('complete');
+      onSuccess?.();
       
     } catch (error) {
       console.error('Burn operation failed:', error);
+      setBurnError(error instanceof Error ? error.message : 'Burn failed');
       setExecutionStep('validation');
     }
   };
@@ -150,6 +282,9 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
     setTokenIdToBurn('');
     setShowValidation(false);
     setExecutionStep('input');
+    setBurnError(null);
+    setTransactionHash(null);
+    setNonceGapWarning(null);
   };
 
   return (
@@ -160,9 +295,12 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
             <CardTitle className="flex items-center gap-2">
               <Flame className="h-5 w-5 text-orange-500" />
               Policy-Protected Burn Operation
+              <Badge variant="outline" className="ml-2">
+                Nonce-Aware
+              </Badge>
             </CardTitle>
             <CardDescription>
-              Burn {tokenSymbol} tokens with automated policy validation
+              Burn {tokenSymbol} tokens with automated policy validation and nonce management
             </CardDescription>
           </div>
           <Badge variant={isDeployed ? 'default' : 'secondary'}>
@@ -172,8 +310,20 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
       </CardHeader>
 
       <CardContent>
+        {/* 🆕 Nonce Gap Warning */}
+        {nonceGapWarning?.hasGap && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Nonce Gap Detected</AlertTitle>
+            <AlertDescription>
+              {nonceGapWarning.gapSize} pending transaction(s) are blocking the queue.
+              Consider resolving these before burning.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <Tabs value={executionStep} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
             <TabsTrigger value="input" disabled={executionStep !== 'input'}>
               Input
             </TabsTrigger>
@@ -189,6 +339,25 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* 🆕 Wallet Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="wallet">Burner Wallet *</Label>
+              <select
+                id="wallet"
+                className="w-full p-2 border rounded"
+                value={selectedWallet}
+                onChange={(e) => setSelectedWallet(e.target.value)}
+                disabled={!isDeployed}
+              >
+                <option value="">Select Wallet</option>
+                {availableWallets.map((wallet) => (
+                  <option key={wallet.id} value={wallet.id}>
+                    {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {(tokenStandard === 'ERC-20' || tokenStandard === 'ERC-1400' || tokenStandard === 'ERC-4626') && (
               <div className="space-y-2">
                 <Label htmlFor="amount">Amount to Burn *</Label>
@@ -290,7 +459,6 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
 
             {validationResult && !validating && (
               <div className="space-y-4">
-                {/* Overall Status */}
                 <Alert variant={validationResult.valid ? 'default' : 'destructive'}>
                   <AlertTitle className="flex items-center gap-2">
                     {validationResult.valid ? (
@@ -298,16 +466,15 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
                     ) : (
                       <X className="h-4 w-4" />
                     )}
-                    {validationResult.valid ? 'Burn Approved' : 'Burn Blocked'}
+                    {validationResult.valid ? 'Transaction Approved' : 'Transaction Blocked'}
                   </AlertTitle>
                   <AlertDescription>
                     {validationResult.valid 
-                      ? 'All policies and rules have been satisfied for burning.'
-                      : 'One or more policies prevent this burn operation.'}
+                      ? 'All policies and rules have been satisfied. Ready to burn with automatic nonce management.'
+                      : 'One or more policies prevent this operation.'}
                   </AlertDescription>
                 </Alert>
 
-                {/* Policy Checks */}
                 {validationResult.policies.length > 0 && (
                   <div className="space-y-2">
                     <h4 className="text-sm font-semibold">Policy Checks</h4>
@@ -322,42 +489,6 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
                   </div>
                 )}
 
-                {/* Rule Evaluations */}
-                {validationResult.rules.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-semibold">Rule Evaluations</h4>
-                    {validationResult.rules.map((rule) => (
-                      <div key={rule.ruleId} className="flex items-center justify-between p-2 border rounded">
-                        <div>
-                          <span className="text-sm">{rule.ruleName}</span>
-                          <span className="text-xs text-muted-foreground ml-2">({rule.category})</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={rule.impact === 'critical' ? 'destructive' : 'secondary'}>
-                            {rule.impact}
-                          </Badge>
-                          <Badge variant={rule.status === 'passed' ? 'success' : 'destructive'}>
-                            {rule.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Gas Estimate */}
-                {validationResult.gasEstimate && (
-                  <Alert>
-                    <AlertTitle>Gas Estimate</AlertTitle>
-                    <AlertDescription>
-                      Estimated gas: {validationResult.gasEstimate.limit?.toString()} units
-                      <br />
-                      Gas price: {validationResult.gasEstimate.price?.toString()} wei
-                    </AlertDescription>
-                  </Alert>
-                )}
-
-                {/* Errors */}
                 {validationResult.errors.length > 0 && (
                   <Alert variant="destructive">
                     <AlertCircle className="h-4 w-4" />
@@ -378,13 +509,13 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
           <TabsContent value="execution" className="space-y-4">
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Executing burn operation...</span>
+              <span className="ml-2">Executing burn operation with nonce management...</span>
             </div>
-            {gatewayError && (
+            {burnError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Execution Error</AlertTitle>
-                <AlertDescription>{gatewayError.message}</AlertDescription>
+                <AlertDescription>{burnError}</AlertDescription>
               </Alert>
             )}
           </TabsContent>
@@ -392,9 +523,21 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
           <TabsContent value="complete" className="space-y-4">
             <Alert>
               <Check className="h-4 w-4" />
-              <AlertTitle>Burn Complete!</AlertTitle>
+              <AlertTitle>Operation Complete!</AlertTitle>
               <AlertDescription>
                 Successfully burned {amount} {tokenSymbol}
+                {transactionHash && (
+                  <div className="mt-2">
+                    <a
+                      href={`https://etherscan.io/tx/${transactionHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      View on Explorer
+                    </a>
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
             <Button onClick={handleReset} className="w-full">
@@ -410,14 +553,13 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
             onClick={handleValidate} 
             disabled={!validateInput() || validating}
             className="w-full"
-            variant="destructive"
           >
             {validating ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : (
               <Shield className="h-4 w-4 mr-2" />
             )}
-            Validate Burn with Policies
+            Validate with Policies
           </Button>
         )}
 
@@ -432,15 +574,10 @@ export const PolicyAwareBurnOperation: React.FC<PolicyAwareBurnOperationProps> =
             </Button>
             <Button 
               onClick={handleExecute} 
-              disabled={!validationResult.valid || gatewayLoading}
-              variant="destructive"
+              disabled={!validationResult.valid}
               className="flex-1"
             >
-              {gatewayLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Flame className="h-4 w-4 mr-2" />
-              )}
+              <ChevronRight className="h-4 w-4 mr-2" />
               Execute Burn
             </Button>
           </div>

@@ -1,7 +1,8 @@
 /**
  * Policy-Aware Mint Operation Component
+ * 🆕 ENHANCED: Now uses TokenMintingService with automatic nonce management
  * Integrates with Policy Engine for pre-transaction validation
- * Now includes bulk minting functionality
+ * Includes bulk minting functionality with nonce gap detection
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,7 +20,12 @@ import { useTransactionValidation } from '@/infrastructure/validation/hooks/PreT
 import { TokenOperationType } from '@/components/tokens/types';
 import type { SupportedChain } from '@/infrastructure/web3/adapters/IBlockchainAdapter';
 import { useSupabaseClient as useSupabase } from '@/hooks/shared/supabase/useSupabaseClient';
-// Note: BulkMintForm import removed - use standalone component for bulk minting
+// 🆕 Import TokenMintingService for nonce-aware execution
+import { tokenMintingService } from '@/services/wallet/TokenMintingService';
+import { nonceManager } from '@/services/wallet/NonceManager';
+import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+import { ethers } from 'ethers';
+import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
 interface PolicyAwareMintOperationProps {
   tokenId: string;
@@ -51,40 +57,118 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
   const [tokenTypeId, setTokenTypeId] = useState('');
   const [slotId, setSlotId] = useState('');
   
-  // Note: Bulk mint - use standalone BulkMintForm component for new implementations
-  // Keeping minimal state for backward compatibility with existing bulk mint tab
-  const [bulkMintEntries, setBulkMintEntries] = useState<Array<{
+  // 🆕 Wallet selection state
+  const [selectedWallet, setSelectedWallet] = useState('');
+  const [availableWallets, setAvailableWallets] = useState<Array<{
     id: string;
-    toAddress: string;
-    amount: string;
-    status: 'pending' | 'validating' | 'processing' | 'success' | 'error';
-    transactionHash?: string;
-    error?: string;
+    address: string;
+    name: string;
+    type: 'project' | 'user';
   }>>([]);
   
   // UI state
   const [showValidation, setShowValidation] = useState(false);
   const [executionStep, setExecutionStep] = useState<'input' | 'validation' | 'execution' | 'complete'>('input');
+  const [mintError, setMintError] = useState<string | null>(null);
+  const [transactionHash, setTransactionHash] = useState<string | null>(null);
   
-  // Hooks - Fixed: properly destructure operations.mint
+  // 🆕 Nonce management state
+  const [nonceGapWarning, setNonceGapWarning] = useState<{
+    hasGap: boolean;
+    gapSize: number;
+  } | null>(null);
+  
+  // Hooks
   const { operations, loading: gatewayLoading, error: gatewayError } = useCryptoOperationGateway({
     onSuccess: (result) => {
-      setExecutionStep('complete');
-      onSuccess?.();
+      // Note: Now using TokenMintingService directly, but keeping gateway for policy validation
     }
   });
   
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
   const { supabase } = useSupabase();
 
+  // Load available minter wallets
+  useEffect(() => {
+    loadMinterWallets();
+  }, [tokenId]);
+
+  const loadMinterWallets = async () => {
+    try {
+      // Load project wallets that can mint
+      const { data: wallets } = await supabase
+        .from('project_wallets')
+        .select('id, address, name, type')
+        .eq('project_id', tokenId); // Assuming tokenId links to project
+      
+      if (wallets) {
+        setAvailableWallets(wallets.map(w => ({
+          id: w.id,
+          address: w.address || '',
+          name: w.name || 'Unnamed Wallet',
+          type: w.type || 'project'
+        })));
+        
+        // Auto-select first wallet
+        if (wallets.length > 0) {
+          setSelectedWallet(wallets[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load minter wallets:', error);
+    }
+  };
+
+  // 🆕 Check for nonce gaps before execution
+  const checkNonceGaps = async (): Promise<boolean> => {
+    if (!selectedWallet) return true;
+    
+    const wallet = availableWallets.find(w => w.id === selectedWallet);
+    if (!wallet) return true;
+    
+    try {
+      const chainIdNum = getChainId(chain);
+      const rpcConfig = rpcManager.getProviderConfig(chain, 'testnet');
+      
+      if (!rpcConfig) {
+        console.warn('No RPC config for nonce check');
+        return true;
+      }
+      
+      const provider = new ethers.JsonRpcProvider(rpcConfig.url);
+      const nonceStatus = await nonceManager.getNonceStatus(wallet.address, provider);
+      
+      if (nonceStatus.hasGap) {
+        setNonceGapWarning({
+          hasGap: true,
+          gapSize: nonceStatus.gapSize
+        });
+        
+        // Ask user to confirm
+        const shouldContinue = window.confirm(
+          `⚠️ NONCE GAP DETECTED!\n\n` +
+          `There are ${nonceStatus.gapSize} pending transaction(s) blocking the queue.\n` +
+          `Starting mint now may cause failures.\n\n` +
+          `Recommended: Cancel stuck transactions first.\n\n` +
+          `Do you want to continue anyway?`
+        );
+        
+        return shouldContinue;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Nonce check failed:', error);
+      return true; // Continue on error
+    }
+  };
+
   // Validate input before submission
   const validateInput = (): boolean => {
-    if (!isDeployed) {
-      return false;
-    }
-    if (!recipient) {
-      return false;
-    }
+    if (!isDeployed) return false;
+    if (!recipient) return false;
+    if (!selectedWallet) return false;
+    
     if (tokenStandard === 'ERC-20' || tokenStandard === 'ERC-1400') {
       return !!amount && Number(amount) > 0;
     }
@@ -97,17 +181,25 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     return true;
   };
 
-  // Handle pre-transaction validation - Fixed: proper Transaction type
+  // Handle pre-transaction validation
   const handleValidate = async () => {
     setExecutionStep('validation');
+    setMintError(null);
+    
+    // Check nonce gaps before proceeding
+    const canProceed = await checkNonceGaps();
+    if (!canProceed) {
+      setExecutionStep('input');
+      return;
+    }
     
     // Build transaction for validation matching centralModels.ts Transaction type
     const transaction = {
       id: `temp-${Date.now()}`,
-      walletId: window.ethereum?.selectedAddress || '',
+      walletId: selectedWallet,
       to: tokenAddress,
-      from: window.ethereum?.selectedAddress || '',
-      data: '0x', // Will be built by gateway
+      from: availableWallets.find(w => w.id === selectedWallet)?.address || '',
+      data: '0x', // Will be built by service
       value: '0',
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
@@ -129,31 +221,63 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     setShowValidation(true);
   };
 
-  // Handle execution after validation - Fixed: use operations.mint
+  // 🆕 Handle execution with TokenMintingService
   const handleExecute = async () => {
     if (!validationResult?.valid) {
+      setMintError('Transaction failed validation');
       return;
     }
 
     setExecutionStep('execution');
+    setMintError(null);
     
     try {
-      await operations.mint(tokenAddress, recipient, amount || '0', chain);
+      const wallet = availableWallets.find(w => w.id === selectedWallet);
+      if (!wallet) {
+        throw new Error('No wallet selected');
+      }
+      
+      const chainIdNum = getChainId(chain);
+      
+      // 🆕 Execute mint with TokenMintingService (nonce-aware)
+      const result = await tokenMintingService.executeMint({
+        contractAddress: tokenAddress,
+        toAddress: recipient,
+        amount,
+        decimals: 18, // TODO: Get from token metadata
+        chainId: chainIdNum,
+        walletId: wallet.id,
+        walletType: wallet.type
+      });
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Mint failed');
+      }
+      
+      setTransactionHash(result.transactionHash || null);
       
       // Log operation to database
       await supabase.from('token_operations').insert({
         token_id: tokenId,
         operation_type: TokenOperationType.MINT,
-        operator: window.ethereum?.selectedAddress,
+        operator: wallet.address,
         recipient,
         amount: amount || null,
-        transaction_hash: null, // Will be updated by gateway
-        status: 'pending',
-        timestamp: new Date().toISOString()
+        transaction_hash: result.transactionHash,
+        status: 'confirmed',
+        timestamp: new Date().toISOString(),
+        metadata: {
+          nonce: result.diagnostics?.nonce, // 🆕 Store nonce for diagnostics
+          gasUsed: result.diagnostics?.gasEstimate?.estimatedCost
+        }
       });
+      
+      setExecutionStep('complete');
+      onSuccess?.();
       
     } catch (error) {
       console.error('Mint operation failed:', error);
+      setMintError(error instanceof Error ? error.message : 'Mint failed');
       setExecutionStep('validation');
     }
   };
@@ -166,14 +290,9 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     setSlotId('');
     setShowValidation(false);
     setExecutionStep('input');
-  };
-
-  // Bulk mint - simplified for backward compatibility
-  // NOTE: Use standalone BulkMintForm component for production bulk minting
-  const handleBulkMint = async () => {
-    console.warn('Bulk mint execution disabled in this component. Use standalone BulkMintForm component.');
-    // For production bulk minting with nonce management, use:
-    // import { BulkMintForm } from '@/components/tokens/operations';
+    setMintError(null);
+    setTransactionHash(null);
+    setNonceGapWarning(null);
   };
 
   return (
@@ -184,9 +303,13 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
               Policy-Protected Mint Operation
+              {/* 🆕 Badge indicating nonce management */}
+              <Badge variant="outline" className="ml-2">
+                Nonce-Aware
+              </Badge>
             </CardTitle>
             <CardDescription>
-              Mint new {tokenSymbol} tokens with automated policy validation
+              Mint new {tokenSymbol} tokens with automated policy validation and nonce management
             </CardDescription>
           </div>
           <Badge variant={isDeployed ? 'default' : 'secondary'}>
@@ -196,26 +319,26 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
       </CardHeader>
 
       <CardContent>
-        {/* Outer tabs for single vs bulk */}
-        <Tabs value={mintMode} onValueChange={(v) => setMintMode(v as 'single' | 'bulk')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
-            <TabsTrigger value="single">Single Mint</TabsTrigger>
-            <TabsTrigger value="bulk">
-              <Users className="h-4 w-4 mr-2" />
-              Bulk Mint
+        {/* 🆕 Nonce Gap Warning */}
+        {nonceGapWarning?.hasGap && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Nonce Gap Detected</AlertTitle>
+            <AlertDescription>
+              {nonceGapWarning.gapSize} pending transaction(s) are blocking the queue.
+              Consider resolving these before minting.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <Tabs value={executionStep} className="w-full">
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="input" disabled={executionStep !== 'input'}>
+              Input
             </TabsTrigger>
-          </TabsList>
-
-          {/* Single Mint Tab Content */}
-          <TabsContent value="single">
-            <Tabs value={executionStep} className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-6">
-                <TabsTrigger value="input" disabled={executionStep !== 'input'}>
-                  Input
-                </TabsTrigger>
-                <TabsTrigger value="validation" disabled={executionStep === 'input'}>
-                  Validation
-                </TabsTrigger>
+            <TabsTrigger value="validation" disabled={executionStep === 'input'}>
+              Validation
+            </TabsTrigger>
             <TabsTrigger value="execution" disabled={executionStep !== 'execution'}>
               Execution
             </TabsTrigger>
@@ -225,6 +348,25 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* 🆕 Wallet Selection */}
+            <div className="space-y-2">
+              <Label htmlFor="wallet">Minter Wallet *</Label>
+              <select
+                id="wallet"
+                className="w-full p-2 border rounded"
+                value={selectedWallet}
+                onChange={(e) => setSelectedWallet(e.target.value)}
+                disabled={!isDeployed}
+              >
+                <option value="">Select Wallet</option>
+                {availableWallets.map((wallet) => (
+                  <option key={wallet.id} value={wallet.id}>
+                    {wallet.name} ({wallet.address.slice(0, 6)}...{wallet.address.slice(-4)})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="recipient">Recipient Address *</Label>
               <Input
@@ -325,7 +467,7 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
                   </AlertTitle>
                   <AlertDescription>
                     {validationResult.valid 
-                      ? 'All policies and rules have been satisfied.'
+                      ? 'All policies and rules have been satisfied. Ready to mint with automatic nonce management.'
                       : 'One or more policies prevent this operation.'}
                   </AlertDescription>
                 </Alert>
@@ -401,13 +543,13 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
           <TabsContent value="execution" className="space-y-4">
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin" />
-              <span className="ml-2">Executing mint operation...</span>
+              <span className="ml-2">Executing mint operation with nonce management...</span>
             </div>
-            {gatewayError && (
+            {mintError && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Execution Error</AlertTitle>
-                <AlertDescription>{gatewayError.message}</AlertDescription>
+                <AlertDescription>{mintError}</AlertDescription>
               </Alert>
             )}
           </TabsContent>
@@ -418,55 +560,23 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
               <AlertTitle>Operation Complete!</AlertTitle>
               <AlertDescription>
                 Successfully minted {amount} {tokenSymbol} to {recipient.slice(0, 6)}...{recipient.slice(-4)}
+                {transactionHash && (
+                  <div className="mt-2">
+                    <a
+                      href={`https://etherscan.io/tx/${transactionHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      View on Explorer
+                    </a>
+                  </div>
+                )}
               </AlertDescription>
             </Alert>
             <Button onClick={handleReset} className="w-full">
               New Operation
             </Button>
-          </TabsContent>
-            </Tabs>
-          </TabsContent>
-          
-          {/* Bulk Mint Tab Content */}
-          <TabsContent value="bulk">
-            {/* 
-              MIGRATION NOTE: The standalone BulkMintForm component now handles execution.
-              For production bulk minting, use:
-              
-              import { BulkMintForm } from '@/components/tokens/operations';
-              
-              <BulkMintForm
-                tokenContractAddress={tokenAddress}
-                tokenDecimals={18}
-                tokenSymbol={tokenSymbol}
-                wallets={availableWallets}
-                onComplete={(results) => { ... }}
-              />
-              
-              The new component includes:
-              - Automatic nonce management
-              - Sequential processing with delays
-              - Nonce gap detection
-              - Real-time progress tracking
-              - Error recovery
-            */}
-            <Alert className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Bulk Minting Available</AlertTitle>
-              <AlertDescription>
-                For production bulk minting with automatic nonce management and sequential processing,
-                use the standalone <strong>BulkMintForm</strong> component. It provides wallet selection,
-                nonce gap detection, and comprehensive error handling.
-              </AlertDescription>
-            </Alert>
-            
-            {/* Minimal UI for backward compatibility - no execution */}
-            <div className="p-4 border rounded-lg bg-muted/50">
-              <p className="text-sm text-muted-foreground">
-                The enhanced BulkMintForm component is available as a standalone component.
-                Contact your administrator for integration assistance.
-              </p>
-            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -498,14 +608,10 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
             </Button>
             <Button 
               onClick={handleExecute} 
-              disabled={!validationResult.valid || gatewayLoading}
+              disabled={!validationResult.valid}
               className="flex-1"
             >
-              {gatewayLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <ChevronRight className="h-4 w-4 mr-2" />
-              )}
+              <ChevronRight className="h-4 w-4 mr-2" />
               Execute Mint
             </Button>
           </div>
