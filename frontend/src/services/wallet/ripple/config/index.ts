@@ -2,6 +2,7 @@
  * Configuration exports for Ripple services
  */
 
+// Ripple Payments API configuration
 export {
   RIPPLE_ENVIRONMENTS,
   getDefaultEnvironment,
@@ -18,7 +19,7 @@ export {
   getEnvironmentRateLimits,
   validateEnvironmentVariables,
   getEnvironmentVariables
-} from './environments';
+} from './environments'
 
 export {
   AUTH_ENDPOINTS,
@@ -35,4 +36,22 @@ export {
   buildQueryString,
   buildFullEndpoint,
   isValidEndpoint
-} from './endpoints';
+} from './endpoints'
+
+// XRPL (XRP Ledger) configuration
+export {
+  XRPL_NETWORKS,
+  XRPL_CONFIG,
+  TRANSACTION_TYPES,
+  getXRPLNetwork,
+  getExplorerUrl,
+  getAccountExplorerUrl,
+  getNFTExplorerUrl,
+  getMPTExplorerUrl,
+  isValidXRPLAddress,
+  isValidXAddress,
+  isFeatureEnabled,
+  type XRPLNetwork,
+  type XRPLNetworkConfig,
+  type TransactionType
+} from './XRPLConfig'

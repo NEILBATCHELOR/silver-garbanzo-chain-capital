@@ -3,6 +3,13 @@
  * Central export point for all Ripple/XRP related services
  */
 
+// XRPL Core Infrastructure
+export { xrplClientManager } from './core'
+export * from './config'
+
+// XRPL Crypto Services - Key Management, Signing, Encryption
+export * from './crypto'
+
 // Wallet Service - core wallet operations
 export { 
   RippleWalletService,

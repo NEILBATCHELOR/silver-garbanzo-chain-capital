@@ -186,6 +186,9 @@ importers:
       ws:
         specifier: ^8.18.3
         version: 8.18.3(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      xrpl:
+        specifier: ^4.5.0
+        version: 4.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       zod:
         specifier: ^3.25.76
         version: 3.25.76
@@ -13641,6 +13644,10 @@ packages:
     resolution: {integrity: sha512-n2EPs3YRX0/XE6zO8Mav/XFmI1wWmWraCRyCSb0fQ0Fkpv4kJ1tMhQXfX9E/DbLtyXbeogcoxYsQZtAmG8u+Ww==}
     engines: {node: '>= 18'}
 
+  ripple-binary-codec@2.6.0:
+    resolution: {integrity: sha512-OJBRxjjalO7SrIwydHhcC9wOFLoeKcawoqSEfGZilAtXROYTWHx5kTly2VcUMmMMSEYIh1+yEstBtLBObNjeKQ==}
+    engines: {node: '>= 18'}
+
   ripple-keypairs@2.0.0:
     resolution: {integrity: sha512-b5rfL2EZiffmklqZk1W+dvSy97v3V/C7936WxCCgDynaGPp7GE6R2XO7EU9O2LlM/z95rj870IylYnOQs+1Rag==}
     engines: {node: '>= 16'}
@@ -15917,6 +15924,10 @@ packages:
 
   xrpl@4.4.1:
     resolution: {integrity: sha512-zTEGYdbNQo36qhWqwr0B0ufq7tezRbqThmXLZ0D/+OiKAD8v9wtKhEbJwWzL+0KVrbqOsDADFG7p95898RC4lA==}
+    engines: {node: '>=18.0.0'}
+
+  xrpl@4.5.0:
+    resolution: {integrity: sha512-fH3mmRMAiio53JaiPOhbaBLPo9H5qLpgHLkt2YWfrwppjvw70wjRcMBXGB67yEl4KWVi7yDhnZBbrtUdZrNHhA==}
     engines: {node: '>=18.0.0'}
 
   xstream@11.14.0:
@@ -33292,6 +33303,15 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
+  ripple-binary-codec@2.6.0(bufferutil@4.0.9)(utf-8-validate@5.0.10):
+    dependencies:
+      '@xrplf/isomorphic': 1.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      bignumber.js: 9.3.1
+      ripple-address-codec: 5.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
   ripple-keypairs@2.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10):
     dependencies:
       '@noble/curves': 1.9.7
@@ -36015,6 +36035,22 @@ snapshots:
       eventemitter3: 5.0.1
       ripple-address-codec: 5.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       ripple-binary-codec: 2.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      ripple-keypairs: 2.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  xrpl@4.5.0(bufferutil@4.0.9)(utf-8-validate@5.0.10):
+    dependencies:
+      '@scure/bip32': 1.7.0
+      '@scure/bip39': 1.6.0
+      '@xrplf/isomorphic': 1.0.1(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      '@xrplf/secret-numbers': 2.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      bignumber.js: 9.3.1
+      eventemitter3: 5.0.1
+      fast-json-stable-stringify: 2.1.0
+      ripple-address-codec: 5.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
+      ripple-binary-codec: 2.6.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
       ripple-keypairs: 2.0.0(bufferutil@4.0.9)(utf-8-validate@5.0.10)
     transitivePeerDependencies:
       - bufferutil
