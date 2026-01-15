@@ -691,6 +691,104 @@ export type Database = {
           },
         ]
       }
+      accreditation_documents: {
+        Row: {
+          document_hash: string | null
+          document_type: string
+          document_url: string
+          id: string
+          metadata: Json | null
+          rejection_reason: string | null
+          tax_year: number | null
+          upload_date: string | null
+          verification_id: string
+          verification_status: string
+        }
+        Insert: {
+          document_hash?: string | null
+          document_type: string
+          document_url: string
+          id?: string
+          metadata?: Json | null
+          rejection_reason?: string | null
+          tax_year?: number | null
+          upload_date?: string | null
+          verification_id: string
+          verification_status: string
+        }
+        Update: {
+          document_hash?: string | null
+          document_type?: string
+          document_url?: string
+          id?: string
+          metadata?: Json | null
+          rejection_reason?: string | null
+          tax_year?: number | null
+          upload_date?: string | null
+          verification_id?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accreditation_documents_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "accreditation_verifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accreditation_verifications: {
+        Row: {
+          accreditation_type: string | null
+          annual_income: number | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          is_accredited: boolean | null
+          net_worth: number | null
+          professional_licenses: string[] | null
+          updated_at: string | null
+          user_id: string
+          verification_method: string
+          verification_notes: string | null
+          verified_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          accreditation_type?: string | null
+          annual_income?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_accredited?: boolean | null
+          net_worth?: number | null
+          professional_licenses?: string[] | null
+          updated_at?: string | null
+          user_id: string
+          verification_method: string
+          verification_notes?: string | null
+          verified_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          accreditation_type?: string | null
+          annual_income?: number | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          is_accredited?: boolean | null
+          net_worth?: number | null
+          professional_licenses?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+          verification_method?: string
+          verification_notes?: string | null
+          verified_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       alerts: {
         Row: {
           assignee: string | null
@@ -727,6 +825,48 @@ export type Database = {
           status?: string
           title?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      aml_screenings: {
+        Row: {
+          created_at: string | null
+          geographic_risk_score: number | null
+          id: string
+          last_screened_at: string | null
+          next_screening_at: string
+          notes: string | null
+          risk_level: string
+          screening_status: string
+          updated_at: string | null
+          user_id: string
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string | null
+          geographic_risk_score?: number | null
+          id?: string
+          last_screened_at?: string | null
+          next_screening_at: string
+          notes?: string | null
+          risk_level: string
+          screening_status: string
+          updated_at?: string | null
+          user_id: string
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string | null
+          geographic_risk_score?: number | null
+          id?: string
+          last_screened_at?: string | null
+          next_screening_at?: string
+          notes?: string | null
+          risk_level?: string
+          screening_status?: string
+          updated_at?: string | null
+          user_id?: string
+          wallet_address?: string
         }
         Relationships: []
       }
@@ -6228,6 +6368,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      compliance_data_cache: {
+        Row: {
+          accredited_investor: boolean | null
+          aml_cleared: boolean | null
+          blockchain_tx_hash: string | null
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          kyc_verified: boolean | null
+          last_updated: string | null
+          metadata: Json | null
+          oracle_address: string | null
+          risk_score: number | null
+          updated_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          accredited_investor?: boolean | null
+          aml_cleared?: boolean | null
+          blockchain_tx_hash?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          kyc_verified?: boolean | null
+          last_updated?: string | null
+          metadata?: Json | null
+          oracle_address?: string | null
+          risk_score?: number | null
+          updated_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          accredited_investor?: boolean | null
+          aml_cleared?: boolean | null
+          blockchain_tx_hash?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          kyc_verified?: boolean | null
+          last_updated?: string | null
+          metadata?: Json | null
+          oracle_address?: string | null
+          risk_score?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
       }
       compliance_metrics: {
         Row: {
@@ -13078,6 +13269,51 @@ export type Database = {
         }
         Relationships: []
       }
+      hybrid_enforcement_decisions: {
+        Row: {
+          created_at: string | null
+          decision_time_ms: number | null
+          enforcement_mode: string
+          final_decision: boolean
+          id: string
+          layers_evaluated: string[] | null
+          off_chain_result: Json | null
+          operation_id: string | null
+          oracle_result: Json | null
+          smart_contract_result: Json | null
+          violation_details: Json | null
+          warnings: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          decision_time_ms?: number | null
+          enforcement_mode: string
+          final_decision: boolean
+          id?: string
+          layers_evaluated?: string[] | null
+          off_chain_result?: Json | null
+          operation_id?: string | null
+          oracle_result?: Json | null
+          smart_contract_result?: Json | null
+          violation_details?: Json | null
+          warnings?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          decision_time_ms?: number | null
+          enforcement_mode?: string
+          final_decision?: boolean
+          id?: string
+          layers_evaluated?: string[] | null
+          off_chain_result?: Json | null
+          operation_id?: string | null
+          oracle_result?: Json | null
+          smart_contract_result?: Json | null
+          violation_details?: Json | null
+          warnings?: Json | null
+        }
+        Relationships: []
+      }
       individual_documents: {
         Row: {
           created_at: string | null
@@ -15081,6 +15317,53 @@ export type Database = {
           },
         ]
       }
+      kyc_documents: {
+        Row: {
+          document_hash: string | null
+          document_type: string
+          document_url: string
+          expiry_date: string | null
+          id: string
+          metadata: Json | null
+          rejection_reason: string | null
+          upload_date: string | null
+          verification_id: string
+          verification_status: string
+        }
+        Insert: {
+          document_hash?: string | null
+          document_type: string
+          document_url: string
+          expiry_date?: string | null
+          id?: string
+          metadata?: Json | null
+          rejection_reason?: string | null
+          upload_date?: string | null
+          verification_id: string
+          verification_status: string
+        }
+        Update: {
+          document_hash?: string | null
+          document_type?: string
+          document_url?: string
+          expiry_date?: string | null
+          id?: string
+          metadata?: Json | null
+          rejection_reason?: string | null
+          upload_date?: string | null
+          verification_id?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kyc_documents_verification_id_fkey"
+            columns: ["verification_id"]
+            isOneToOne: false
+            referencedRelation: "kyc_verifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kyc_screening_logs: {
         Row: {
           created_at: string | null
@@ -15121,6 +15404,48 @@ export type Database = {
             referencedColumns: ["investor_id"]
           },
         ]
+      }
+      kyc_verifications: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          rejection_reason: string | null
+          updated_at: string | null
+          user_id: string
+          verification_provider: string
+          verification_reference: string | null
+          verification_status: string
+          verified_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          rejection_reason?: string | null
+          updated_at?: string | null
+          user_id: string
+          verification_provider: string
+          verification_reference?: string | null
+          verification_status: string
+          verified_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          rejection_reason?: string | null
+          updated_at?: string | null
+          user_id?: string
+          verification_provider?: string
+          verification_reference?: string | null
+          verification_status?: string
+          verified_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
       }
       lease_agreements: {
         Row: {
@@ -18868,6 +19193,45 @@ export type Database = {
         }
         Relationships: []
       }
+      oracle_updates: {
+        Row: {
+          block_number: number | null
+          id: string
+          new_value: Json | null
+          oracle_address: string | null
+          previous_value: Json | null
+          transaction_hash: string | null
+          update_type: string
+          updated_at: string | null
+          updated_by: string | null
+          wallet_address: string
+        }
+        Insert: {
+          block_number?: number | null
+          id?: string
+          new_value?: Json | null
+          oracle_address?: string | null
+          previous_value?: Json | null
+          transaction_hash?: string | null
+          update_type: string
+          updated_at?: string | null
+          updated_by?: string | null
+          wallet_address: string
+        }
+        Update: {
+          block_number?: number | null
+          id?: string
+          new_value?: Json | null
+          oracle_address?: string | null
+          previous_value?: Json | null
+          transaction_hash?: string | null
+          update_type?: string
+          updated_at?: string | null
+          updated_by?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       organization_details: {
         Row: {
           address: Json | null
@@ -20158,6 +20522,110 @@ export type Database = {
           description?: string
           name?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      policy_blockchain_sync: {
+        Row: {
+          block_number: number | null
+          chain_id: string
+          created_at: string | null
+          created_by: string | null
+          error_message: string | null
+          id: string
+          policy_id: string
+          retry_count: number | null
+          rule_type: string
+          sync_status: string | null
+          synced_at: string | null
+          transaction_hash: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          block_number?: number | null
+          chain_id: string
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          policy_id: string
+          retry_count?: number | null
+          rule_type: string
+          sync_status?: string | null
+          synced_at?: string | null
+          transaction_hash?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          block_number?: number | null
+          chain_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          policy_id?: string
+          retry_count?: number | null
+          rule_type?: string
+          sync_status?: string | null
+          synced_at?: string | null
+          transaction_hash?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policy_blockchain_sync_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
+          },
+        ]
+      }
+      policy_engines: {
+        Row: {
+          chain_id: string
+          contract_address: string
+          created_at: string | null
+          created_by: string | null
+          deployed_at: string | null
+          deployment_tx_hash: string | null
+          id: string
+          is_active: boolean | null
+          supports_lockup: boolean | null
+          supports_oracle: boolean | null
+          supports_whitelist: boolean | null
+          updated_at: string | null
+          version: string | null
+        }
+        Insert: {
+          chain_id: string
+          contract_address: string
+          created_at?: string | null
+          created_by?: string | null
+          deployed_at?: string | null
+          deployment_tx_hash?: string | null
+          id?: string
+          is_active?: boolean | null
+          supports_lockup?: boolean | null
+          supports_oracle?: boolean | null
+          supports_whitelist?: boolean | null
+          updated_at?: string | null
+          version?: string | null
+        }
+        Update: {
+          chain_id?: string
+          contract_address?: string
+          created_at?: string | null
+          created_by?: string | null
+          deployed_at?: string | null
+          deployment_tx_hash?: string | null
+          id?: string
+          is_active?: boolean | null
+          supports_lockup?: boolean | null
+          supports_oracle?: boolean | null
+          supports_whitelist?: boolean | null
+          updated_at?: string | null
+          version?: string | null
         }
         Relationships: []
       }
@@ -25383,6 +25851,59 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      sanctions_matches: {
+        Row: {
+          created_at: string | null
+          entity_details: Json | null
+          entity_name: string
+          id: string
+          list_name: string
+          match_score: number
+          match_type: string
+          review_decision: string | null
+          reviewed: boolean | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          screening_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          entity_details?: Json | null
+          entity_name: string
+          id?: string
+          list_name: string
+          match_score: number
+          match_type: string
+          review_decision?: string | null
+          reviewed?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screening_id: string
+        }
+        Update: {
+          created_at?: string | null
+          entity_details?: Json | null
+          entity_name?: string
+          id?: string
+          list_name?: string
+          match_score?: number
+          match_type?: string
+          review_decision?: string | null
+          reviewed?: boolean | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          screening_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sanctions_matches_screening_id_fkey"
+            columns: ["screening_id"]
+            isOneToOne: false
+            referencedRelation: "aml_screenings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sc_algorithm_parameters: {
         Row: {
@@ -37111,6 +37632,59 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "wallets"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      whitelist_blockchain_sync: {
+        Row: {
+          addresses_synced: number | null
+          chain_id: string
+          created_at: string | null
+          created_by: string | null
+          error_message: string | null
+          id: string
+          policy_id: string
+          sync_status: string | null
+          synced_at: string | null
+          total_addresses: number | null
+          transaction_hashes: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          addresses_synced?: number | null
+          chain_id: string
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          policy_id: string
+          sync_status?: string | null
+          synced_at?: string | null
+          total_addresses?: number | null
+          transaction_hashes?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          addresses_synced?: number | null
+          chain_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          error_message?: string | null
+          id?: string
+          policy_id?: string
+          sync_status?: string | null
+          synced_at?: string | null
+          total_addresses?: number | null
+          transaction_hashes?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_whitelist_sync_policy"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "rules"
+            referencedColumns: ["rule_id"]
           },
         ]
       }

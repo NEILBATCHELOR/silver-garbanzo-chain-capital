@@ -5,6 +5,9 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { PolicyEngine } from '../policy/PolicyEngine';
+import { HybridPolicyEngine, type EnforcementMode, type HybridConfig } from '../policy/HybridPolicyEngine';
+import { PolicyChainSyncService } from '@/services/policy/PolicyChainSyncService';
+import { ComplianceOracleClient } from '@/services/oracle/ComplianceOracleClient';
 import { EnhancedTokenManager } from '../web3/tokens/EnhancedTokenManager';
 import { supabase } from '../supabaseClient';
 import type { 
@@ -22,7 +25,7 @@ import type {
 import type { PolicyEvaluationResult, CryptoOperation, PolicyContext } from '../policy/types';
 
 export class CryptoOperationGateway {
-  private policyEngine: PolicyEngine;
+  private policyEngine: HybridPolicyEngine;
   private tokenManager: EnhancedTokenManager;
   private validators: Map<string, OperationValidator>;
   private executors: Map<string, OperationExecutor>;
@@ -30,7 +33,10 @@ export class CryptoOperationGateway {
   
   constructor(config: GatewayConfig = {}) {
     this.config = config;
-    this.policyEngine = new PolicyEngine(config.policyConfig || {});
+    
+    // Initialize Hybrid Policy Engine
+    this.policyEngine = this.initializeHybridPolicyEngine(config);
+    
     this.tokenManager = new EnhancedTokenManager();
     this.validators = new Map();
     this.executors = new Map();
@@ -52,6 +58,58 @@ export class CryptoOperationGateway {
   }
   
   /**
+   * Initialize Hybrid Policy Engine with proper configuration
+   */
+  private initializeHybridPolicyEngine(config: GatewayConfig): HybridPolicyEngine {
+    // Create base off-chain engine
+    const offChainEngine = new PolicyEngine(config.policyConfig || {});
+    
+    // Get enforcement mode from config (default to hybrid-critical)
+    const enforcementMode: EnforcementMode = config.enforcementMode || 'hybrid-critical';
+    
+    // Initialize optional services based on enforcement mode
+    let chainSyncService: PolicyChainSyncService | undefined;
+    let oracleClient: ComplianceOracleClient | undefined;
+    
+    // Initialize chain sync service if needed
+    if (enforcementMode === 'smart-contract-only' || 
+        enforcementMode === 'hybrid-all' || 
+        enforcementMode === 'hybrid-critical') {
+      if (config.chainId && config.signer) {
+        chainSyncService = new PolicyChainSyncService(
+          config.chainId,
+          config.signer
+        );
+      }
+    }
+    
+    // Initialize oracle client if needed
+    if (enforcementMode === 'oracle-only' || 
+        enforcementMode === 'hybrid-all' || 
+        enforcementMode === 'hybrid-critical') {
+      oracleClient = new ComplianceOracleClient({
+        cacheEnabled: true,
+        cacheTTL: 300000 // 5 minutes
+      });
+    }
+    
+    // Create hybrid config
+    const hybridConfig: HybridConfig = {
+      mode: enforcementMode,
+      offChainEngine,
+      chainSyncService,
+      oracleClient,
+      fallbackToOffChain: config.fallbackToOffChain ?? true,
+      criticalAmountThreshold: config.criticalAmountThreshold,
+      criticalOperations: config.criticalOperations
+    };
+    
+    console.log(`✅ Hybrid Policy Engine initialized with mode: ${enforcementMode}`);
+    
+    return new HybridPolicyEngine(hybridConfig);
+  }
+  
+  /**
    * Execute a cryptographic operation with policy validation
    */
   async executeOperation(request: OperationRequest): Promise<OperationResult> {
@@ -61,7 +119,7 @@ export class CryptoOperationGateway {
       // 1. Pre-validation
       await this.validateRequest(request);
       
-      // 2. Policy evaluation
+      // 2. Policy evaluation (now using hybrid engine)
       const policyResult = await this.evaluatePoliciesForRequest(request);
       if (!policyResult.allowed) {
         return this.buildRejectionResult(operationId, policyResult, request);
@@ -323,7 +381,9 @@ export class CryptoOperationGateway {
     request?: OperationRequest
   ): PolicyValidationSummary {
     const metadata: any = {
-      score: result.metadata?.score as number | undefined
+      score: result.metadata?.score as number | undefined,
+      enforcementMode: result.metadata?.enforcementMode,
+      layersEvaluated: result.metadata?.layersEvaluated
     };
 
     // Add operation context if request is provided

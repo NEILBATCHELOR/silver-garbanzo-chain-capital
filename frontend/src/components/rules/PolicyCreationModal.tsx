@@ -57,6 +57,8 @@ import {
   saveRuleApprovers,
   PolicyRule 
 } from "@/services/rule/enhancedRuleService";
+import { createPolicyOperationMapping } from "@/services/policy/policyOperationMappingService";
+import { getRuleOperationTypes, extractRuleConditions } from "@/services/policy/policyHelpers";
 
 interface Approver {
   id: string;
@@ -433,6 +435,30 @@ const PolicyCreationModal = ({
           currentUser.id,
           policyData.id
         );
+        
+        // Create operation mappings for each rule
+        for (const rule of savedRules) {
+          if (rule.id && rule.type) {
+            const operations = getRuleOperationTypes(rule.type);
+            const conditions = extractRuleConditions(rule);
+            
+            for (const operation of operations) {
+              const mappingResult = await createPolicyOperationMapping({
+                policy_id: rule.id,
+                operation_type: operation,
+                chain_id: null,
+                token_standard: null,
+                conditions: conditions,
+              });
+              
+              if (!mappingResult.success) {
+                console.error('Failed to create mapping:', mappingResult.error);
+                // Don't fail the entire save if mapping creation fails
+                // Just log the error and continue
+              }
+            }
+          }
+        }
         
         // Then save approvers for each rule
         for (const rule of savedRules) {

@@ -28,6 +28,9 @@ import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
 // 🆕 Import routing system
 import { useOperationRouting } from '@/services/routing';
 import { ExecutionModeSelector } from '@/components/routing';
+// 🆕 Phase 5: Enforcement Mode Selector
+import { EnforcementModeSelector } from '@/components/policy/EnforcementModeSelector';
+import type { EnforcementMode } from '@/infrastructure/policy/HybridPolicyEngine';
 import { ethers } from 'ethers';
 import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
@@ -82,11 +85,27 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     gapSize: number;
   } | null>(null);
   
-  // Hooks
+  // 🆕 Phase 5: Policy enforcement mode (must be declared before hooks that use it)
+  const [enforcementMode, setEnforcementMode] = useState<EnforcementMode>('hybrid-critical');
+
+  // State for applicable policies
+  const [applicablePolicies, setApplicablePolicies] = useState<any[]>([]);
+  const [policiesLoading, setPoliciesLoading] = useState(false);
+  
+  // 🔧 Initialize Supabase client
+  const supabase = useSupabase();
+  
+  // Hooks - Gateway with hybrid enforcement configuration
   const { operations, loading: gatewayLoading, error: gatewayError } = useCryptoOperationGateway({
     onSuccess: (result) => {
       // Note: Now using TokenMintingService directly, but keeping gateway for policy validation
-    }
+    },
+    // 🛡️ Hybrid Policy Enforcement Configuration
+    enforcementMode: enforcementMode, // Use component state for dynamic control
+    fallbackToOffChain: true, // If blockchain validation fails, fall back to off-chain
+    criticalAmountThreshold: BigInt(100000), // $100k+ operations use all validation layers
+    criticalOperations: ['mint', 'burn'], // These operations always require multi-layer validation
+    executionMode: 'enhanced' // Use nonce-aware execution
   });
   
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
@@ -99,13 +118,18 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
     requiresAudit: true,
     isBatch: mintMode === 'bulk'
   });
-  
-  const { supabase } = useSupabase();
 
   // Load available minter wallets
   useEffect(() => {
     loadMinterWallets();
   }, [tokenId]);
+
+  // Load applicable policies
+  useEffect(() => {
+    if (tokenAddress && chain) {
+      loadApplicablePolicies();
+    }
+  }, [tokenAddress, chain]);
 
   const loadMinterWallets = async () => {
     try {
@@ -130,6 +154,43 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
       }
     } catch (error) {
       console.error('Failed to load minter wallets:', error);
+    }
+  };
+
+  // Load applicable policies for mint operations
+  const loadApplicablePolicies = async () => {
+    setPoliciesLoading(true);
+    try {
+      const chainIdNum = getChainId(chain);
+      
+      const { data, error } = await supabase
+        .from('policy_operation_mappings')
+        .select(`
+          *,
+          policy:rules!policy_operation_mappings_policy_id_fkey(*)
+        `)
+        .eq('operation_type', 'mint')
+        .or(`chain_id.eq.${chainIdNum},chain_id.is.null`);
+      
+      if (error) {
+        console.error('Failed to load policies:', error);
+        return;
+      }
+
+      // Filter to active policies only
+      const policies = (data || [])
+        .filter(m => m.policy && m.policy.status === 'active')
+        .map(m => ({
+          ...m.policy,
+          conditions: m.conditions
+        }));
+      
+      setApplicablePolicies(policies);
+      
+    } catch (error) {
+      console.error('Exception loading policies:', error);
+    } finally {
+      setPoliciesLoading(false);
     }
   };
 
@@ -370,6 +431,25 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
             />
           </CollapsibleContent>
         </Collapsible>
+
+        {/* 🆕 Phase 5: Enforcement Mode Selector */}
+        <Collapsible className="mb-4">
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" className="w-full flex items-center justify-between">
+              <span className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                Policy Enforcement: {enforcementMode}
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-2">
+            <EnforcementModeSelector
+              value={enforcementMode}
+              onChange={setEnforcementMode}
+            />
+          </CollapsibleContent>
+        </Collapsible>
         
         {/* 🆕 Nonce Gap Warning */}
         {nonceGapWarning?.hasGap && (
@@ -400,6 +480,57 @@ export const PolicyAwareMintOperation: React.FC<PolicyAwareMintOperationProps> =
           </TabsList>
 
           <TabsContent value="input" className="space-y-4">
+            {/* Policy Indicator */}
+            {applicablePolicies.length > 0 && (
+              <Alert className="mb-4 border-blue-200 bg-blue-50">
+                <Shield className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-900 font-semibold">
+                  {applicablePolicies.length} Policy(ies) Active
+                </AlertTitle>
+                <AlertDescription className="text-blue-800">
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {applicablePolicies.map((policy: any) => (
+                      <li key={policy.rule_id} className="flex items-start gap-2">
+                        <span className="text-blue-600">•</span>
+                        <div>
+                          <span className="font-medium">{policy.rule_name}</span>
+                          {policy.conditions && Object.keys(policy.conditions).length > 0 && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              {policy.conditions.maxAmount && (
+                                <span>Max: {policy.conditions.maxAmount} </span>
+                              )}
+                              {policy.conditions.minAmount && (
+                                <span>Min: {policy.conditions.minAmount} </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {executionMode === 'enhanced' && (
+                    <p className="text-xs mt-2 text-blue-700">
+                      ✓ These policies will be enforced in enhanced mode
+                    </p>
+                  )}
+                  {executionMode === 'direct' && (
+                    <p className="text-xs mt-2 text-orange-600">
+                      ⚠️ Policy checks bypassed in direct mode
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {policiesLoading && (
+              <Alert className="mb-4 border-gray-200">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertDescription>
+                  Loading applicable policies...
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* 🆕 Wallet Selection */}
             <div className="space-y-2">
               <Label htmlFor="wallet">Minter Wallet *</Label>

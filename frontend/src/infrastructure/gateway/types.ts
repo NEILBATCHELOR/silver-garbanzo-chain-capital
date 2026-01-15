@@ -3,6 +3,7 @@
  */
 
 import type { SupportedChain } from '../web3/adapters/IBlockchainAdapter';
+import type { EnforcementMode } from '../policy/HybridPolicyEngine';
 
 // Operation Types
 export type OperationType = 
@@ -101,6 +102,8 @@ export interface PolicyValidationMetadata {
   tokenAddress?: string;
   recipient?: string;
   sender?: string;
+  enforcementMode?: EnforcementMode;
+  layersEvaluated?: Array<'off-chain' | 'smart-contract' | 'oracle'>;
   [key: string]: any; // Allow additional metadata fields
 }
 
@@ -168,11 +171,14 @@ export interface GatewayConfig {
   cacheEnabled?: boolean;
   retryCount?: number;
   timeout?: number;
+  
   // 🆕 Executor Mode Selection
   executionMode?: 'basic' | 'foundry' | 'enhanced';
+  
   // 🆕 Foundry Integration
   useFoundry?: boolean; // Enable Foundry smart contract execution (deprecated: use executionMode)
   foundryConfig?: FoundryGatewayConfig;
+  
   // 🆕 Enhanced Executor Config (for nonce-aware execution)
   enhancedConfig?: {
     enableFoundryValidation?: boolean; // Add on-chain validation to enhanced executors
@@ -180,6 +186,24 @@ export interface GatewayConfig {
       walletId: string;
       walletType: 'project' | 'user';
     };
+  };
+  
+  // 🆕 Hybrid Policy Enforcement Config (Phase 5)
+  enforcementMode?: EnforcementMode; // Shortcut for hybridPolicyConfig.mode
+  chainId?: number; // For PolicyChainSyncService
+  signer?: any; // ethers.Signer for PolicyChainSyncService
+  fallbackToOffChain?: boolean;
+  criticalAmountThreshold?: bigint;
+  criticalOperations?: string[];
+  
+  // Legacy hybrid config (deprecated in favor of top-level fields)
+  hybridPolicyConfig?: {
+    mode: EnforcementMode;
+    fallbackToOffChain?: boolean;
+    criticalAmountThreshold?: bigint;
+    criticalOperations?: string[];
+    enableOracleValidation?: boolean;
+    enableSmartContractValidation?: boolean;
   };
 }
 

@@ -17,6 +17,11 @@ interface IPolicyEngine {
      * @param cooldownPeriod Minimum seconds between operations (0 = none)
      * @param requiresApproval Whether the operation requires multi-sig approval
      * @param approvalThreshold Number of approvals required
+     * @param activationTime When policy becomes active (0 = no restriction)
+     * @param expirationTime When policy expires (0 = never expires)
+     * @param hasTimeRestrictions Flag indicating if time-based validation is enabled
+     * @param requiresWhitelist Whether operation requires whitelisted address
+     * @param whitelistEnabled Whether whitelist checking is active
      */
     struct Policy {
         bool active;
@@ -25,6 +30,11 @@ interface IPolicyEngine {
         uint256 cooldownPeriod;
         bool requiresApproval;
         uint8 approvalThreshold;
+        uint256 activationTime;      //  Phase 2: Lock-up support
+        uint256 expirationTime;      //  Phase 2: Lock-up support
+        bool hasTimeRestrictions;    //  Phase 2: Lock-up support
+        bool requiresWhitelist;      //  Phase 3: Whitelist support
+        bool whitelistEnabled;       //  Phase 3: Whitelist support
     }
     
     /**
@@ -104,6 +114,47 @@ interface IPolicyEngine {
         string reason
     );
     
+    event PolicyTimeRestrictionSet(
+        address indexed token,
+        string operationType,
+        uint256 activationTime,
+        uint256 expirationTime
+    );
+    
+    event TimeRestrictionViolation(
+        address indexed token,
+        address indexed operator,
+        string operationType,
+        uint256 attemptedTime,
+        string reason
+    );
+    
+    // ✅ Phase 3: Whitelist Events
+    event AddressWhitelisted(
+        address indexed token,
+        string operationType,
+        address indexed whitelistedAddress
+    );
+    
+    event AddressRemovedFromWhitelist(
+        address indexed token,
+        string operationType,
+        address indexed removedAddress
+    );
+    
+    event WhitelistRequirementEnabled(
+        address indexed token,
+        string operationType
+    );
+    
+    event WhitelistViolation(
+        address indexed token,
+        address indexed operator,
+        address indexed target,
+        string operationType,
+        string reason
+    );
+    
     // ============ Core Functions ============
     
     /**
@@ -149,13 +200,17 @@ interface IPolicyEngine {
      * @param maxAmount Maximum amount per operation
      * @param dailyLimit Daily cumulative limit
      * @param cooldownPeriod Cooldown period in seconds
+     * @param activationTime When policy becomes active (0 = immediate)
+     * @param expirationTime When policy expires (0 = never)
      */
     function createPolicy(
         address token,
         string memory operationType,
         uint256 maxAmount,
         uint256 dailyLimit,
-        uint256 cooldownPeriod
+        uint256 cooldownPeriod,
+        uint256 activationTime,      //  Phase 2
+        uint256 expirationTime       //  Phase 2
     ) external;
     
     /**
@@ -172,6 +227,20 @@ interface IPolicyEngine {
         bool active,
         uint256 maxAmount,
         uint256 dailyLimit
+    ) external;
+    
+    /**
+     * @notice Set time restrictions for a policy
+     * @param token Token address
+     * @param operationType Type of operation
+     * @param activationTime When policy becomes active (0 = immediate)
+     * @param expirationTime When policy expires (0 = never)
+     */
+    function setTimeRestrictions(
+        address token,
+        string memory operationType,
+        uint256 activationTime,
+        uint256 expirationTime
     ) external;
     
     /**
@@ -222,6 +291,78 @@ interface IPolicyEngine {
         address token,
         uint256 requestId
     ) external;
+    
+    // ============ Whitelist Management (Phase 3) ============
+    
+    /**
+     * @notice Add an address to the whitelist for a token and operation
+     * @param token Token address
+     * @param operationType Type of operation
+     * @param addressToAdd Address to whitelist
+     */
+    function addToWhitelist(
+        address token,
+        string memory operationType,
+        address addressToAdd
+    ) external;
+    
+    /**
+     * @notice Add multiple addresses to whitelist (batch operation)
+     * @param token Token address
+     * @param operationType Type of operation
+     * @param addresses Array of addresses to whitelist
+     */
+    function addToWhitelistBatch(
+        address token,
+        string memory operationType,
+        address[] memory addresses
+    ) external;
+    
+    /**
+     * @notice Remove an address from the whitelist
+     * @param token Token address
+     * @param operationType Type of operation
+     * @param addressToRemove Address to remove
+     */
+    function removeFromWhitelist(
+        address token,
+        string memory operationType,
+        address addressToRemove
+    ) external;
+    
+    /**
+     * @notice Enable whitelist requirement for a policy
+     * @param token Token address
+     * @param operationType Type of operation
+     */
+    function enableWhitelistRequirement(
+        address token,
+        string memory operationType
+    ) external;
+    
+    /**
+     * @notice Check if an address is whitelisted
+     * @param token Token address
+     * @param operationType Type of operation
+     * @param addr Address to check
+     * @return isWhitelisted Whether the address is whitelisted
+     */
+    function isAddressWhitelisted(
+        address token,
+        string memory operationType,
+        address addr
+    ) external view returns (bool isWhitelisted);
+    
+    /**
+     * @notice Get all whitelisted addresses for a token and operation
+     * @param token Token address
+     * @param operationType Type of operation
+     * @return addresses Array of whitelisted addresses
+     */
+    function getWhitelistedAddresses(
+        address token,
+        string memory operationType
+    ) external view returns (address[] memory addresses);
     
     // ============ View Functions ============
     

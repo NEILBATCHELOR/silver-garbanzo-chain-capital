@@ -5,14 +5,24 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { CryptoOperationGateway } from '../CryptoOperationGateway';
-import type { OperationRequest, OperationResult } from '../types';
+import type { OperationRequest, OperationResult, GatewayConfig } from '../types';
 import type { SupportedChain } from '../../web3/adapters/IBlockchainAdapter';
+import type { EnforcementMode } from '../../policy/HybridPolicyEngine';
 
 export interface UseCryptoOperationGatewayOptions {
   autoInitialize?: boolean;
   onSuccess?: (result: OperationResult) => void;
   onError?: (error: Error) => void;
   confirmations?: number;
+  
+  // 🆕 Hybrid Policy Enforcement Options (Phase 5)
+  enforcementMode?: EnforcementMode;
+  fallbackToOffChain?: boolean;
+  criticalAmountThreshold?: bigint;
+  criticalOperations?: string[];
+  
+  // Gateway execution mode
+  executionMode?: 'basic' | 'foundry' | 'enhanced';
 }
 
 export interface OperationHelpers {
@@ -44,13 +54,22 @@ export function useCryptoOperationGateway(options: UseCryptoOperationGatewayOpti
   useEffect(() => {
     if (options.autoInitialize !== false && !gateway && !initializingRef.current) {
       initializingRef.current = true;
-      const newGateway = new CryptoOperationGateway({
-        // Add configuration if needed
-      });
+      
+      // Build gateway config from hook options
+      const gatewayConfig: GatewayConfig = {
+        executionMode: options.executionMode,
+        enforcementMode: options.enforcementMode,
+        fallbackToOffChain: options.fallbackToOffChain,
+        criticalAmountThreshold: options.criticalAmountThreshold,
+        criticalOperations: options.criticalOperations
+      };
+      
+      const newGateway = new CryptoOperationGateway(gatewayConfig);
       setGateway(newGateway);
       initializingRef.current = false;
     }
-  }, [gateway, options.autoInitialize]);
+  }, [gateway, options.autoInitialize, options.executionMode, options.enforcementMode, 
+      options.fallbackToOffChain, options.criticalAmountThreshold, options.criticalOperations]);
   
   /**
    * Execute an operation through the gateway

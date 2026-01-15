@@ -23,6 +23,7 @@ import { ExecutionModeSelector } from '@/components/routing';
 import { ethers } from 'ethers';
 import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { getChainId } from '@/infrastructure/web3/utils/chainIds';
 
 interface LockedToken {
   lockId: string;
@@ -83,6 +84,10 @@ export const PolicyAwareUnlockOperation: React.FC<PolicyAwareUnlockOperationProp
   const { validateTransaction, validationResult, validating } = useTransactionValidation();
   const { supabase } = useSupabase();
 
+  // State for applicable policies
+  const [applicablePolicies, setApplicablePolicies] = useState<any[]>([]);
+  const [policiesLoading, setPoliciesLoading] = useState(false);
+
   // 🆕 Routing hook - Intelligent execution mode selection
   const { decision, executionMode, setExecutionMode, useGateway } = useOperationRouting({
     operation: 'unlock',
@@ -91,6 +96,50 @@ export const PolicyAwareUnlockOperation: React.FC<PolicyAwareUnlockOperationProp
     requiresAudit: true,
     isBatch: false
   });
+
+  // Load applicable policies
+  useEffect(() => {
+    if (tokenAddress && chain) {
+      loadApplicablePolicies();
+    }
+  }, [tokenAddress, chain]);
+
+  // Load applicable policies for unlock operations
+  const loadApplicablePolicies = async () => {
+    setPoliciesLoading(true);
+    try {
+      const chainIdNum = getChainId(chain);
+      
+      const { data, error } = await supabase
+        .from('policy_operation_mappings')
+        .select(`
+          *,
+          policy:rules!policy_operation_mappings_policy_id_fkey(*)
+        `)
+        .eq('operation_type', 'unlock')
+        .or(`chain_id.eq.${chainIdNum},chain_id.is.null`);
+      
+      if (error) {
+        console.error('Failed to load policies:', error);
+        return;
+      }
+
+      // Filter to active policies only
+      const policies = (data || [])
+        .filter(m => m.policy && m.policy.status === 'active')
+        .map(m => ({
+          ...m.policy,
+          conditions: m.conditions
+        }));
+      
+      setApplicablePolicies(policies);
+      
+    } catch (error) {
+      console.error('Exception loading policies:', error);
+    } finally {
+      setPoliciesLoading(false);
+    }
+  };
 
   // Load locked tokens
   useEffect(() => {
@@ -325,6 +374,57 @@ export const PolicyAwareUnlockOperation: React.FC<PolicyAwareUnlockOperationProp
           </TabsList>
 
           <TabsContent value="selection" className="space-y-4">
+            {/* Policy Indicator */}
+            {applicablePolicies.length > 0 && (
+              <Alert className="mb-4 border-blue-200 bg-blue-50">
+                <Shield className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-900 font-semibold">
+                  {applicablePolicies.length} Policy(ies) Active
+                </AlertTitle>
+                <AlertDescription className="text-blue-800">
+                  <ul className="mt-2 space-y-1 text-sm">
+                    {applicablePolicies.map((policy: any) => (
+                      <li key={policy.rule_id} className="flex items-start gap-2">
+                        <span className="text-blue-600">•</span>
+                        <div>
+                          <span className="font-medium">{policy.rule_name}</span>
+                          {policy.conditions && Object.keys(policy.conditions).length > 0 && (
+                            <div className="text-xs text-blue-600 mt-1">
+                              {policy.conditions.maxAmount && (
+                                <span>Max: {policy.conditions.maxAmount} </span>
+                              )}
+                              {policy.conditions.minAmount && (
+                                <span>Min: {policy.conditions.minAmount} </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {executionMode === 'enhanced' && (
+                    <p className="text-xs mt-2 text-blue-700">
+                      ✓ These policies will be enforced in enhanced mode
+                    </p>
+                  )}
+                  {executionMode === 'direct' && (
+                    <p className="text-xs mt-2 text-orange-600">
+                      ⚠️ Policy checks bypassed in direct mode
+                    </p>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {policiesLoading && (
+              <Alert className="mb-4 border-gray-200">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertDescription>
+                  Loading applicable policies...
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Wallet Selection */}
             {wallets.length > 0 && (
               <div className="space-y-2">

@@ -9,6 +9,10 @@ export { PolicyEvaluator } from './PolicyEvaluator';
 export { PolicyContextBuilder } from './PolicyContext';
 export { PolicyRepository } from './PolicyRepository';
 
+// 🆕 Phase 5: Hybrid Policy Engine
+export { HybridPolicyEngine } from './HybridPolicyEngine';
+export type { EnforcementMode, HybridConfig, LayerResult } from './HybridPolicyEngine';
+
 // Rule Evaluation Pipeline (Stage 2)
 export { RuleEvaluationPipeline } from './rules/RuleEvaluationPipeline';
 export { RuleContext } from './rules/RuleContext';

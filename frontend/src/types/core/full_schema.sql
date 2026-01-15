@@ -6897,6 +6897,20 @@ $$;
 
 
 --
+-- Name: update_compliance_cache_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_compliance_cache_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_consensus_settings_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7773,6 +7787,20 @@ $$;
 
 
 --
+-- Name: update_whitelist_sync_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_whitelist_sync_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: upsert_address_selection(uuid, uuid, text, text); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -8629,6 +8657,50 @@ COMMENT ON TABLE public.abs_tranches IS 'ABS tranche structure and payment terms
 
 
 --
+-- Name: accreditation_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.accreditation_documents (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    verification_id uuid NOT NULL,
+    document_type text NOT NULL,
+    document_url text NOT NULL,
+    document_hash text,
+    tax_year integer,
+    upload_date timestamp with time zone DEFAULT now(),
+    verification_status text NOT NULL,
+    rejection_reason text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    CONSTRAINT accreditation_documents_document_type_check CHECK ((document_type = ANY (ARRAY['tax_return'::text, 'bank_statement'::text, 'brokerage_statement'::text, 'license'::text, 'letter'::text]))),
+    CONSTRAINT accreditation_documents_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: accreditation_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.accreditation_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    wallet_address text NOT NULL,
+    is_accredited boolean DEFAULT false,
+    accreditation_type text,
+    verification_method text NOT NULL,
+    verified_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    annual_income numeric(12,2),
+    net_worth numeric(15,2),
+    professional_licenses text[],
+    verification_notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT accreditation_verifications_accreditation_type_check CHECK ((accreditation_type = ANY (ARRAY['income'::text, 'net_worth'::text, 'professional'::text, 'entity'::text]))),
+    CONSTRAINT accreditation_verifications_verification_method_check CHECK ((verification_method = ANY (ARRAY['self_certification'::text, 'document_upload'::text, 'third_party'::text, 'attorney_letter'::text])))
+);
+
+
+--
 -- Name: distributions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8900,6 +8972,28 @@ CREATE TABLE public.alerts (
     updated_at timestamp with time zone DEFAULT now(),
     CONSTRAINT alerts_severity_check CHECK ((severity = ANY (ARRAY['LOW'::text, 'MEDIUM'::text, 'HIGH'::text, 'CRITICAL'::text]))),
     CONSTRAINT alerts_status_check CHECK ((status = ANY (ARRAY['OPEN'::text, 'ACKNOWLEDGED'::text, 'RESOLVED'::text])))
+);
+
+
+--
+-- Name: aml_screenings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.aml_screenings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    wallet_address text NOT NULL,
+    screening_status text NOT NULL,
+    risk_level text NOT NULL,
+    geographic_risk_score integer DEFAULT 0,
+    last_screened_at timestamp with time zone DEFAULT now(),
+    next_screening_at timestamp with time zone NOT NULL,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT aml_screenings_geographic_risk_score_check CHECK (((geographic_risk_score >= 0) AND (geographic_risk_score <= 100))),
+    CONSTRAINT aml_screenings_risk_level_check CHECK ((risk_level = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'critical'::text]))),
+    CONSTRAINT aml_screenings_screening_status_check CHECK ((screening_status = ANY (ARRAY['clear'::text, 'flagged'::text, 'blocked'::text])))
 );
 
 
@@ -11665,6 +11759,29 @@ CREATE TABLE public.compliance_checks (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT compliance_checks_risk_level_check CHECK ((risk_level = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text]))),
     CONSTRAINT compliance_checks_status_check CHECK ((status = ANY (ARRAY['pending_approval'::text, 'approved'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: compliance_data_cache; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.compliance_data_cache (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_address text NOT NULL,
+    kyc_verified boolean DEFAULT false,
+    aml_cleared boolean DEFAULT false,
+    accredited_investor boolean DEFAULT false,
+    risk_score integer DEFAULT 0,
+    last_updated timestamp with time zone DEFAULT now(),
+    expires_at timestamp with time zone,
+    blockchain_tx_hash text,
+    oracle_address text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT check_risk_score CHECK (((risk_score >= 0) AND (risk_score <= 100)))
 );
 
 
@@ -15313,6 +15430,27 @@ CREATE TABLE public.health_checks (
 
 
 --
+-- Name: hybrid_enforcement_decisions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.hybrid_enforcement_decisions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    operation_id uuid,
+    enforcement_mode text NOT NULL,
+    layers_evaluated text[],
+    off_chain_result jsonb,
+    smart_contract_result jsonb,
+    oracle_result jsonb,
+    final_decision boolean NOT NULL,
+    decision_time_ms integer,
+    violation_details jsonb,
+    warnings jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT check_enforcement_mode CHECK ((enforcement_mode = ANY (ARRAY['off-chain-only'::text, 'smart-contract-only'::text, 'oracle-only'::text, 'hybrid-all'::text, 'hybrid-critical'::text])))
+);
+
+
+--
 -- Name: individual_documents; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -16273,6 +16411,26 @@ COMMENT ON COLUMN public.key_vault_keys.user_id IS 'Reference to user who owns t
 
 
 --
+-- Name: kyc_documents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.kyc_documents (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    verification_id uuid NOT NULL,
+    document_type text NOT NULL,
+    document_url text NOT NULL,
+    document_hash text,
+    upload_date timestamp with time zone DEFAULT now(),
+    verification_status text NOT NULL,
+    expiry_date timestamp with time zone,
+    rejection_reason text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    CONSTRAINT kyc_documents_document_type_check CHECK ((document_type = ANY (ARRAY['passport'::text, 'drivers_license'::text, 'national_id'::text, 'utility_bill'::text, 'selfie'::text]))),
+    CONSTRAINT kyc_documents_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
+);
+
+
+--
 -- Name: kyc_screening_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -16285,6 +16443,26 @@ CREATE TABLE public.kyc_screening_logs (
     notes text,
     performed_by text,
     created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: kyc_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.kyc_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    wallet_address text NOT NULL,
+    verification_status text NOT NULL,
+    verification_provider text NOT NULL,
+    verification_reference text,
+    verified_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    rejection_reason text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT kyc_verifications_verification_status_check CHECK ((verification_status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'expired'::text])))
 );
 
 
@@ -18612,6 +18790,25 @@ COMMENT ON TABLE public.operator_status IS 'Tracks operator status including blo
 
 
 --
+-- Name: oracle_updates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.oracle_updates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_address text NOT NULL,
+    update_type text NOT NULL,
+    previous_value jsonb,
+    new_value jsonb,
+    transaction_hash text,
+    block_number bigint,
+    oracle_address text,
+    updated_at timestamp with time zone DEFAULT now(),
+    updated_by uuid,
+    CONSTRAINT check_update_type CHECK ((update_type = ANY (ARRAY['kyc'::text, 'aml'::text, 'accreditation'::text, 'risk'::text, 'full_update'::text])))
+);
+
+
+--
 -- Name: organization_details; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -19227,6 +19424,49 @@ CREATE TABLE public.permissions (
     description text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: policy_blockchain_sync; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.policy_blockchain_sync (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    policy_id uuid NOT NULL,
+    chain_id text NOT NULL,
+    rule_type text NOT NULL,
+    sync_status text DEFAULT 'pending'::text,
+    transaction_hash text,
+    block_number bigint,
+    synced_at timestamp with time zone,
+    error_message text,
+    retry_count integer DEFAULT 0,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT policy_blockchain_sync_sync_status_check CHECK ((sync_status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: policy_engines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.policy_engines (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    chain_id text NOT NULL,
+    contract_address text NOT NULL,
+    deployment_tx_hash text,
+    deployed_at timestamp with time zone DEFAULT now(),
+    version text DEFAULT 'v1'::text,
+    is_active boolean DEFAULT true,
+    supports_lockup boolean DEFAULT false,
+    supports_whitelist boolean DEFAULT false,
+    supports_oracle boolean DEFAULT false,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -22467,6 +22707,29 @@ CREATE TABLE public.rules (
     updated_at timestamp with time zone DEFAULT now(),
     is_template boolean DEFAULT false,
     CONSTRAINT rules_created_by_uuid_check CHECK (((created_by)::text ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'::text))
+);
+
+
+--
+-- Name: sanctions_matches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.sanctions_matches (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    screening_id uuid NOT NULL,
+    list_name text NOT NULL,
+    entity_name text NOT NULL,
+    match_score integer NOT NULL,
+    match_type text NOT NULL,
+    entity_details jsonb DEFAULT '{}'::jsonb,
+    reviewed boolean DEFAULT false,
+    review_decision text,
+    reviewed_by uuid,
+    reviewed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT sanctions_matches_match_score_check CHECK (((match_score >= 0) AND (match_score <= 100))),
+    CONSTRAINT sanctions_matches_match_type_check CHECK ((match_type = ANY (ARRAY['exact'::text, 'fuzzy'::text, 'phonetic'::text]))),
+    CONSTRAINT sanctions_matches_review_decision_check CHECK ((review_decision = ANY (ARRAY['false_positive'::text, 'confirmed'::text])))
 );
 
 
@@ -28368,6 +28631,27 @@ COMMENT ON TABLE public.webauthn_credentials IS 'WebAuthn/Passkey credentials fo
 
 
 --
+-- Name: whitelist_blockchain_sync; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.whitelist_blockchain_sync (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    policy_id uuid NOT NULL,
+    chain_id text NOT NULL,
+    addresses_synced integer DEFAULT 0,
+    total_addresses integer DEFAULT 0,
+    transaction_hashes text[],
+    sync_status text DEFAULT 'pending'::text,
+    synced_at timestamp with time zone,
+    error_message text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT check_sync_status CHECK ((sync_status = ANY (ARRAY['pending'::text, 'syncing'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
 -- Name: whitelist_entries; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -28480,11 +28764,51 @@ ALTER TABLE ONLY public.abs_tranches
 
 
 --
+-- Name: accreditation_documents accreditation_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.accreditation_documents
+    ADD CONSTRAINT accreditation_documents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: accreditation_verifications accreditation_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.accreditation_verifications
+    ADD CONSTRAINT accreditation_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: accreditation_verifications accreditation_verifications_wallet_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.accreditation_verifications
+    ADD CONSTRAINT accreditation_verifications_wallet_address_key UNIQUE (wallet_address);
+
+
+--
 -- Name: alerts alerts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.alerts
     ADD CONSTRAINT alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: aml_screenings aml_screenings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.aml_screenings
+    ADD CONSTRAINT aml_screenings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: aml_screenings aml_screenings_wallet_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.aml_screenings
+    ADD CONSTRAINT aml_screenings_wallet_address_key UNIQUE (wallet_address);
 
 
 --
@@ -29338,6 +29662,22 @@ ALTER TABLE ONLY public.compliance_checks
 
 ALTER TABLE ONLY public.compliance_checks
     ADD CONSTRAINT compliance_checks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: compliance_data_cache compliance_data_cache_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_data_cache
+    ADD CONSTRAINT compliance_data_cache_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: compliance_data_cache compliance_data_cache_wallet_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.compliance_data_cache
+    ADD CONSTRAINT compliance_data_cache_wallet_address_key UNIQUE (wallet_address);
 
 
 --
@@ -30810,6 +31150,14 @@ ALTER TABLE ONLY public.health_checks
 
 
 --
+-- Name: hybrid_enforcement_decisions hybrid_enforcement_decisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.hybrid_enforcement_decisions
+    ADD CONSTRAINT hybrid_enforcement_decisions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: individual_documents individual_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -31073,11 +31421,35 @@ ALTER TABLE ONLY public.key_vault_keys
 
 
 --
+-- Name: kyc_documents kyc_documents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kyc_documents
+    ADD CONSTRAINT kyc_documents_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: kyc_screening_logs kyc_screening_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.kyc_screening_logs
     ADD CONSTRAINT kyc_screening_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: kyc_verifications kyc_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kyc_verifications
+    ADD CONSTRAINT kyc_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: kyc_verifications kyc_verifications_wallet_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kyc_verifications
+    ADD CONSTRAINT kyc_verifications_wallet_address_key UNIQUE (wallet_address);
 
 
 --
@@ -31969,6 +32341,14 @@ ALTER TABLE ONLY public.operator_status
 
 
 --
+-- Name: oracle_updates oracle_updates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.oracle_updates
+    ADD CONSTRAINT oracle_updates_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: organization_details organization_details_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32102,6 +32482,38 @@ ALTER TABLE ONLY public.pe_valuations
 
 ALTER TABLE ONLY public.permissions
     ADD CONSTRAINT permissions_pkey PRIMARY KEY (name);
+
+
+--
+-- Name: policy_blockchain_sync policy_blockchain_sync_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_blockchain_sync
+    ADD CONSTRAINT policy_blockchain_sync_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: policy_blockchain_sync policy_blockchain_sync_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_blockchain_sync
+    ADD CONSTRAINT policy_blockchain_sync_unique UNIQUE (policy_id, chain_id);
+
+
+--
+-- Name: policy_engines policy_engines_chain_id_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_engines
+    ADD CONSTRAINT policy_engines_chain_id_unique UNIQUE (chain_id);
+
+
+--
+-- Name: policy_engines policy_engines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_engines
+    ADD CONSTRAINT policy_engines_pkey PRIMARY KEY (id);
 
 
 --
@@ -33002,6 +33414,14 @@ ALTER TABLE ONLY public.rule_evaluations
 
 ALTER TABLE ONLY public.rules
     ADD CONSTRAINT rules_pkey UNIQUE (rule_id);
+
+
+--
+-- Name: sanctions_matches sanctions_matches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sanctions_matches
+    ADD CONSTRAINT sanctions_matches_pkey PRIMARY KEY (id);
 
 
 --
@@ -34891,6 +35311,14 @@ ALTER TABLE ONLY public.webauthn_credentials
 
 
 --
+-- Name: whitelist_blockchain_sync whitelist_blockchain_sync_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whitelist_blockchain_sync
+    ADD CONSTRAINT whitelist_blockchain_sync_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: whitelist_entries whitelist_entries_organization_id_address_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35100,6 +35528,48 @@ CREATE INDEX idx_abs_tranches_status ON public.abs_tranches USING btree (status)
 
 
 --
+-- Name: idx_accred_docs_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_accred_docs_status ON public.accreditation_documents USING btree (verification_status);
+
+
+--
+-- Name: idx_accred_docs_verification; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_accred_docs_verification ON public.accreditation_documents USING btree (verification_id);
+
+
+--
+-- Name: idx_accred_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_accred_expires ON public.accreditation_verifications USING btree (expires_at);
+
+
+--
+-- Name: idx_accred_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_accred_status ON public.accreditation_verifications USING btree (is_accredited);
+
+
+--
+-- Name: idx_accred_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_accred_user_id ON public.accreditation_verifications USING btree (user_id);
+
+
+--
+-- Name: idx_accred_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_accred_wallet ON public.accreditation_verifications USING btree (wallet_address);
+
+
+--
 -- Name: idx_alerts_service; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -35125,6 +35595,34 @@ CREATE INDEX idx_alerts_status ON public.alerts USING btree (status);
 --
 
 CREATE INDEX idx_alerts_unresolved ON public.validation_alerts USING btree (resolved) WHERE (resolved = false);
+
+
+--
+-- Name: idx_aml_next_screening; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_aml_next_screening ON public.aml_screenings USING btree (next_screening_at);
+
+
+--
+-- Name: idx_aml_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_aml_status ON public.aml_screenings USING btree (screening_status);
+
+
+--
+-- Name: idx_aml_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_aml_user_id ON public.aml_screenings USING btree (user_id);
+
+
+--
+-- Name: idx_aml_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_aml_wallet ON public.aml_screenings USING btree (wallet_address);
 
 
 --
@@ -36665,6 +37163,34 @@ CREATE INDEX idx_commodity_volatility_instrument ON public.commodity_implied_vol
 --
 
 CREATE INDEX idx_compliance_alerts_unacknowledged ON public.compliance_alerts USING btree (acknowledged) WHERE (acknowledged = false);
+
+
+--
+-- Name: idx_compliance_cache_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_cache_address ON public.compliance_data_cache USING btree (wallet_address);
+
+
+--
+-- Name: idx_compliance_cache_aml; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_cache_aml ON public.compliance_data_cache USING btree (aml_cleared);
+
+
+--
+-- Name: idx_compliance_cache_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_cache_expires ON public.compliance_data_cache USING btree (expires_at);
+
+
+--
+-- Name: idx_compliance_cache_kyc; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_compliance_cache_kyc ON public.compliance_data_cache USING btree (kyc_verified);
 
 
 --
@@ -38915,6 +39441,41 @@ CREATE INDEX idx_health_warnings_user ON public.trade_finance_health_warnings US
 
 
 --
+-- Name: idx_hybrid_decisions_final; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hybrid_decisions_final ON public.hybrid_enforcement_decisions USING btree (final_decision);
+
+
+--
+-- Name: idx_hybrid_decisions_mode; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hybrid_decisions_mode ON public.hybrid_enforcement_decisions USING btree (enforcement_mode);
+
+
+--
+-- Name: idx_hybrid_decisions_operation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hybrid_decisions_operation ON public.hybrid_enforcement_decisions USING btree (operation_id);
+
+
+--
+-- Name: idx_hybrid_decisions_performance; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hybrid_decisions_performance ON public.hybrid_enforcement_decisions USING btree (decision_time_ms);
+
+
+--
+-- Name: idx_hybrid_decisions_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_hybrid_decisions_timestamp ON public.hybrid_enforcement_decisions USING btree (created_at DESC);
+
+
+--
 -- Name: idx_individual_documents_entity_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -39549,6 +40110,48 @@ CREATE INDEX idx_key_vault_keys_user_id ON public.key_vault_keys USING btree (us
 --
 
 CREATE INDEX idx_key_vault_keys_wallet_id ON public.key_vault_keys USING btree (wallet_id);
+
+
+--
+-- Name: idx_kyc_docs_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_kyc_docs_status ON public.kyc_documents USING btree (verification_status);
+
+
+--
+-- Name: idx_kyc_docs_verification; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_kyc_docs_verification ON public.kyc_documents USING btree (verification_id);
+
+
+--
+-- Name: idx_kyc_expires; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_kyc_expires ON public.kyc_verifications USING btree (expires_at);
+
+
+--
+-- Name: idx_kyc_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_kyc_status ON public.kyc_verifications USING btree (verification_status);
+
+
+--
+-- Name: idx_kyc_user_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_kyc_user_id ON public.kyc_verifications USING btree (user_id);
+
+
+--
+-- Name: idx_kyc_wallet; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_kyc_wallet ON public.kyc_verifications USING btree (wallet_address);
 
 
 --
@@ -40812,6 +41415,34 @@ CREATE INDEX idx_operator_status_operator ON public.operator_status USING btree 
 
 
 --
+-- Name: idx_oracle_updates_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_updates_address ON public.oracle_updates USING btree (wallet_address);
+
+
+--
+-- Name: idx_oracle_updates_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_updates_timestamp ON public.oracle_updates USING btree (updated_at DESC);
+
+
+--
+-- Name: idx_oracle_updates_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_updates_tx_hash ON public.oracle_updates USING btree (transaction_hash);
+
+
+--
+-- Name: idx_oracle_updates_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_oracle_updates_type ON public.oracle_updates USING btree (update_type);
+
+
+--
 -- Name: idx_organizations_entity_structure; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41250,6 +41881,48 @@ CREATE INDEX idx_pe_valuations_method ON public.pe_valuations USING btree (valua
 --
 
 CREATE INDEX idx_pe_valuations_type ON public.pe_valuations USING btree (entity_type);
+
+
+--
+-- Name: idx_policy_blockchain_sync_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_blockchain_sync_chain_id ON public.policy_blockchain_sync USING btree (chain_id);
+
+
+--
+-- Name: idx_policy_blockchain_sync_policy_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_blockchain_sync_policy_id ON public.policy_blockchain_sync USING btree (policy_id);
+
+
+--
+-- Name: idx_policy_blockchain_sync_rule_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_blockchain_sync_rule_type ON public.policy_blockchain_sync USING btree (rule_type);
+
+
+--
+-- Name: idx_policy_blockchain_sync_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_blockchain_sync_status ON public.policy_blockchain_sync USING btree (sync_status);
+
+
+--
+-- Name: idx_policy_engines_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_engines_chain_id ON public.policy_engines USING btree (chain_id);
+
+
+--
+-- Name: idx_policy_engines_is_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_policy_engines_is_active ON public.policy_engines USING btree (is_active);
 
 
 --
@@ -43161,6 +43834,27 @@ CREATE INDEX idx_rules_is_template ON public.rules USING btree (is_template);
 --
 
 CREATE INDEX idx_rules_rule_id ON public.rules USING btree (rule_id);
+
+
+--
+-- Name: idx_sanctions_match_score; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sanctions_match_score ON public.sanctions_matches USING btree (match_score DESC);
+
+
+--
+-- Name: idx_sanctions_reviewed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sanctions_reviewed ON public.sanctions_matches USING btree (reviewed);
+
+
+--
+-- Name: idx_sanctions_screening; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_sanctions_screening ON public.sanctions_matches USING btree (screening_id);
 
 
 --
@@ -45089,6 +45783,27 @@ CREATE INDEX idx_whitelist_entries_organization_id ON public.whitelist_entries U
 
 
 --
+-- Name: idx_whitelist_sync_chain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_whitelist_sync_chain ON public.whitelist_blockchain_sync USING btree (chain_id);
+
+
+--
+-- Name: idx_whitelist_sync_policy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_whitelist_sync_policy ON public.whitelist_blockchain_sync USING btree (policy_id);
+
+
+--
+-- Name: idx_whitelist_sync_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_whitelist_sync_status ON public.whitelist_blockchain_sync USING btree (sync_status);
+
+
+--
 -- Name: multi_sig_wallets_blockchain_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -46093,6 +46808,13 @@ CREATE TRIGGER trigger_update_climate_risk_calculations_updated_at BEFORE UPDATE
 
 
 --
+-- Name: compliance_data_cache trigger_update_compliance_cache_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_compliance_cache_updated_at BEFORE UPDATE ON public.compliance_data_cache FOR EACH ROW EXECUTE FUNCTION public.update_compliance_cache_updated_at();
+
+
+--
 -- Name: investor_groups_investors trigger_update_group_member_count_delete_new; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -46139,6 +46861,13 @@ CREATE TRIGGER trigger_update_signature_count AFTER INSERT OR DELETE OR UPDATE O
 --
 
 CREATE TRIGGER trigger_update_total_assets AFTER INSERT OR DELETE OR UPDATE ON public.asset_holdings FOR EACH ROW EXECUTE FUNCTION public.update_total_assets();
+
+
+--
+-- Name: whitelist_blockchain_sync trigger_update_whitelist_sync_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_whitelist_sync_updated_at BEFORE UPDATE ON public.whitelist_blockchain_sync FOR EACH ROW EXECUTE FUNCTION public.update_whitelist_sync_updated_at();
 
 
 --
@@ -46866,6 +47595,30 @@ ALTER TABLE ONLY public.abs_prepayment_speeds
 
 ALTER TABLE ONLY public.abs_tranches
     ADD CONSTRAINT abs_tranches_asset_backed_product_id_fkey FOREIGN KEY (asset_backed_product_id) REFERENCES public.asset_backed_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: accreditation_documents accreditation_documents_verification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.accreditation_documents
+    ADD CONSTRAINT accreditation_documents_verification_id_fkey FOREIGN KEY (verification_id) REFERENCES public.accreditation_verifications(id) ON DELETE CASCADE;
+
+
+--
+-- Name: accreditation_verifications accreditation_verifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.accreditation_verifications
+    ADD CONSTRAINT accreditation_verifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: aml_screenings aml_screenings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.aml_screenings
+    ADD CONSTRAINT aml_screenings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -48373,6 +49126,14 @@ ALTER TABLE ONLY public.wallet_transaction_drafts
 
 
 --
+-- Name: whitelist_blockchain_sync fk_whitelist_sync_policy; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.whitelist_blockchain_sync
+    ADD CONSTRAINT fk_whitelist_sync_policy FOREIGN KEY (policy_id) REFERENCES public.rules(rule_id) ON DELETE CASCADE;
+
+
+--
 -- Name: fund_nav_data fund_nav_data_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -48693,11 +49454,27 @@ ALTER TABLE ONLY public.key_vault_keys
 
 
 --
+-- Name: kyc_documents kyc_documents_verification_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kyc_documents
+    ADD CONSTRAINT kyc_documents_verification_id_fkey FOREIGN KEY (verification_id) REFERENCES public.kyc_verifications(id) ON DELETE CASCADE;
+
+
+--
 -- Name: kyc_screening_logs kyc_screening_logs_investor_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.kyc_screening_logs
     ADD CONSTRAINT kyc_screening_logs_investor_id_fkey FOREIGN KEY (investor_id) REFERENCES public.investors(investor_id) ON DELETE CASCADE;
+
+
+--
+-- Name: kyc_verifications kyc_verifications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.kyc_verifications
+    ADD CONSTRAINT kyc_verifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
 
 --
@@ -49122,6 +49899,14 @@ ALTER TABLE ONLY public.pe_performance_metrics
 
 ALTER TABLE ONLY public.pe_portfolio_companies
     ADD CONSTRAINT pe_portfolio_companies_private_equity_product_id_fkey FOREIGN KEY (private_equity_product_id) REFERENCES public.private_equity_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: policy_blockchain_sync policy_blockchain_sync_policy_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.policy_blockchain_sync
+    ADD CONSTRAINT policy_blockchain_sync_policy_id_fkey FOREIGN KEY (policy_id) REFERENCES public.rules(rule_id) ON DELETE CASCADE;
 
 
 --
@@ -49769,6 +50554,22 @@ ALTER TABLE ONLY public.rule_evaluations
 
 ALTER TABLE ONLY public.rule_evaluations
     ADD CONSTRAINT rule_evaluations_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.rules(rule_id);
+
+
+--
+-- Name: sanctions_matches sanctions_matches_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sanctions_matches
+    ADD CONSTRAINT sanctions_matches_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: sanctions_matches sanctions_matches_screening_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.sanctions_matches
+    ADD CONSTRAINT sanctions_matches_screening_id_fkey FOREIGN KEY (screening_id) REFERENCES public.aml_screenings(id) ON DELETE CASCADE;
 
 
 --
@@ -50905,16 +51706,163 @@ CREATE POLICY "Wallet owners can delete non-executed proposals" ON public.multi_
 
 
 --
+-- Name: accreditation_documents accred_docs_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY accred_docs_select ON public.accreditation_documents FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
+   FROM public.accreditation_verifications av
+  WHERE ((av.id = accreditation_documents.verification_id) AND (av.user_id = auth.uid())))));
+
+
+--
+-- Name: accreditation_verifications accred_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY accred_select ON public.accreditation_verifications FOR SELECT TO authenticated USING ((auth.uid() = user_id));
+
+
+--
+-- Name: accreditation_documents; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.accreditation_documents ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: accreditation_verifications; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.accreditation_verifications ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: compliance_data_cache compliance_cache_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY compliance_cache_insert ON public.compliance_data_cache FOR INSERT TO authenticated WITH CHECK (true);
+
+
+--
+-- Name: compliance_data_cache compliance_cache_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY compliance_cache_select ON public.compliance_data_cache FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: compliance_data_cache compliance_cache_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY compliance_cache_update ON public.compliance_data_cache FOR UPDATE TO authenticated USING (true);
+
+
+--
+-- Name: compliance_data_cache; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.compliance_data_cache ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: hybrid_enforcement_decisions hybrid_decisions_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY hybrid_decisions_insert ON public.hybrid_enforcement_decisions FOR INSERT TO authenticated WITH CHECK (true);
+
+
+--
+-- Name: hybrid_enforcement_decisions hybrid_decisions_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY hybrid_decisions_select ON public.hybrid_enforcement_decisions FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: hybrid_enforcement_decisions; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.hybrid_enforcement_decisions ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: multi_sig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: oracle_updates; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.oracle_updates ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: oracle_updates oracle_updates_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY oracle_updates_insert ON public.oracle_updates FOR INSERT TO authenticated WITH CHECK (true);
+
+
+--
+-- Name: oracle_updates oracle_updates_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY oracle_updates_select ON public.oracle_updates FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: policy_blockchain_sync; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.policy_blockchain_sync ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: policy_engines; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.policy_engines ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: proposal_signatures; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
 ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: sanctions_matches; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.sanctions_matches ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: sanctions_matches sanctions_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY sanctions_select ON public.sanctions_matches FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: whitelist_blockchain_sync; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.whitelist_blockchain_sync ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: whitelist_blockchain_sync whitelist_sync_insert; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY whitelist_sync_insert ON public.whitelist_blockchain_sync FOR INSERT TO authenticated WITH CHECK (true);
+
+
+--
+-- Name: whitelist_blockchain_sync whitelist_sync_select; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY whitelist_sync_select ON public.whitelist_blockchain_sync FOR SELECT TO authenticated USING (true);
+
+
+--
+-- Name: whitelist_blockchain_sync whitelist_sync_update; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY whitelist_sync_update ON public.whitelist_blockchain_sync FOR UPDATE TO authenticated USING (true);
+
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -52594,6 +53542,16 @@ GRANT ALL ON FUNCTION public.update_climate_risk_calculations_updated_at() TO pr
 
 
 --
+-- Name: FUNCTION update_compliance_cache_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_compliance_cache_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_compliance_cache_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_compliance_cache_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_compliance_cache_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_consensus_settings_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -53084,6 +54042,16 @@ GRANT ALL ON FUNCTION public.update_whitelist_entries_updated_at() TO prisma;
 
 
 --
+-- Name: FUNCTION update_whitelist_sync_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION upsert_address_selection(p_user_id uuid, p_project_id uuid, p_address text, p_context text); Type: ACL; Schema: public; Owner: -
 --
 
@@ -53284,6 +54252,26 @@ GRANT ALL ON TABLE public.abs_tranches TO prisma;
 
 
 --
+-- Name: TABLE accreditation_documents; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.accreditation_documents TO anon;
+GRANT ALL ON TABLE public.accreditation_documents TO authenticated;
+GRANT ALL ON TABLE public.accreditation_documents TO service_role;
+GRANT ALL ON TABLE public.accreditation_documents TO prisma;
+
+
+--
+-- Name: TABLE accreditation_verifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.accreditation_verifications TO anon;
+GRANT ALL ON TABLE public.accreditation_verifications TO authenticated;
+GRANT ALL ON TABLE public.accreditation_verifications TO service_role;
+GRANT ALL ON TABLE public.accreditation_verifications TO prisma;
+
+
+--
 -- Name: TABLE distributions; Type: ACL; Schema: public; Owner: -
 --
 
@@ -53351,6 +54339,16 @@ GRANT ALL ON TABLE public.alerts TO anon;
 GRANT ALL ON TABLE public.alerts TO authenticated;
 GRANT ALL ON TABLE public.alerts TO service_role;
 GRANT ALL ON TABLE public.alerts TO prisma;
+
+
+--
+-- Name: TABLE aml_screenings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.aml_screenings TO anon;
+GRANT ALL ON TABLE public.aml_screenings TO authenticated;
+GRANT ALL ON TABLE public.aml_screenings TO service_role;
+GRANT ALL ON TABLE public.aml_screenings TO prisma;
 
 
 --
@@ -54341,6 +55339,16 @@ GRANT ALL ON TABLE public.compliance_checks TO anon;
 GRANT ALL ON TABLE public.compliance_checks TO authenticated;
 GRANT ALL ON TABLE public.compliance_checks TO service_role;
 GRANT ALL ON TABLE public.compliance_checks TO prisma;
+
+
+--
+-- Name: TABLE compliance_data_cache; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.compliance_data_cache TO anon;
+GRANT ALL ON TABLE public.compliance_data_cache TO authenticated;
+GRANT ALL ON TABLE public.compliance_data_cache TO service_role;
+GRANT ALL ON TABLE public.compliance_data_cache TO prisma;
 
 
 --
@@ -55384,6 +56392,16 @@ GRANT ALL ON TABLE public.health_checks TO prisma;
 
 
 --
+-- Name: TABLE hybrid_enforcement_decisions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.hybrid_enforcement_decisions TO anon;
+GRANT ALL ON TABLE public.hybrid_enforcement_decisions TO authenticated;
+GRANT ALL ON TABLE public.hybrid_enforcement_decisions TO service_role;
+GRANT ALL ON TABLE public.hybrid_enforcement_decisions TO prisma;
+
+
+--
 -- Name: TABLE individual_documents; Type: ACL; Schema: public; Owner: -
 --
 
@@ -55644,6 +56662,16 @@ GRANT ALL ON TABLE public.key_vault_keys TO prisma;
 
 
 --
+-- Name: TABLE kyc_documents; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.kyc_documents TO anon;
+GRANT ALL ON TABLE public.kyc_documents TO authenticated;
+GRANT ALL ON TABLE public.kyc_documents TO service_role;
+GRANT ALL ON TABLE public.kyc_documents TO prisma;
+
+
+--
 -- Name: TABLE kyc_screening_logs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -55651,6 +56679,16 @@ GRANT ALL ON TABLE public.kyc_screening_logs TO anon;
 GRANT ALL ON TABLE public.kyc_screening_logs TO authenticated;
 GRANT ALL ON TABLE public.kyc_screening_logs TO service_role;
 GRANT ALL ON TABLE public.kyc_screening_logs TO prisma;
+
+
+--
+-- Name: TABLE kyc_verifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.kyc_verifications TO anon;
+GRANT ALL ON TABLE public.kyc_verifications TO authenticated;
+GRANT ALL ON TABLE public.kyc_verifications TO service_role;
+GRANT ALL ON TABLE public.kyc_verifications TO prisma;
 
 
 --
@@ -56384,6 +57422,16 @@ GRANT ALL ON TABLE public.operator_status TO prisma;
 
 
 --
+-- Name: TABLE oracle_updates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.oracle_updates TO anon;
+GRANT ALL ON TABLE public.oracle_updates TO authenticated;
+GRANT ALL ON TABLE public.oracle_updates TO service_role;
+GRANT ALL ON TABLE public.oracle_updates TO prisma;
+
+
+--
 -- Name: TABLE organization_details; Type: ACL; Schema: public; Owner: -
 --
 
@@ -56561,6 +57609,26 @@ GRANT ALL ON TABLE public.permissions TO anon;
 GRANT ALL ON TABLE public.permissions TO authenticated;
 GRANT ALL ON TABLE public.permissions TO service_role;
 GRANT ALL ON TABLE public.permissions TO prisma;
+
+
+--
+-- Name: TABLE policy_blockchain_sync; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.policy_blockchain_sync TO anon;
+GRANT ALL ON TABLE public.policy_blockchain_sync TO authenticated;
+GRANT ALL ON TABLE public.policy_blockchain_sync TO service_role;
+GRANT ALL ON TABLE public.policy_blockchain_sync TO prisma;
+
+
+--
+-- Name: TABLE policy_engines; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.policy_engines TO anon;
+GRANT ALL ON TABLE public.policy_engines TO authenticated;
+GRANT ALL ON TABLE public.policy_engines TO service_role;
+GRANT ALL ON TABLE public.policy_engines TO prisma;
 
 
 --
@@ -57431,6 +58499,16 @@ GRANT ALL ON TABLE public.rules TO anon;
 GRANT ALL ON TABLE public.rules TO authenticated;
 GRANT ALL ON TABLE public.rules TO service_role;
 GRANT ALL ON TABLE public.rules TO prisma;
+
+
+--
+-- Name: TABLE sanctions_matches; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.sanctions_matches TO anon;
+GRANT ALL ON TABLE public.sanctions_matches TO authenticated;
+GRANT ALL ON TABLE public.sanctions_matches TO service_role;
+GRANT ALL ON TABLE public.sanctions_matches TO prisma;
 
 
 --
@@ -59112,6 +60190,16 @@ GRANT ALL ON TABLE public.webauthn_credentials TO anon;
 GRANT ALL ON TABLE public.webauthn_credentials TO authenticated;
 GRANT ALL ON TABLE public.webauthn_credentials TO service_role;
 GRANT ALL ON TABLE public.webauthn_credentials TO prisma;
+
+
+--
+-- Name: TABLE whitelist_blockchain_sync; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.whitelist_blockchain_sync TO anon;
+GRANT ALL ON TABLE public.whitelist_blockchain_sync TO authenticated;
+GRANT ALL ON TABLE public.whitelist_blockchain_sync TO service_role;
+GRANT ALL ON TABLE public.whitelist_blockchain_sync TO prisma;
 
 
 --

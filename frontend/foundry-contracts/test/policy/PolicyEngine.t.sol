@@ -117,7 +117,9 @@ contract PolicyEngineTest is Test {
             OPERATION_TRANSFER,
             MAX_AMOUNT,
             DAILY_LIMIT,
-            COOLDOWN_PERIOD
+            COOLDOWN_PERIOD,
+            0,  // activationTime (0 = immediate)
+            0   // expirationTime (0 = never)
         );
         
         vm.stopPrank();
@@ -134,13 +136,13 @@ contract PolicyEngineTest is Test {
     function testCreatePolicyRequiresRole() public {
         vm.prank(operator);
         vm.expectRevert();
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
     }
     
     function testUpdatePolicy() public {
         // Create initial policy
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         
         // Update policy
         uint256 newMaxAmount = 2000 * 10**18;
@@ -178,7 +180,7 @@ contract PolicyEngineTest is Test {
     function testValidateOperationWithinLimits() public {
         // Create policy
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         
         // Validate operation within limits
         vm.prank(token);
@@ -196,7 +198,7 @@ contract PolicyEngineTest is Test {
     function testValidateOperationExceedsMaxAmount() public {
         // Create policy
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         
         // Try to exceed max amount
         vm.prank(token);
@@ -214,7 +216,7 @@ contract PolicyEngineTest is Test {
     function testValidateOperationExceedsDailyLimit() public {
         // Create policy with no max amount limit (0 = unlimited), daily limit of 5000, no cooldown
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, 0, DAILY_LIMIT, 0);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, 0, DAILY_LIMIT, 0, 0, 0);
         
         // First operation succeeds (3000 < 5000 daily limit)
         vm.prank(token);
@@ -236,7 +238,7 @@ contract PolicyEngineTest is Test {
     function testValidateOperationCooldownPeriod() public {
         // Create policy
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         
         // First operation succeeds
         vm.prank(token);
@@ -275,7 +277,7 @@ contract PolicyEngineTest is Test {
     function testEnableApprovalRequirement() public {
         // Create policy
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         
         // Enable approval requirement
         vm.prank(policyAdmin);
@@ -290,7 +292,7 @@ contract PolicyEngineTest is Test {
     function testRequestApproval() public {
         // Setup policy with approval requirement
         vm.startPrank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         policyEngine.enableApprovalRequirement(token, OPERATION_TRANSFER, 2);
         vm.stopPrank();
         
@@ -326,7 +328,7 @@ contract PolicyEngineTest is Test {
     function testApproveRequest() public {
         // Setup and create request
         vm.startPrank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         policyEngine.enableApprovalRequirement(token, OPERATION_TRANSFER, 2);
         vm.stopPrank();
         
@@ -347,7 +349,7 @@ contract PolicyEngineTest is Test {
     function testCannotApproveRequestTwice() public {
         // Setup and create request
         vm.startPrank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         policyEngine.enableApprovalRequirement(token, OPERATION_TRANSFER, 2);
         vm.stopPrank();
         
@@ -367,7 +369,7 @@ contract PolicyEngineTest is Test {
     function testIsOperationApproved() public {
         // Setup and create request
         vm.startPrank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, MAX_AMOUNT, DAILY_LIMIT, COOLDOWN_PERIOD, 0, 0);
         policyEngine.enableApprovalRequirement(token, OPERATION_TRANSFER, 2);
         vm.stopPrank();
         
@@ -393,7 +395,7 @@ contract PolicyEngineTest is Test {
     function testDailyLimitResets() public {
         // Create policy with no max amount limit (0 = unlimited), daily limit of 5000, no cooldown
         vm.prank(policyAdmin);
-        policyEngine.createPolicy(token, OPERATION_TRANSFER, 0, DAILY_LIMIT, 0);
+        policyEngine.createPolicy(token, OPERATION_TRANSFER, 0, DAILY_LIMIT, 0, 0, 0);
         
         // Use some of daily limit (3000 < 5000)
         vm.prank(token);

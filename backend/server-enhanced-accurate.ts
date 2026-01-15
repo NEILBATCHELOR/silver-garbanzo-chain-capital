@@ -23,6 +23,7 @@ import { baseWalletRoutes } from './src/routes/base-wallet'
 import auditRoutes from './src/routes/audit'
 import userRoutes from './src/routes/users'
 import policyRoutes from './src/routes/policy'
+import policyEnforcementRoutes from './src/routes/policy-enforcement'
 import ruleRoutes from './src/routes/rules'
 import factoringRoutes from './src/routes/factoring'
 import complianceRoutes from './src/routes/compliance'
@@ -48,6 +49,14 @@ import virtualAccountsPspRoutes from './src/routes/psp/virtual-accounts.routes'
 import webhooksPspRoutes from './src/routes/psp/webhooks.routes'
 import { pspMarketRatesRoutes } from './src/routes/psp-market-rates'
 // import { pspApiKeyPlugin } from './src/middleware/psp/apiKeyValidation'  // Disabled - using psp-auth.ts middleware instead
+
+// Oracle Routes (Phase 4 - Compliance Oracle System)
+import kycRoutes from './src/routes/oracle/kyc'
+import amlRoutes from './src/routes/oracle/aml'
+import accreditationRoutes from './src/routes/oracle/accreditation'
+import riskRoutes from './src/routes/oracle/risk'
+import chainlinkApiRoutes from './src/routes/oracle/chainlink-api'
+import oracleSyncRoutes from './src/routes/oracle/oracle-sync'
 
 // Trade Finance Routes (14 services)
 import { haircutRoutes, positionsRoutes, oraclesRoutes, priceManagementRoutes, adminRoutes, rewardsRoutes, liquidationRoutes, treasuryRoutes, stataTokenRoutes, marketplaceRoutes, historyRoutes, analyticsRoutes, activityFeedRoutes } from './src/routes/trade-finance'
@@ -375,10 +384,82 @@ const SERVICE_CATALOG = {
         operations: ['CRUD', 'Validation', 'Engine', 'Templates', 'Testing'],
         prefix: '/api/v1/rules',
         description: 'Business rules engine and management system'
+      },
+      {
+        name: 'Oracle KYC',
+        endpoints: 8,
+        routes: [
+          'POST /oracle/kyc/submit (submit)', 'POST /oracle/kyc/documents (upload)',
+          'GET /oracle/kyc/status/:userId (status)', 'GET /oracle/kyc/is-verified/:address (check)',
+          'GET /oracle/kyc/documents/:userId (list-docs)', 'POST /oracle/kyc/review/:verificationId (review)',
+          'POST /oracle/kyc/expire/:verificationId (expire)', 'GET /oracle/kyc/analytics (analytics)'
+        ],
+        operations: ['Document Upload', 'Identity Verification', 'Status Tracking', 'Review Process'],
+        prefix: '/api/v1/oracle',
+        description: 'KYC verification service with document validation and identity checks'
+      },
+      {
+        name: 'Oracle AML',
+        endpoints: 6,
+        routes: [
+          'POST /oracle/aml/screen (screen)', 'GET /oracle/aml/is-cleared/:address (check)',
+          'GET /oracle/aml/screenings/:userId (history)', 'POST /oracle/aml/review/:screeningId (review)',
+          'GET /oracle/aml/matches/:screeningId (matches)', 'GET /oracle/aml/analytics (analytics)'
+        ],
+        operations: ['Sanctions Screening', 'OFAC/EU/UN Lists', 'Match Review', 'Geographic Risk'],
+        prefix: '/api/v1/oracle',
+        description: 'AML sanctions screening against international watchlists'
+      },
+      {
+        name: 'Oracle Accreditation',
+        endpoints: 6,
+        routes: [
+          'POST /oracle/accreditation/submit (submit)', 'POST /oracle/accreditation/documents (upload)',
+          'GET /oracle/accreditation/status/:userId (status)', 'GET /oracle/accreditation/is-accredited/:address (check)',
+          'POST /oracle/accreditation/review/:verificationId (review)', 'GET /oracle/accreditation/analytics (analytics)'
+        ],
+        operations: ['Income Verification', 'Net Worth Validation', 'Professional Certifications', 'Status Tracking'],
+        prefix: '/api/v1/oracle',
+        description: 'Accredited investor verification service'
+      },
+      {
+        name: 'Oracle Risk Scoring',
+        endpoints: 5,
+        routes: [
+          'GET /oracle/risk/score/:userId (calculate)', 'GET /oracle/risk/history/:userId (history)',
+          'POST /oracle/risk/update/:userId (update)', 'GET /oracle/risk/factors/:userId (factors)',
+          'GET /oracle/risk/analytics (analytics)'
+        ],
+        operations: ['Risk Calculation', 'Score History', 'Factor Analysis', 'Behavioral Monitoring'],
+        prefix: '/api/v1/oracle',
+        description: 'User risk scoring engine with behavioral analysis'
+      },
+      {
+        name: 'Oracle Chainlink API',
+        endpoints: 4,
+        routes: [
+          'POST /oracle/chainlink/request (request)', 'GET /oracle/chainlink/status/:requestId (status)',
+          'POST /oracle/chainlink/fulfill (fulfill)', 'GET /oracle/chainlink/history (history)'
+        ],
+        operations: ['Chainlink Functions', 'Request Management', 'Fulfillment', 'Status Tracking'],
+        prefix: '/api/v1/oracle',
+        description: 'Chainlink Functions integration for decentralized oracle'
+      },
+      {
+        name: 'Oracle Blockchain Sync',
+        endpoints: 5,
+        routes: [
+          'POST /oracle/sync/update (update)', 'GET /oracle/sync/status (status)',
+          'POST /oracle/sync/batch (batch)', 'GET /oracle/sync/history (history)',
+          'GET /oracle/sync/analytics (analytics)'
+        ],
+        operations: ['Blockchain Updates', 'Batch Sync', 'Status Monitoring', 'History Tracking'],
+        prefix: '/api/v1/oracle',
+        description: 'Blockchain oracle sync service for ComplianceOracle.sol'
       }
     ],
-    total_endpoints: 57,
-    total_services: 4
+    total_endpoints: 91,
+    total_services: 10
   },
   system_infrastructure: {
     category: 'System & Infrastructure',
@@ -911,10 +992,32 @@ Comprehensive platform supporting:
 
     // Specialized routes
     await app.register(policyRoutes, { prefix: apiPrefix })
+    await app.register(policyEnforcementRoutes, { prefix: `${apiPrefix}/policy-enforcement` })
     await app.register(ruleRoutes, { prefix: apiPrefix })
     await app.register(factoringRoutes, { prefix: apiPrefix })
     await app.register(complianceRoutes, { prefix: apiPrefix })
     await app.register(organizationRoutes, { prefix: '/api/v1/organizations' })
+
+    // ============================================================================
+    // ORACLE ROUTES - Phase 4: Compliance Oracle System (Dual Architecture)
+    // ============================================================================
+    // Dual oracle architecture supporting both:
+    // - Option A: Chainlink Functions (decentralized, on-chain)
+    // - Option B: Bespoke Oracle Service (centralized, off-chain)
+    // 
+    // Features:
+    // - KYC Verification (document validation, identity checks)
+    // - AML Sanctions Screening (OFAC, EU, UN sanctions lists)
+    // - Accredited Investor Verification (income/net worth thresholds)
+    // - Risk Scoring (behavioral analysis, transaction patterns)
+    // - Blockchain Oracle Sync (updates on-chain ComplianceOracle.sol)
+    // ============================================================================
+    await app.register(kycRoutes, { prefix: `${apiPrefix}/oracle/kyc` })           // Handles /api/v1/oracle/kyc/*
+    await app.register(amlRoutes, { prefix: `${apiPrefix}/oracle/aml` })           // Handles /api/v1/oracle/aml/*
+    await app.register(accreditationRoutes, { prefix: `${apiPrefix}/oracle/accreditation` }) // Handles /api/v1/oracle/accreditation/*
+    await app.register(riskRoutes, { prefix: `${apiPrefix}/oracle/risk` })          // Handles /api/v1/oracle/risk/*
+    await app.register(chainlinkApiRoutes, { prefix: `${apiPrefix}/oracle/chainlink` }) // Handles /api/v1/oracle/chainlink/*
+    await app.register(oracleSyncRoutes, { prefix: `${apiPrefix}/oracle/sync` })    // Handles /api/v1/oracle/sync/*
 
     // Admin & Deployment routes
     await app.register(deploymentRoutes)  // Handles /api/deployment/*

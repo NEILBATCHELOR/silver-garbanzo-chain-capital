@@ -26,9 +26,7 @@ WHERE
   (
     (
       (t.deployment_status) :: text = ANY (
-        (
-          ARRAY ['FAILED_INITIALIZATION'::character varying, 'failed'::character varying]
-        ) :: text []
+        ARRAY [('FAILED_INITIALIZATION'::character varying)::text, ('failed'::character varying)::text]
       )
     )
     OR (td.status = 'FAILED_INITIALIZATION' :: text)

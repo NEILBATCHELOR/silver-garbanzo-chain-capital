@@ -51,8 +51,16 @@ contract PolicyEngine is
     // token => operator => operationType => array of approvers
     mapping(address => mapping(string => address[])) private approvers;
     
+    // ✅ Phase 3: Whitelist Storage
+    // token => operationType => array of whitelisted addresses
+    mapping(address => mapping(string => address[])) private whitelists;
+    
+    // token => operationType => address => isWhitelisted (for O(1) lookup)
+    mapping(address => mapping(string => mapping(address => bool))) private isWhitelisted;
+    
     // ============ Storage Gap ============
-    uint256[45] private __gap;
+    // Reduced by 2 to account for Phase 3 whitelist mappings
+    uint256[43] private __gap;
     
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -119,6 +127,55 @@ contract PolicyEngine is
             return (true, "");
         }
         
+        // ✅ Phase 2: Check time restrictions
+        if (policy.hasTimeRestrictions) {
+            if (policy.activationTime > 0 && block.timestamp < policy.activationTime) {
+                reason = "Policy not yet active";
+                emit TimeRestrictionViolation(token, operator, operationType, block.timestamp, reason);
+                emit PolicyViolation(token, operator, operationType, reason);
+                return (false, reason);
+            }
+            
+            if (policy.expirationTime > 0 && block.timestamp > policy.expirationTime) {
+                reason = "Policy has expired";
+                emit TimeRestrictionViolation(token, operator, operationType, block.timestamp, reason);
+                emit PolicyViolation(token, operator, operationType, reason);
+                return (false, reason);
+            }
+        }
+        
+        // ✅ Phase 3: Check whitelist
+        if (policy.requiresWhitelist && policy.whitelistEnabled) {
+            // For transfers, check target address
+            bool isTransfer = keccak256(bytes(operationType)) == keccak256(bytes("ERC20_TRANSFER")) ||
+                             keccak256(bytes(operationType)) == keccak256(bytes("transfer"));
+            
+            if (isTransfer) {
+                if (target == address(0)) {
+                    reason = "Target address required for transfer whitelist check";
+                    emit WhitelistViolation(token, operator, target, operationType, reason);
+                    emit PolicyViolation(token, operator, operationType, reason);
+                    return (false, reason);
+                }
+                
+                if (!isWhitelisted[token][operationType][target]) {
+                    reason = "Target address not whitelisted";
+                    emit WhitelistViolation(token, operator, target, operationType, reason);
+                    emit PolicyViolation(token, operator, operationType, reason);
+                    return (false, reason);
+                }
+            }
+            // For other operations, check operator
+            else {
+                if (!isWhitelisted[token][operationType][operator]) {
+                    reason = "Operator address not whitelisted";
+                    emit WhitelistViolation(token, operator, target, operationType, reason);
+                    emit PolicyViolation(token, operator, operationType, reason);
+                    return (false, reason);
+                }
+            }
+        }
+        
         // Check if approval is required
         if (policy.requiresApproval) {
             reason = "Operation requires multi-signature approval";
@@ -182,7 +239,9 @@ contract PolicyEngine is
         string memory operationType,
         uint256 maxAmount,
         uint256 dailyLimit,
-        uint256 cooldownPeriod
+        uint256 cooldownPeriod,
+        uint256 activationTime,      // ✅ Phase 2
+        uint256 expirationTime       // ✅ Phase 2
     ) external override onlyRole(POLICY_ADMIN_ROLE) {
         Policy storage policy = policies[token][operationType];
         
@@ -192,8 +251,17 @@ contract PolicyEngine is
         policy.cooldownPeriod = cooldownPeriod;
         policy.requiresApproval = false;
         policy.approvalThreshold = 0;
+        policy.activationTime = activationTime;                    // ✅ Phase 2
+        policy.expirationTime = expirationTime;                    // ✅ Phase 2
+        policy.hasTimeRestrictions = (activationTime > 0 || expirationTime > 0);  // ✅ Phase 2
+        policy.requiresWhitelist = false;                          // ✅ Phase 3
+        policy.whitelistEnabled = false;                           // ✅ Phase 3
         
         emit PolicyCreated(token, operationType, maxAmount, dailyLimit);
+        
+        if (activationTime > 0 || expirationTime > 0) {
+            emit PolicyTimeRestrictionSet(token, operationType, activationTime, expirationTime);
+        }
     }
     
     /**
@@ -213,6 +281,24 @@ contract PolicyEngine is
         policy.dailyLimit = dailyLimit;
         
         emit PolicyUpdated(token, operationType, active);
+    }
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function setTimeRestrictions(
+        address token,
+        string memory operationType,
+        uint256 activationTime,
+        uint256 expirationTime
+    ) external override onlyRole(POLICY_ADMIN_ROLE) {
+        Policy storage policy = policies[token][operationType];
+        
+        policy.activationTime = activationTime;
+        policy.expirationTime = expirationTime;
+        policy.hasTimeRestrictions = (activationTime > 0 || expirationTime > 0);
+        
+        emit PolicyTimeRestrictionSet(token, operationType, activationTime, expirationTime);
     }
     
     /**
@@ -313,6 +399,90 @@ contract PolicyEngine is
         
         // Note: Actual operation execution happens in the token contract
         // This just marks the request as approved and executable
+    }
+    
+    // ============ Whitelist Management Functions (Phase 3) ============
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function addToWhitelist(
+        address token,
+        string memory operationType,
+        address addressToAdd
+    ) external override onlyRole(POLICY_ADMIN_ROLE) {
+        require(addressToAdd != address(0), "Cannot whitelist zero address");
+        require(!isWhitelisted[token][operationType][addressToAdd], "Already whitelisted");
+        
+        whitelists[token][operationType].push(addressToAdd);
+        isWhitelisted[token][operationType][addressToAdd] = true;
+        
+        emit AddressWhitelisted(token, operationType, addressToAdd);
+    }
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function addToWhitelistBatch(
+        address token,
+        string memory operationType,
+        address[] memory addresses
+    ) external override onlyRole(POLICY_ADMIN_ROLE) {
+        for (uint i = 0; i < addresses.length; i++) {
+            address addr = addresses[i];
+            
+            // Skip zero address and already whitelisted addresses
+            if (addr == address(0) || isWhitelisted[token][operationType][addr]) {
+                continue;
+            }
+            
+            whitelists[token][operationType].push(addr);
+            isWhitelisted[token][operationType][addr] = true;
+            
+            emit AddressWhitelisted(token, operationType, addr);
+        }
+    }
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function removeFromWhitelist(
+        address token,
+        string memory operationType,
+        address addressToRemove
+    ) external override onlyRole(POLICY_ADMIN_ROLE) {
+        require(isWhitelisted[token][operationType][addressToRemove], "Not whitelisted");
+        
+        isWhitelisted[token][operationType][addressToRemove] = false;
+        
+        // Remove from array (swap with last element)
+        address[] storage list = whitelists[token][operationType];
+        for (uint i = 0; i < list.length; i++) {
+            if (list[i] == addressToRemove) {
+                list[i] = list[list.length - 1];
+                list.pop();
+                break;
+            }
+        }
+        
+        emit AddressRemovedFromWhitelist(token, operationType, addressToRemove);
+    }
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function enableWhitelistRequirement(
+        address token,
+        string memory operationType
+    ) external override onlyRole(POLICY_ADMIN_ROLE) {
+        Policy storage policy = policies[token][operationType];
+        
+        require(policy.active, "Policy must be active");
+        
+        policy.requiresWhitelist = true;
+        policy.whitelistEnabled = true;
+        
+        emit WhitelistRequirementEnabled(token, operationType);
     }
     
     // ============ View Functions ============
@@ -452,6 +622,29 @@ contract PolicyEngine is
         Policy storage policy = policies[token][request.operationType];
         
         return request.approvals >= policy.approvalThreshold && !request.executed;
+    }
+    
+    // ============ Whitelist View Functions (Phase 3) ============
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function isAddressWhitelisted(
+        address token,
+        string memory operationType,
+        address addr
+    ) external view override returns (bool) {
+        return isWhitelisted[token][operationType][addr];
+    }
+    
+    /**
+     * @inheritdoc IPolicyEngine
+     */
+    function getWhitelistedAddresses(
+        address token,
+        string memory operationType
+    ) external view override returns (address[] memory) {
+        return whitelists[token][operationType];
     }
     
     // ============ Internal Helper Functions ============

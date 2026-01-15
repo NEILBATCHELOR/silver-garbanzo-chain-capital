@@ -299,6 +299,23 @@ export class PolicyEngine {
       }
     }
 
+    // Check effective date range if specified
+    const now = Date.now();
+    
+    if (conditions.effectiveFrom) {
+      const effectiveFrom = new Date(conditions.effectiveFrom).getTime();
+      if (now < effectiveFrom) {
+        return false;
+      }
+    }
+    
+    if (conditions.effectiveTo) {
+      const effectiveTo = new Date(conditions.effectiveTo).getTime();
+      if (now > effectiveTo) {
+        return false;
+      }
+    }
+
     // Additional condition checks can be added here
 
     return true;
