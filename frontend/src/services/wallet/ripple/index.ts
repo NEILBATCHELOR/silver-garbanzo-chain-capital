@@ -103,3 +103,10 @@ export default rippleServices;
 export * from './channels'
 export * from './escrow'
 export * from './checks'
+
+
+// XRPL Oracle & Price Feeds - Phase 6
+export * from './oracle'
+
+// XRPL Credentials & Identity - Phase 7
+export * from './credentials'

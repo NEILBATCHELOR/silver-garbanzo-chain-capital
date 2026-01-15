@@ -259,3 +259,23 @@ export type {
   HealthStatus,
   HealthCheck
 } from './common';
+
+
+// Oracle types
+export type {
+  PriceDataPoint,
+  OracleSetParams,
+  XRPLPriceOracle,
+  XRPLOraclePriceData,
+  XRPLOracleUpdate,
+  OracleSetResult,
+  OracleDeleteResult,
+  OracleDetails,
+  AccountOracleSummary,
+  CreateOracleRequest,
+  UpdatePricesRequest,
+  OracleAnalytics,
+  OracleSubscription,
+  OracleErrorType,
+  OracleError
+} from './oracle';
