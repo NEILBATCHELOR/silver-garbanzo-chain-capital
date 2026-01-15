@@ -74,7 +74,7 @@ export interface NFTDetails {
 export interface NFTOffer {
   offerIndex: string;
   owner: string;
-  amount: string | object;
+  amount: string | { currency: string; issuer: string; value: string };
   destination?: string;
   expiration?: number;
 }
@@ -486,7 +486,7 @@ export class XRPLNFTService {
         return {
           offerIndex: offerData.nft_offer_index as string,
           owner: offerData.owner as string,
-          amount: offerData.amount as string | object,
+          amount: offerData.amount as string | { currency: string; issuer: string; value: string },
           destination: offerData.destination as string | undefined,
           expiration: offerData.expiration as number | undefined
         };
@@ -520,7 +520,7 @@ export class XRPLNFTService {
         return {
           offerIndex: offerData.nft_offer_index as string,
           owner: offerData.owner as string,
-          amount: offerData.amount as string | object,
+          amount: offerData.amount as string | { currency: string; issuer: string; value: string },
           expiration: offerData.expiration as number | undefined
         };
       });

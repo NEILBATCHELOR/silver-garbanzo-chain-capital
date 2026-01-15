@@ -1,0 +1,209 @@
+/**
+ * XRPL Dashboard Header
+ * Matches Trade Finance Dashboard Header style with wallet/network selectors
+ * 
+ * Features:
+ * - Network selector (Mainnet/Testnet/Devnet)
+ * - Wallet connection status
+ * - Action buttons (MPT, NFT, Payment features)
+ * - Refresh functionality
+ * - Real-time badge
+ * - Wallet balance display
+ */
+
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { 
+  RefreshCw, 
+  Wallet,
+  Coins,
+  Image,
+  Send,
+  AlertCircle
+} from 'lucide-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+
+interface XRPLDashboardHeaderProps {
+  network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
+  walletAddress?: string
+  walletBalance?: string
+  title?: string
+  subtitle?: string
+  onRefresh?: () => void
+  onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
+  onConnectWallet?: () => void
+  actions?: React.ReactNode
+  isLoading?: boolean
+  showMPT?: boolean
+  showNFT?: boolean
+  showPayments?: boolean
+  onMPT?: () => void
+  onNFT?: () => void
+  onPayments?: () => void
+}
+
+export function XRPLDashboardHeader({
+  network = 'TESTNET',
+  walletAddress,
+  walletBalance,
+  title = 'XRPL Integration',
+  subtitle = 'XRP Ledger blockchain integration and asset management',
+  onRefresh,
+  onNetworkChange,
+  onConnectWallet,
+  actions,
+  isLoading = false,
+  showMPT = true,
+  showNFT = true,
+  showPayments = true,
+  onMPT,
+  onNFT,
+  onPayments
+}: XRPLDashboardHeaderProps) {
+  
+  const getNetworkBadge = (net: string) => {
+    if (net === 'MAINNET') {
+      return <Badge variant="default" className="bg-green-500 text-white">Mainnet</Badge>
+    } else if (net === 'TESTNET') {
+      return <Badge variant="default" className="bg-blue-500 text-white">Testnet</Badge>
+    } else {
+      return <Badge variant="default" className="bg-purple-500 text-white">Devnet</Badge>
+    }
+  }
+
+  const formatAddress = (address: string) => {
+    return `${address.substring(0, 8)}...${address.substring(address.length - 6)}`
+  }
+
+  return (
+    <div className="bg-white border-b">
+      <div className="px-6 py-4">
+        {/* Top Row: Title and Network/Wallet Selectors */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold text-foreground">
+                {title}
+              </h1>
+              <Badge variant="secondary" className="text-xs">
+                Real-time
+              </Badge>
+              {getNetworkBadge(network)}
+              {walletAddress && walletBalance && (
+                <Badge variant="outline" className="text-xs font-mono">
+                  {walletBalance} XRP
+                </Badge>
+              )}
+            </div>
+            {subtitle && (
+              <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Network Selector */}
+            <Select value={network} onValueChange={onNetworkChange}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Select network" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MAINNET">Mainnet</SelectItem>
+                <SelectItem value="TESTNET">Testnet</SelectItem>
+                <SelectItem value="DEVNET">Devnet</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Wallet Connection */}
+            {walletAddress ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="font-mono"
+              >
+                <Wallet className="h-4 w-4 mr-2" />
+                {formatAddress(walletAddress)}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onConnectWallet}
+              >
+                <Wallet className="h-4 w-4 mr-2" />
+                Connect Wallet
+              </Button>
+            )}
+
+            {/* Refresh Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
+              />
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+
+            {/* Action Buttons */}
+            {showMPT && onMPT && walletAddress && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onMPT}
+              >
+                <Coins className="h-4 w-4 mr-2" />
+                MPT Tokens
+              </Button>
+            )}
+
+            {showNFT && onNFT && walletAddress && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onNFT}
+              >
+                <Image className="h-4 w-4 mr-2" />
+                NFTs
+              </Button>
+            )}
+
+            {showPayments && onPayments && walletAddress && (
+              <Button
+                size="sm"
+                onClick={onPayments}
+                disabled={isLoading}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                Send Payment
+              </Button>
+            )}
+
+            {/* Custom Actions */}
+            {actions}
+          </div>
+        </div>
+
+        {/* Warning if no wallet connected */}
+        {!walletAddress && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="text-sm text-amber-800">
+              Connect your XRPL wallet to access all features
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default XRPLDashboardHeader
