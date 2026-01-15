@@ -7057,6 +7057,34 @@ $$;
 
 
 --
+-- Name: update_mpt_holders_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_mpt_holders_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_mpt_issuances_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_mpt_issuances_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_oracle_prices(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7652,6 +7680,34 @@ $$;
 
 
 --
+-- Name: update_trust_line_holders_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_trust_line_holders_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_trust_line_tokens_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_trust_line_tokens_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7791,6 +7847,20 @@ $$;
 --
 
 CREATE FUNCTION public.update_whitelist_sync_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_xrpl_nfts_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_xrpl_nfts_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -17469,6 +17539,76 @@ CREATE TABLE public.moonpay_webhook_events (
     last_processing_error text,
     received_at timestamp with time zone DEFAULT now(),
     processed_at timestamp with time zone
+);
+
+
+--
+-- Name: mpt_holders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mpt_holders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    issuance_id character varying(64) NOT NULL,
+    holder_address character varying(64) NOT NULL,
+    balance character varying(32) DEFAULT '0'::character varying,
+    authorized boolean DEFAULT false,
+    authorization_transaction_hash character varying(64),
+    authorized_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: mpt_issuances; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mpt_issuances (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    issuance_id character varying(64) NOT NULL,
+    issuer_address character varying(64) NOT NULL,
+    asset_scale integer NOT NULL,
+    maximum_amount character varying(32),
+    transfer_fee integer,
+    outstanding_amount character varying(32) DEFAULT '0'::character varying,
+    ticker character varying(10) NOT NULL,
+    name character varying(100) NOT NULL,
+    description text,
+    icon_url text,
+    asset_class character varying(50),
+    asset_subclass character varying(50),
+    issuer_name character varying(255),
+    metadata_json jsonb,
+    can_transfer boolean DEFAULT true,
+    can_trade boolean DEFAULT false,
+    can_lock boolean DEFAULT false,
+    can_clawback boolean DEFAULT false,
+    require_auth boolean DEFAULT false,
+    flags integer,
+    status character varying(20) DEFAULT 'active'::character varying,
+    destroyed_at timestamp with time zone,
+    creation_transaction_hash character varying(64) NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: mpt_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mpt_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    issuance_id character varying(64) NOT NULL,
+    transaction_type character varying(20) NOT NULL,
+    from_address character varying(64) NOT NULL,
+    to_address character varying(64) NOT NULL,
+    amount character varying(32) NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index integer,
+    status character varying(20) DEFAULT 'confirmed'::character varying,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -28717,6 +28857,171 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: xrpl_nft_offers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_nft_offers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    offer_index character varying(64) NOT NULL,
+    nft_id character varying(64) NOT NULL,
+    offer_type character varying(10) NOT NULL,
+    owner_address character varying(64) NOT NULL,
+    amount character varying(32) NOT NULL,
+    currency_code character varying(3),
+    issuer_address character varying(64),
+    destination_address character varying(64),
+    expiration timestamp with time zone,
+    status character varying(20) DEFAULT 'active'::character varying,
+    accepted_at timestamp with time zone,
+    canceled_at timestamp with time zone,
+    transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_nft_offers_offer_type_check CHECK (((offer_type)::text = ANY ((ARRAY['sell'::character varying, 'buy'::character varying])::text[]))),
+    CONSTRAINT xrpl_nft_offers_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'accepted'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_nft_offers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_nft_offers IS 'Stores XRPL NFT buy and sell offers';
+
+
+--
+-- Name: xrpl_nft_transfers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_nft_transfers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    nft_id character varying(64) NOT NULL,
+    from_address character varying(64) NOT NULL,
+    to_address character varying(64) NOT NULL,
+    price character varying(32),
+    currency_code character varying(3),
+    issuer_address character varying(64),
+    broker_address character varying(64),
+    broker_fee character varying(32),
+    transaction_hash character varying(64) NOT NULL,
+    transferred_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_nft_transfers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_nft_transfers IS 'Stores XRPL NFT transfer history';
+
+
+--
+-- Name: xrpl_nfts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_nfts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    nft_id character varying(64) NOT NULL,
+    project_id uuid,
+    issuer_address character varying(64) NOT NULL,
+    owner_address character varying(64) NOT NULL,
+    taxon integer NOT NULL,
+    serial integer NOT NULL,
+    uri text,
+    name character varying(255),
+    description text,
+    image_url text,
+    metadata_json jsonb,
+    transfer_fee integer DEFAULT 0,
+    flags integer DEFAULT 0,
+    is_burnable boolean DEFAULT false,
+    is_only_xrp boolean DEFAULT false,
+    is_transferable boolean DEFAULT true,
+    status character varying(20) DEFAULT 'active'::character varying,
+    burned_at timestamp with time zone,
+    mint_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_nfts_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'burned'::character varying, 'locked'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_nfts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_nfts IS 'Stores XRPL NFT metadata and ownership';
+
+
+--
+-- Name: xrpl_trust_line_holders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_trust_line_holders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid NOT NULL,
+    holder_address character varying(64) NOT NULL,
+    balance character varying(32) DEFAULT '0'::character varying,
+    limit_amount character varying(32),
+    no_ripple boolean DEFAULT false,
+    no_ripple_peer boolean DEFAULT false,
+    authorized boolean DEFAULT false,
+    peer_authorized boolean DEFAULT false,
+    is_frozen boolean DEFAULT false,
+    freeze_peer boolean DEFAULT false,
+    quality_in integer DEFAULT 0,
+    quality_out integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_trust_line_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_trust_line_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    currency_code character varying(40) NOT NULL,
+    issuer_address character varying(64) NOT NULL,
+    total_supply character varying(32),
+    transfer_rate integer,
+    tick_size integer,
+    domain character varying(255),
+    require_auth boolean DEFAULT false,
+    require_dest_tag boolean DEFAULT false,
+    disallow_xrp boolean DEFAULT false,
+    default_ripple boolean DEFAULT false,
+    name character varying(100) NOT NULL,
+    description text,
+    icon_url text,
+    metadata_json jsonb,
+    status character varying(20) DEFAULT 'active'::character varying,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_trust_line_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_trust_line_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid NOT NULL,
+    transaction_type character varying(20) NOT NULL,
+    from_address character varying(64) NOT NULL,
+    to_address character varying(64) NOT NULL,
+    amount character varying(32) NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index integer,
+    status character varying(20) DEFAULT 'confirmed'::character varying,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: nav_calculation_history id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -31781,6 +32086,46 @@ ALTER TABLE ONLY public.moonpay_webhook_events
 
 
 --
+-- Name: mpt_holders mpt_holders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_holders
+    ADD CONSTRAINT mpt_holders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mpt_issuances mpt_issuances_issuance_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_issuances
+    ADD CONSTRAINT mpt_issuances_issuance_id_key UNIQUE (issuance_id);
+
+
+--
+-- Name: mpt_issuances mpt_issuances_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_issuances
+    ADD CONSTRAINT mpt_issuances_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mpt_transactions mpt_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_transactions
+    ADD CONSTRAINT mpt_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mpt_transactions mpt_transactions_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_transactions
+    ADD CONSTRAINT mpt_transactions_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
 -- Name: multi_sig_audit_log multi_sig_audit_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -34791,6 +35136,14 @@ ALTER TABLE ONLY public.approval_config_approvers
 
 
 --
+-- Name: xrpl_trust_line_tokens unique_currency_issuer; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_tokens
+    ADD CONSTRAINT unique_currency_issuer UNIQUE (currency_code, issuer_address);
+
+
+--
 -- Name: sidebar_configurations unique_default_per_new_target; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -34812,6 +35165,14 @@ ALTER TABLE ONLY public.energy_assets
 
 ALTER TABLE ONLY public.fund_nav_data
     ADD CONSTRAINT unique_fund_date UNIQUE (fund_id, date);
+
+
+--
+-- Name: mpt_holders unique_holder_issuance; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_holders
+    ADD CONSTRAINT unique_holder_issuance UNIQUE (issuance_id, holder_address);
 
 
 --
@@ -34884,6 +35245,14 @@ ALTER TABLE ONLY public.token_erc1400_controllers
 
 ALTER TABLE ONLY public.deployment_rate_limits
     ADD CONSTRAINT unique_token_deployment UNIQUE (token_id, started_at);
+
+
+--
+-- Name: xrpl_trust_line_holders unique_token_holder; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_holders
+    ADD CONSTRAINT unique_token_holder UNIQUE (token_id, holder_address);
 
 
 --
@@ -35364,6 +35733,86 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 ALTER TABLE ONLY public.workflow_stages
     ADD CONSTRAINT workflow_stages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_nft_offers xrpl_nft_offers_offer_index_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_offers
+    ADD CONSTRAINT xrpl_nft_offers_offer_index_key UNIQUE (offer_index);
+
+
+--
+-- Name: xrpl_nft_offers xrpl_nft_offers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_offers
+    ADD CONSTRAINT xrpl_nft_offers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_nft_transfers xrpl_nft_transfers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_transfers
+    ADD CONSTRAINT xrpl_nft_transfers_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_nft_transfers xrpl_nft_transfers_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_transfers
+    ADD CONSTRAINT xrpl_nft_transfers_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
+-- Name: xrpl_nfts xrpl_nfts_nft_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nfts
+    ADD CONSTRAINT xrpl_nfts_nft_id_key UNIQUE (nft_id);
+
+
+--
+-- Name: xrpl_nfts xrpl_nfts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nfts
+    ADD CONSTRAINT xrpl_nfts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_trust_line_holders xrpl_trust_line_holders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_holders
+    ADD CONSTRAINT xrpl_trust_line_holders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_trust_line_tokens xrpl_trust_line_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_tokens
+    ADD CONSTRAINT xrpl_trust_line_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_trust_line_transactions xrpl_trust_line_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_transactions
+    ADD CONSTRAINT xrpl_trust_line_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_trust_line_transactions xrpl_trust_line_transactions_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_transactions
+    ADD CONSTRAINT xrpl_trust_line_transactions_transaction_hash_key UNIQUE (transaction_hash);
 
 
 --
@@ -40855,6 +41304,97 @@ CREATE INDEX idx_moonpay_webhook_events_type ON public.moonpay_webhook_events US
 
 
 --
+-- Name: idx_mpt_holders_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_holders_address ON public.mpt_holders USING btree (holder_address);
+
+
+--
+-- Name: idx_mpt_holders_authorized; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_holders_authorized ON public.mpt_holders USING btree (authorized);
+
+
+--
+-- Name: idx_mpt_holders_issuance; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_holders_issuance ON public.mpt_holders USING btree (issuance_id);
+
+
+--
+-- Name: idx_mpt_issuances_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_created ON public.mpt_issuances USING btree (created_at DESC);
+
+
+--
+-- Name: idx_mpt_issuances_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_issuer ON public.mpt_issuances USING btree (issuer_address);
+
+
+--
+-- Name: idx_mpt_issuances_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_project ON public.mpt_issuances USING btree (project_id);
+
+
+--
+-- Name: idx_mpt_issuances_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_status ON public.mpt_issuances USING btree (status);
+
+
+--
+-- Name: idx_mpt_issuances_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_ticker ON public.mpt_issuances USING btree (ticker);
+
+
+--
+-- Name: idx_mpt_transactions_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_created ON public.mpt_transactions USING btree (created_at DESC);
+
+
+--
+-- Name: idx_mpt_transactions_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_from ON public.mpt_transactions USING btree (from_address);
+
+
+--
+-- Name: idx_mpt_transactions_issuance; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_issuance ON public.mpt_transactions USING btree (issuance_id);
+
+
+--
+-- Name: idx_mpt_transactions_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_to ON public.mpt_transactions USING btree (to_address);
+
+
+--
+-- Name: idx_mpt_transactions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_type ON public.mpt_transactions USING btree (transaction_type);
+
+
+--
 -- Name: idx_multi_sig_proposals_blockchain; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -45244,6 +45784,83 @@ CREATE INDEX idx_treasury_snapshots_token_date ON public.trade_finance_treasury_
 
 
 --
+-- Name: idx_trust_line_holders_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_holders_address ON public.xrpl_trust_line_holders USING btree (holder_address);
+
+
+--
+-- Name: idx_trust_line_holders_authorized; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_holders_authorized ON public.xrpl_trust_line_holders USING btree (authorized);
+
+
+--
+-- Name: idx_trust_line_holders_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_holders_token ON public.xrpl_trust_line_holders USING btree (token_id);
+
+
+--
+-- Name: idx_trust_line_tokens_currency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_tokens_currency ON public.xrpl_trust_line_tokens USING btree (currency_code);
+
+
+--
+-- Name: idx_trust_line_tokens_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_tokens_issuer ON public.xrpl_trust_line_tokens USING btree (issuer_address);
+
+
+--
+-- Name: idx_trust_line_tokens_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_tokens_project ON public.xrpl_trust_line_tokens USING btree (project_id);
+
+
+--
+-- Name: idx_trust_line_tokens_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_tokens_status ON public.xrpl_trust_line_tokens USING btree (status);
+
+
+--
+-- Name: idx_trust_line_transactions_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_transactions_from ON public.xrpl_trust_line_transactions USING btree (from_address);
+
+
+--
+-- Name: idx_trust_line_transactions_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_transactions_to ON public.xrpl_trust_line_transactions USING btree (to_address);
+
+
+--
+-- Name: idx_trust_line_transactions_token; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_transactions_token ON public.xrpl_trust_line_transactions USING btree (token_id);
+
+
+--
+-- Name: idx_trust_line_transactions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_trust_line_transactions_type ON public.xrpl_trust_line_transactions USING btree (transaction_type);
+
+
+--
 -- Name: idx_user_addresses_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -45801,6 +46418,90 @@ CREATE INDEX idx_whitelist_sync_policy ON public.whitelist_blockchain_sync USING
 --
 
 CREATE INDEX idx_whitelist_sync_status ON public.whitelist_blockchain_sync USING btree (sync_status);
+
+
+--
+-- Name: idx_xrpl_nft_offers_nft; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_offers_nft ON public.xrpl_nft_offers USING btree (nft_id);
+
+
+--
+-- Name: idx_xrpl_nft_offers_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_offers_owner ON public.xrpl_nft_offers USING btree (owner_address);
+
+
+--
+-- Name: idx_xrpl_nft_offers_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_offers_status ON public.xrpl_nft_offers USING btree (status);
+
+
+--
+-- Name: idx_xrpl_nft_transfers_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_transfers_from ON public.xrpl_nft_transfers USING btree (from_address);
+
+
+--
+-- Name: idx_xrpl_nft_transfers_nft; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_transfers_nft ON public.xrpl_nft_transfers USING btree (nft_id);
+
+
+--
+-- Name: idx_xrpl_nft_transfers_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_transfers_to ON public.xrpl_nft_transfers USING btree (to_address);
+
+
+--
+-- Name: idx_xrpl_nft_transfers_tx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_transfers_tx ON public.xrpl_nft_transfers USING btree (transaction_hash);
+
+
+--
+-- Name: idx_xrpl_nfts_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nfts_issuer ON public.xrpl_nfts USING btree (issuer_address);
+
+
+--
+-- Name: idx_xrpl_nfts_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nfts_owner ON public.xrpl_nfts USING btree (owner_address);
+
+
+--
+-- Name: idx_xrpl_nfts_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nfts_project ON public.xrpl_nfts USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_nfts_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nfts_status ON public.xrpl_nfts USING btree (status);
+
+
+--
+-- Name: idx_xrpl_nfts_taxon; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nfts_taxon ON public.xrpl_nfts USING btree (taxon);
 
 
 --
@@ -46549,6 +47250,20 @@ CREATE TRIGGER trigger_facet_registry_updated_at BEFORE UPDATE ON public.facet_r
 
 
 --
+-- Name: mpt_holders trigger_mpt_holders_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_mpt_holders_updated_at BEFORE UPDATE ON public.mpt_holders FOR EACH ROW EXECUTE FUNCTION public.update_mpt_holders_updated_at();
+
+
+--
+-- Name: mpt_issuances trigger_mpt_issuances_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_mpt_issuances_updated_at BEFORE UPDATE ON public.mpt_issuances FOR EACH ROW EXECUTE FUNCTION public.update_mpt_issuances_updated_at();
+
+
+--
 -- Name: trade_finance_rewards_config trigger_rewards_config_updated; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -46784,6 +47499,20 @@ CREATE TRIGGER trigger_sync_target_raise_on_stablecoin_products_change AFTER UPD
 --
 
 CREATE TRIGGER trigger_sync_target_raise_on_structured_products_change AFTER UPDATE ON public.structured_products FOR EACH ROW EXECUTE FUNCTION public.sync_redemption_target_raise_on_product_change();
+
+
+--
+-- Name: xrpl_trust_line_holders trigger_trust_line_holders_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_trust_line_holders_updated_at BEFORE UPDATE ON public.xrpl_trust_line_holders FOR EACH ROW EXECUTE FUNCTION public.update_trust_line_holders_updated_at();
+
+
+--
+-- Name: xrpl_trust_line_tokens trigger_trust_line_tokens_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_trust_line_tokens_updated_at BEFORE UPDATE ON public.xrpl_trust_line_tokens FOR EACH ROW EXECUTE FUNCTION public.update_trust_line_tokens_updated_at();
 
 
 --
@@ -47519,6 +48248,20 @@ CREATE TRIGGER update_wallet_locks_updated_at BEFORE UPDATE ON public.wallet_loc
 --
 
 CREATE TRIGGER update_wallet_transactions_updated_at BEFORE UPDATE ON public.wallet_transactions FOR EACH ROW EXECUTE FUNCTION public.update_modified_column();
+
+
+--
+-- Name: xrpl_nft_offers update_xrpl_nft_offers_updated_at_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_xrpl_nft_offers_updated_at_trigger BEFORE UPDATE ON public.xrpl_nft_offers FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_nfts_updated_at();
+
+
+--
+-- Name: xrpl_nfts update_xrpl_nfts_updated_at_trigger; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_xrpl_nfts_updated_at_trigger BEFORE UPDATE ON public.xrpl_nfts FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_nfts_updated_at();
 
 
 --
@@ -48830,6 +49573,14 @@ ALTER TABLE ONLY public.fund_products
 
 
 --
+-- Name: mpt_holders fk_holder_issuance; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_holders
+    ADD CONSTRAINT fk_holder_issuance FOREIGN KEY (issuance_id) REFERENCES public.mpt_issuances(issuance_id) ON DELETE CASCADE;
+
+
+--
 -- Name: infrastructure_products fk_infrastructure_products_project; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -48891,6 +49642,22 @@ ALTER TABLE ONLY public.key_vault_keys
 
 ALTER TABLE ONLY public.key_vault_keys
     ADD CONSTRAINT fk_key_vault_keys_user_id FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_nft_offers fk_nft; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_offers
+    ADD CONSTRAINT fk_nft FOREIGN KEY (nft_id) REFERENCES public.xrpl_nfts(nft_id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_nft_transfers fk_nft_transfer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_transfers
+    ADD CONSTRAINT fk_nft_transfer FOREIGN KEY (nft_id) REFERENCES public.xrpl_nfts(nft_id) ON DELETE CASCADE;
 
 
 --
@@ -49115,6 +49882,30 @@ ALTER TABLE ONLY public.token_deployment_history
 
 ALTER TABLE ONLY public.token_whitelists
     ADD CONSTRAINT fk_token_whitelists_token_id FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mpt_transactions fk_transaction_issuance; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_transactions
+    ADD CONSTRAINT fk_transaction_issuance FOREIGN KEY (issuance_id) REFERENCES public.mpt_issuances(issuance_id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_trust_line_holders fk_trust_line_holder_token; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_holders
+    ADD CONSTRAINT fk_trust_line_holder_token FOREIGN KEY (token_id) REFERENCES public.xrpl_trust_line_tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_trust_line_transactions fk_trust_line_transaction_token; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_transactions
+    ADD CONSTRAINT fk_trust_line_transaction_token FOREIGN KEY (token_id) REFERENCES public.xrpl_trust_line_tokens(id) ON DELETE CASCADE;
 
 
 --
@@ -49555,6 +50346,14 @@ ALTER TABLE ONLY public.mmf_transactions
 
 ALTER TABLE ONLY public.mmf_transactions
     ADD CONSTRAINT mmf_transactions_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: mpt_issuances mpt_issuances_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_issuances
+    ADD CONSTRAINT mpt_issuances_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -51660,6 +52459,22 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: xrpl_nfts xrpl_nfts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nfts
+    ADD CONSTRAINT xrpl_nfts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_trust_line_tokens xrpl_trust_line_tokens_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_tokens
+    ADD CONSTRAINT xrpl_trust_line_tokens_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: multi_sig_proposals Allow authenticated users to create proposals; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -51694,6 +52509,62 @@ CREATE POLICY "Allow authenticated users to sign proposals" ON public.proposal_s
 CREATE POLICY "Allow authenticated users to update proposals" ON public.multi_sig_proposals FOR UPDATE TO authenticated USING (((created_by = auth.uid()) OR (EXISTS ( SELECT 1
    FROM public.multi_sig_wallet_owners mwo
   WHERE ((mwo.wallet_id = multi_sig_proposals.wallet_id) AND (mwo.user_id = auth.uid()))))));
+
+
+--
+-- Name: xrpl_nfts Authenticated users can create NFTs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can create NFTs" ON public.xrpl_nfts FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nft_offers Authenticated users can create offers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can create offers" ON public.xrpl_nft_offers FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nft_transfers Authenticated users can create transfers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can create transfers" ON public.xrpl_nft_transfers FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nfts Authenticated users can update NFTs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can update NFTs" ON public.xrpl_nfts FOR UPDATE USING ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nft_offers Authenticated users can update offers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can update offers" ON public.xrpl_nft_offers FOR UPDATE USING ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nfts Authenticated users can view NFTs; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can view NFTs" ON public.xrpl_nfts FOR SELECT USING ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nft_offers Authenticated users can view offers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can view offers" ON public.xrpl_nft_offers FOR SELECT USING ((auth.uid() IS NOT NULL));
+
+
+--
+-- Name: xrpl_nft_transfers Authenticated users can view transfers; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Authenticated users can view transfers" ON public.xrpl_nft_transfers FOR SELECT USING ((auth.uid() IS NOT NULL));
 
 
 --
@@ -51863,6 +52734,24 @@ CREATE POLICY whitelist_sync_select ON public.whitelist_blockchain_sync FOR SELE
 
 CREATE POLICY whitelist_sync_update ON public.whitelist_blockchain_sync FOR UPDATE TO authenticated USING (true);
 
+
+--
+-- Name: xrpl_nft_offers; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.xrpl_nft_offers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: xrpl_nft_transfers; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.xrpl_nft_transfers ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: xrpl_nfts; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.xrpl_nfts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -53622,6 +54511,26 @@ GRANT ALL ON FUNCTION public.update_modified_column() TO prisma;
 
 
 --
+-- Name: FUNCTION update_mpt_holders_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_mpt_holders_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_mpt_holders_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_mpt_holders_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_mpt_holders_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_mpt_issuances_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_oracle_prices(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -53952,6 +54861,26 @@ GRANT ALL ON FUNCTION public.update_transfer_operations_updated_at() TO prisma;
 
 
 --
+-- Name: FUNCTION update_trust_line_holders_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_trust_line_holders_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_trust_line_holders_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_trust_line_holders_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_trust_line_holders_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_trust_line_tokens_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_trust_line_tokens_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_trust_line_tokens_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_trust_line_tokens_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_trust_line_tokens_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_updated_at_column(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -54049,6 +54978,16 @@ GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_xrpl_nfts_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO prisma;
 
 
 --
@@ -56979,6 +57918,36 @@ GRANT ALL ON TABLE public.moonpay_webhook_events TO anon;
 GRANT ALL ON TABLE public.moonpay_webhook_events TO authenticated;
 GRANT ALL ON TABLE public.moonpay_webhook_events TO service_role;
 GRANT ALL ON TABLE public.moonpay_webhook_events TO prisma;
+
+
+--
+-- Name: TABLE mpt_holders; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mpt_holders TO anon;
+GRANT ALL ON TABLE public.mpt_holders TO authenticated;
+GRANT ALL ON TABLE public.mpt_holders TO service_role;
+GRANT ALL ON TABLE public.mpt_holders TO prisma;
+
+
+--
+-- Name: TABLE mpt_issuances; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mpt_issuances TO anon;
+GRANT ALL ON TABLE public.mpt_issuances TO authenticated;
+GRANT ALL ON TABLE public.mpt_issuances TO service_role;
+GRANT ALL ON TABLE public.mpt_issuances TO prisma;
+
+
+--
+-- Name: TABLE mpt_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mpt_transactions TO anon;
+GRANT ALL ON TABLE public.mpt_transactions TO authenticated;
+GRANT ALL ON TABLE public.mpt_transactions TO service_role;
+GRANT ALL ON TABLE public.mpt_transactions TO prisma;
 
 
 --
@@ -60240,6 +61209,66 @@ GRANT ALL ON TABLE public.workflow_stages TO anon;
 GRANT ALL ON TABLE public.workflow_stages TO authenticated;
 GRANT ALL ON TABLE public.workflow_stages TO service_role;
 GRANT ALL ON TABLE public.workflow_stages TO prisma;
+
+
+--
+-- Name: TABLE xrpl_nft_offers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_nft_offers TO anon;
+GRANT ALL ON TABLE public.xrpl_nft_offers TO authenticated;
+GRANT ALL ON TABLE public.xrpl_nft_offers TO service_role;
+GRANT ALL ON TABLE public.xrpl_nft_offers TO prisma;
+
+
+--
+-- Name: TABLE xrpl_nft_transfers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_nft_transfers TO anon;
+GRANT ALL ON TABLE public.xrpl_nft_transfers TO authenticated;
+GRANT ALL ON TABLE public.xrpl_nft_transfers TO service_role;
+GRANT ALL ON TABLE public.xrpl_nft_transfers TO prisma;
+
+
+--
+-- Name: TABLE xrpl_nfts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_nfts TO anon;
+GRANT ALL ON TABLE public.xrpl_nfts TO authenticated;
+GRANT ALL ON TABLE public.xrpl_nfts TO service_role;
+GRANT ALL ON TABLE public.xrpl_nfts TO prisma;
+
+
+--
+-- Name: TABLE xrpl_trust_line_holders; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_trust_line_holders TO anon;
+GRANT ALL ON TABLE public.xrpl_trust_line_holders TO authenticated;
+GRANT ALL ON TABLE public.xrpl_trust_line_holders TO service_role;
+GRANT ALL ON TABLE public.xrpl_trust_line_holders TO prisma;
+
+
+--
+-- Name: TABLE xrpl_trust_line_tokens; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_trust_line_tokens TO anon;
+GRANT ALL ON TABLE public.xrpl_trust_line_tokens TO authenticated;
+GRANT ALL ON TABLE public.xrpl_trust_line_tokens TO service_role;
+GRANT ALL ON TABLE public.xrpl_trust_line_tokens TO prisma;
+
+
+--
+-- Name: TABLE xrpl_trust_line_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_trust_line_transactions TO anon;
+GRANT ALL ON TABLE public.xrpl_trust_line_transactions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_trust_line_transactions TO service_role;
+GRANT ALL ON TABLE public.xrpl_trust_line_transactions TO prisma;
 
 
 --

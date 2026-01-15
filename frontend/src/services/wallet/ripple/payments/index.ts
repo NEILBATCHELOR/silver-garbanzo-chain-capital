@@ -37,3 +37,6 @@ export type {
   QuoteFilters,
   RateInfo
 } from './QuoteService';
+
+
+export { XRPLPartialPaymentService } from './XRPLPartialPaymentService'

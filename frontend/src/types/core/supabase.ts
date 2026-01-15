@@ -17462,6 +17462,195 @@ export type Database = {
         }
         Relationships: []
       }
+      mpt_holders: {
+        Row: {
+          authorization_transaction_hash: string | null
+          authorized: boolean | null
+          authorized_at: string | null
+          balance: string | null
+          created_at: string | null
+          holder_address: string
+          id: string
+          issuance_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          authorization_transaction_hash?: string | null
+          authorized?: boolean | null
+          authorized_at?: string | null
+          balance?: string | null
+          created_at?: string | null
+          holder_address: string
+          id?: string
+          issuance_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          authorization_transaction_hash?: string | null
+          authorized?: boolean | null
+          authorized_at?: string | null
+          balance?: string | null
+          created_at?: string | null
+          holder_address?: string
+          id?: string
+          issuance_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_holder_issuance"
+            columns: ["issuance_id"]
+            isOneToOne: false
+            referencedRelation: "mpt_issuances"
+            referencedColumns: ["issuance_id"]
+          },
+        ]
+      }
+      mpt_issuances: {
+        Row: {
+          asset_class: string | null
+          asset_scale: number
+          asset_subclass: string | null
+          can_clawback: boolean | null
+          can_lock: boolean | null
+          can_trade: boolean | null
+          can_transfer: boolean | null
+          created_at: string | null
+          creation_transaction_hash: string
+          description: string | null
+          destroyed_at: string | null
+          flags: number | null
+          icon_url: string | null
+          id: string
+          issuance_id: string
+          issuer_address: string
+          issuer_name: string | null
+          maximum_amount: string | null
+          metadata_json: Json | null
+          name: string
+          outstanding_amount: string | null
+          project_id: string | null
+          require_auth: boolean | null
+          status: string | null
+          ticker: string
+          transfer_fee: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_class?: string | null
+          asset_scale: number
+          asset_subclass?: string | null
+          can_clawback?: boolean | null
+          can_lock?: boolean | null
+          can_trade?: boolean | null
+          can_transfer?: boolean | null
+          created_at?: string | null
+          creation_transaction_hash: string
+          description?: string | null
+          destroyed_at?: string | null
+          flags?: number | null
+          icon_url?: string | null
+          id?: string
+          issuance_id: string
+          issuer_address: string
+          issuer_name?: string | null
+          maximum_amount?: string | null
+          metadata_json?: Json | null
+          name: string
+          outstanding_amount?: string | null
+          project_id?: string | null
+          require_auth?: boolean | null
+          status?: string | null
+          ticker: string
+          transfer_fee?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_class?: string | null
+          asset_scale?: number
+          asset_subclass?: string | null
+          can_clawback?: boolean | null
+          can_lock?: boolean | null
+          can_trade?: boolean | null
+          can_transfer?: boolean | null
+          created_at?: string | null
+          creation_transaction_hash?: string
+          description?: string | null
+          destroyed_at?: string | null
+          flags?: number | null
+          icon_url?: string | null
+          id?: string
+          issuance_id?: string
+          issuer_address?: string
+          issuer_name?: string | null
+          maximum_amount?: string | null
+          metadata_json?: Json | null
+          name?: string
+          outstanding_amount?: string | null
+          project_id?: string | null
+          require_auth?: boolean | null
+          status?: string | null
+          ticker?: string
+          transfer_fee?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mpt_issuances_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mpt_transactions: {
+        Row: {
+          amount: string
+          created_at: string | null
+          from_address: string
+          id: string
+          issuance_id: string
+          ledger_index: number | null
+          status: string | null
+          to_address: string
+          transaction_hash: string
+          transaction_type: string
+        }
+        Insert: {
+          amount: string
+          created_at?: string | null
+          from_address: string
+          id?: string
+          issuance_id: string
+          ledger_index?: number | null
+          status?: string | null
+          to_address: string
+          transaction_hash: string
+          transaction_type: string
+        }
+        Update: {
+          amount?: string
+          created_at?: string | null
+          from_address?: string
+          id?: string
+          issuance_id?: string
+          ledger_index?: number | null
+          status?: string | null
+          to_address?: string
+          transaction_hash?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_transaction_issuance"
+            columns: ["issuance_id"]
+            isOneToOne: false
+            referencedRelation: "mpt_issuances"
+            referencedColumns: ["issuance_id"]
+          },
+        ]
+      }
       multi_sig_audit_log: {
         Row: {
           action: string
@@ -37839,6 +38028,387 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      xrpl_nft_offers: {
+        Row: {
+          accepted_at: string | null
+          amount: string
+          canceled_at: string | null
+          created_at: string | null
+          currency_code: string | null
+          destination_address: string | null
+          expiration: string | null
+          id: string
+          issuer_address: string | null
+          nft_id: string
+          offer_index: string
+          offer_type: string
+          owner_address: string
+          status: string | null
+          transaction_hash: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accepted_at?: string | null
+          amount: string
+          canceled_at?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          destination_address?: string | null
+          expiration?: string | null
+          id?: string
+          issuer_address?: string | null
+          nft_id: string
+          offer_index: string
+          offer_type: string
+          owner_address: string
+          status?: string | null
+          transaction_hash?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accepted_at?: string | null
+          amount?: string
+          canceled_at?: string | null
+          created_at?: string | null
+          currency_code?: string | null
+          destination_address?: string | null
+          expiration?: string | null
+          id?: string
+          issuer_address?: string | null
+          nft_id?: string
+          offer_index?: string
+          offer_type?: string
+          owner_address?: string
+          status?: string | null
+          transaction_hash?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_nft"
+            columns: ["nft_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_nfts"
+            referencedColumns: ["nft_id"]
+          },
+        ]
+      }
+      xrpl_nft_transfers: {
+        Row: {
+          broker_address: string | null
+          broker_fee: string | null
+          currency_code: string | null
+          from_address: string
+          id: string
+          issuer_address: string | null
+          nft_id: string
+          price: string | null
+          to_address: string
+          transaction_hash: string
+          transferred_at: string | null
+        }
+        Insert: {
+          broker_address?: string | null
+          broker_fee?: string | null
+          currency_code?: string | null
+          from_address: string
+          id?: string
+          issuer_address?: string | null
+          nft_id: string
+          price?: string | null
+          to_address: string
+          transaction_hash: string
+          transferred_at?: string | null
+        }
+        Update: {
+          broker_address?: string | null
+          broker_fee?: string | null
+          currency_code?: string | null
+          from_address?: string
+          id?: string
+          issuer_address?: string | null
+          nft_id?: string
+          price?: string | null
+          to_address?: string
+          transaction_hash?: string
+          transferred_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_nft_transfer"
+            columns: ["nft_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_nfts"
+            referencedColumns: ["nft_id"]
+          },
+        ]
+      }
+      xrpl_nfts: {
+        Row: {
+          burned_at: string | null
+          created_at: string | null
+          description: string | null
+          flags: number | null
+          id: string
+          image_url: string | null
+          is_burnable: boolean | null
+          is_only_xrp: boolean | null
+          is_transferable: boolean | null
+          issuer_address: string
+          metadata_json: Json | null
+          mint_transaction_hash: string | null
+          name: string | null
+          nft_id: string
+          owner_address: string
+          project_id: string | null
+          serial: number
+          status: string | null
+          taxon: number
+          transfer_fee: number | null
+          updated_at: string | null
+          uri: string | null
+        }
+        Insert: {
+          burned_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          flags?: number | null
+          id?: string
+          image_url?: string | null
+          is_burnable?: boolean | null
+          is_only_xrp?: boolean | null
+          is_transferable?: boolean | null
+          issuer_address: string
+          metadata_json?: Json | null
+          mint_transaction_hash?: string | null
+          name?: string | null
+          nft_id: string
+          owner_address: string
+          project_id?: string | null
+          serial: number
+          status?: string | null
+          taxon: number
+          transfer_fee?: number | null
+          updated_at?: string | null
+          uri?: string | null
+        }
+        Update: {
+          burned_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          flags?: number | null
+          id?: string
+          image_url?: string | null
+          is_burnable?: boolean | null
+          is_only_xrp?: boolean | null
+          is_transferable?: boolean | null
+          issuer_address?: string
+          metadata_json?: Json | null
+          mint_transaction_hash?: string | null
+          name?: string | null
+          nft_id?: string
+          owner_address?: string
+          project_id?: string | null
+          serial?: number
+          status?: string | null
+          taxon?: number
+          transfer_fee?: number | null
+          updated_at?: string | null
+          uri?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_nfts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_trust_line_holders: {
+        Row: {
+          authorized: boolean | null
+          balance: string | null
+          created_at: string | null
+          freeze_peer: boolean | null
+          holder_address: string
+          id: string
+          is_frozen: boolean | null
+          limit_amount: string | null
+          no_ripple: boolean | null
+          no_ripple_peer: boolean | null
+          peer_authorized: boolean | null
+          quality_in: number | null
+          quality_out: number | null
+          token_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          authorized?: boolean | null
+          balance?: string | null
+          created_at?: string | null
+          freeze_peer?: boolean | null
+          holder_address: string
+          id?: string
+          is_frozen?: boolean | null
+          limit_amount?: string | null
+          no_ripple?: boolean | null
+          no_ripple_peer?: boolean | null
+          peer_authorized?: boolean | null
+          quality_in?: number | null
+          quality_out?: number | null
+          token_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          authorized?: boolean | null
+          balance?: string | null
+          created_at?: string | null
+          freeze_peer?: boolean | null
+          holder_address?: string
+          id?: string
+          is_frozen?: boolean | null
+          limit_amount?: string | null
+          no_ripple?: boolean | null
+          no_ripple_peer?: boolean | null
+          peer_authorized?: boolean | null
+          quality_in?: number | null
+          quality_out?: number | null
+          token_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_trust_line_holder_token"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_trust_line_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_trust_line_tokens: {
+        Row: {
+          created_at: string | null
+          currency_code: string
+          default_ripple: boolean | null
+          description: string | null
+          disallow_xrp: boolean | null
+          domain: string | null
+          icon_url: string | null
+          id: string
+          issuer_address: string
+          metadata_json: Json | null
+          name: string
+          project_id: string | null
+          require_auth: boolean | null
+          require_dest_tag: boolean | null
+          status: string | null
+          tick_size: number | null
+          total_supply: string | null
+          transfer_rate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          currency_code: string
+          default_ripple?: boolean | null
+          description?: string | null
+          disallow_xrp?: boolean | null
+          domain?: string | null
+          icon_url?: string | null
+          id?: string
+          issuer_address: string
+          metadata_json?: Json | null
+          name: string
+          project_id?: string | null
+          require_auth?: boolean | null
+          require_dest_tag?: boolean | null
+          status?: string | null
+          tick_size?: number | null
+          total_supply?: string | null
+          transfer_rate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          currency_code?: string
+          default_ripple?: boolean | null
+          description?: string | null
+          disallow_xrp?: boolean | null
+          domain?: string | null
+          icon_url?: string | null
+          id?: string
+          issuer_address?: string
+          metadata_json?: Json | null
+          name?: string
+          project_id?: string | null
+          require_auth?: boolean | null
+          require_dest_tag?: boolean | null
+          status?: string | null
+          tick_size?: number | null
+          total_supply?: string | null
+          transfer_rate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_trust_line_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_trust_line_transactions: {
+        Row: {
+          amount: string
+          created_at: string | null
+          from_address: string
+          id: string
+          ledger_index: number | null
+          status: string | null
+          to_address: string
+          token_id: string
+          transaction_hash: string
+          transaction_type: string
+        }
+        Insert: {
+          amount: string
+          created_at?: string | null
+          from_address: string
+          id?: string
+          ledger_index?: number | null
+          status?: string | null
+          to_address: string
+          token_id: string
+          transaction_hash: string
+          transaction_type: string
+        }
+        Update: {
+          amount?: string
+          created_at?: string | null
+          from_address?: string
+          id?: string
+          ledger_index?: number | null
+          status?: string | null
+          to_address?: string
+          token_id?: string
+          transaction_hash?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_trust_line_transaction_token"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_trust_line_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

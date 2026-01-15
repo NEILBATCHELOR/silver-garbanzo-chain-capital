@@ -10,6 +10,13 @@ export * from './config'
 // XRPL Crypto Services - Key Management, Signing, Encryption
 export * from './crypto'
 
+// XRPL Token Standards - MPT and Trust Lines
+export * from './mpt'
+export * from './tokens'
+
+// XRPL NFT Service - Native NFT functionality
+export * from './nft'
+
 // Wallet Service - core wallet operations
 export { 
   RippleWalletService,
@@ -91,3 +98,8 @@ export const rippleServices = {
 };
 
 export default rippleServices;
+
+// XRPL Payment Systems - Phase 5
+export * from './channels'
+export * from './escrow'
+export * from './checks'
