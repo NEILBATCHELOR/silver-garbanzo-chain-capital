@@ -52,6 +52,10 @@ import TokenSelectionPage from "@/components/tokens/pages/TokenSelectionPage";
 import { TokenTestingPage } from "@/components/tokens/testing";
 import TokenDashboardComparison from "@/components/tokens/testing/TokenDashboardComparison";
 
+// XRPL Pages
+import { XRPLMasterPage } from "@/components/xrpl/pages/xrpl-master-page";
+import { XRPLProjectWrapper } from "@/components/xrpl/pages/xrpl-project-wrapper";
+
 // Wallet Pages
 import NewWalletPage from "@/pages/wallet/NewWalletPage";
 import WalletDashboardPage from "@/pages/wallet/WalletDashboardPage";
@@ -711,6 +715,13 @@ function App() {
 
                         {/* Production Wallet Routes (Default to Internal Dashboard) */}
                         <Route path="wallet/internal" element={<InternalWalletDashboard />} />
+
+                        {/* XRPL Routes - XRP Ledger Integration */}
+                        {/* Global XRPL route (will auto-select project) */}
+                        <Route path="xrpl/*" element={<XRPLProjectWrapper />} />
+                        
+                        {/* Project-specific XRPL Routes */}
+                        <Route path="projects/:projectId/xrpl/*" element={<XRPLProjectWrapper />} />
 
                         {/* Cap Table Routes */}
                         <Route path="captable" element={<CapTableManagerNew section="overview" />} />

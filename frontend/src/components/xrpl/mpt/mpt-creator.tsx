@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Loader2, Plus, Info } from 'lucide-react'
 import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 import {
   Alert,
@@ -28,6 +29,7 @@ export const MPTCreator: React.FC<MPTCreatorProps> = ({
   onSuccess
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [loading, setLoading] = useState(false)
   
   // Form state
@@ -93,6 +95,15 @@ export const MPTCreator: React.FC<MPTCreatorProps> = ({
       return
     }
 
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No active project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const mptService = new XRPLMPTService(network)
@@ -107,6 +118,7 @@ export const MPTCreator: React.FC<MPTCreatorProps> = ({
       }
 
       const result = await mptService.createMPTIssuance({
+        projectId: primaryProject.id,
         issuerWallet: wallet,
         assetScale: formData.assetScale,
         maximumAmount: formData.maximumAmount || undefined,

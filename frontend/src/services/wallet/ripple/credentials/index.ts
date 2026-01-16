@@ -1,7 +1,7 @@
 /**
- * XRPL Credentials Module
- * Exports for blockchain-based verifiable credentials
+ * XRPL Credential Service Exports
  */
 
-export { XRPLCredentialService } from './XRPLCredentialService'
-export * from './types'
+export { XRPLCredentialService } from './XRPLCredentialService';
+export { XRPLCredentialDatabaseService } from './XRPLCredentialDatabaseService';
+export type { CredentialRecord } from './XRPLCredentialDatabaseService';

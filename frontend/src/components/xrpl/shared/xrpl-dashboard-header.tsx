@@ -1,8 +1,9 @@
 /**
  * XRPL Dashboard Header
- * Matches Trade Finance Dashboard Header style with wallet/network selectors
+ * Matches Trade Finance Dashboard Header style with wallet/network/project selectors
  * 
  * Features:
+ * - Project selector for multi-tenancy
  * - Network selector (Mainnet/Testnet/Devnet)
  * - Wallet connection status
  * - Action buttons (MPT, NFT, Payment features)
@@ -19,7 +20,8 @@ import {
   Coins,
   Image,
   Send,
-  AlertCircle
+  AlertCircle,
+  Briefcase
 } from 'lucide-react'
 import {
   Select,
@@ -28,6 +30,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
+import { useEffect } from 'react'
 
 interface XRPLDashboardHeaderProps {
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
@@ -35,8 +39,10 @@ interface XRPLDashboardHeaderProps {
   walletBalance?: string
   title?: string
   subtitle?: string
+  projectId?: string
   onRefresh?: () => void
   onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
+  onProjectChange?: (projectId: string) => void
   onConnectWallet?: () => void
   actions?: React.ReactNode
   isLoading?: boolean
@@ -54,8 +60,10 @@ export function XRPLDashboardHeader({
   walletBalance,
   title = 'XRPL Integration',
   subtitle = 'XRP Ledger blockchain integration and asset management',
+  projectId,
   onRefresh,
   onNetworkChange,
+  onProjectChange,
   onConnectWallet,
   actions,
   isLoading = false,
@@ -66,6 +74,15 @@ export function XRPLDashboardHeader({
   onNFT,
   onPayments
 }: XRPLDashboardHeaderProps) {
+  
+  const { primaryProject, loadPrimaryProject } = usePrimaryProject({ loadOnMount: true })
+  
+  // Load primary project on mount and notify parent
+  useEffect(() => {
+    if (primaryProject && onProjectChange && !projectId) {
+      onProjectChange(primaryProject.id)
+    }
+  }, [primaryProject, onProjectChange, projectId])
   
   const getNetworkBadge = (net: string) => {
     if (net === 'MAINNET') {
@@ -84,7 +101,7 @@ export function XRPLDashboardHeader({
   return (
     <div className="bg-white border-b">
       <div className="px-6 py-4">
-        {/* Top Row: Title and Network/Wallet Selectors */}
+        {/* Top Row: Title and Selectors */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-3">
@@ -100,6 +117,12 @@ export function XRPLDashboardHeader({
                   {walletBalance} XRP
                 </Badge>
               )}
+              {primaryProject && (
+                <Badge variant="outline" className="text-xs">
+                  <Briefcase className="h-3 w-3 mr-1" />
+                  {primaryProject.name}
+                </Badge>
+              )}
             </div>
             {subtitle && (
               <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
@@ -107,6 +130,23 @@ export function XRPLDashboardHeader({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Project Selector */}
+            {primaryProject && (
+              <Select 
+                value={projectId || primaryProject.id} 
+                onValueChange={onProjectChange}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={primaryProject.id}>
+                    {primaryProject.name}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
             {/* Network Selector */}
             <Select value={network} onValueChange={onNetworkChange}>
               <SelectTrigger className="w-[150px]">
@@ -154,7 +194,7 @@ export function XRPLDashboardHeader({
             </Button>
 
             {/* Action Buttons */}
-            {showMPT && onMPT && walletAddress && (
+            {showMPT && onMPT && walletAddress && projectId && (
               <Button
                 variant="outline"
                 size="sm"
@@ -165,7 +205,7 @@ export function XRPLDashboardHeader({
               </Button>
             )}
 
-            {showNFT && onNFT && walletAddress && (
+            {showNFT && onNFT && walletAddress && projectId && (
               <Button
                 variant="outline"
                 size="sm"
@@ -176,7 +216,7 @@ export function XRPLDashboardHeader({
               </Button>
             )}
 
-            {showPayments && onPayments && walletAddress && (
+            {showPayments && onPayments && walletAddress && projectId && (
               <Button
                 size="sm"
                 onClick={onPayments}
@@ -192,8 +232,18 @@ export function XRPLDashboardHeader({
           </div>
         </div>
 
+        {/* Warning if no project selected */}
+        {!projectId && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="text-sm text-amber-800">
+              Please select a project to access XRPL features
+            </span>
+          </div>
+        )}
+
         {/* Warning if no wallet connected */}
-        {!walletAddress && (
+        {!walletAddress && projectId && (
           <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <span className="text-sm text-amber-800">

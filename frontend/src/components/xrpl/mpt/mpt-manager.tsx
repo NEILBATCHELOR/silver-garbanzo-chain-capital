@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 import {
   Dialog,
@@ -52,6 +53,7 @@ export const MPTManager: React.FC<MPTManagerProps> = ({
   network = 'TESTNET'
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [issuances, setIssuances] = useState<MPTIssuance[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedIssuance, setSelectedIssuance] = useState<string | null>(null)
@@ -107,10 +109,20 @@ export const MPTManager: React.FC<MPTManagerProps> = ({
   const handleClawback = async () => {
     if (!selectedIssuance) return
 
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No active project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     try {
       const mptService = new XRPLMPTService(network)
 
       await mptService.clawbackMPT({
+        projectId: primaryProject.id,
         issuerWallet: wallet,
         holderAddress: clawbackData.holderAddress,
         mptIssuanceId: selectedIssuance,

@@ -1,4 +1,4 @@
-import { MPTMetadata } from './XRPLMPTService';
+import type { MPTMetadata } from './types';
 
 /**
  * Metadata validation result

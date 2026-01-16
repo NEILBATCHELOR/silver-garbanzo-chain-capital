@@ -40,15 +40,18 @@ async function createCryptoPriceOracle() {
     }
   ];
 
-  const result = await oracleService.setOracle({
-    oracleWallet,
-    oracleDocumentId: 1,
-    provider: 'CryptoExchange',
-    uri: 'https://api.exchange.com/prices',
-    lastUpdateTime: Math.floor(Date.now() / 1000),
-    assetClass: 'currency',
-    priceDataSeries: priceData
-  });
+  const result = await oracleService.setOracle(
+    'project-id-here', // projectId - required for database tracking
+    {
+      oracleWallet,
+      oracleDocumentId: 1,
+      provider: 'CryptoExchange',
+      uri: 'https://api.exchange.com/prices',
+      lastUpdateTime: Math.floor(Date.now() / 1000),
+      assetClass: 'currency',
+      priceDataSeries: priceData
+    }
+  );
 
   console.log('Oracle created:', result);
   await client.disconnect();
@@ -80,6 +83,7 @@ async function updateOraclePrices() {
   ];
 
   const result = await oracleService.updatePrices(
+    'project-id-here', // projectId - required for database tracking
     oracleWallet,
     1, // oracleDocumentId
     updatedPrices
@@ -146,6 +150,7 @@ async function deleteOracle() {
   const oracleWallet = Wallet.fromSeed('sXXXXXXXXXXXXXXXXXXXXXXXXXXXXX');
 
   const result = await oracleService.deleteOracle(
+    'project-id-here', // projectId - required for database tracking
     oracleWallet,
     1 // oracleDocumentId
   );

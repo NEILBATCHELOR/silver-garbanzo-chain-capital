@@ -10,6 +10,7 @@ import { Loader2, Lock, Clock, X, Check, ExternalLink } from 'lucide-react'
 import { XRPLEscrowService } from '@/services/wallet/ripple/escrow/XRPLEscrowService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
 import { XRPL_NETWORKS } from '@/services/wallet/ripple/config/XRPLConfig'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 
 interface EscrowManagerProps {
@@ -32,6 +33,7 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
   network = 'TESTNET'
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [loading, setLoading] = useState(false)
   const [escrows, setEscrows] = useState<Escrow[]>([])
   const [activeTab, setActiveTab] = useState('create')
@@ -72,6 +74,16 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
 
   const handleCreateEscrow = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -79,6 +91,7 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
       const service = new XRPLEscrowService(client)
 
       const params = {
+        projectId: primaryProject.id,
         wallet,
         destination: createForm.destination,
         amount: (parseFloat(createForm.amount) * 1_000_000).toString(),
@@ -147,6 +160,16 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
 
   const handleFinishEscrow = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -154,6 +177,7 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
       const service = new XRPLEscrowService(client)
 
       const result = await service.finishEscrow(
+        primaryProject.id,
         wallet,
         finishForm.ownerAddress,
         parseInt(finishForm.sequence),
@@ -181,6 +205,16 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
 
   const handleCancelEscrow = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -188,6 +222,7 @@ export const EscrowManager: React.FC<EscrowManagerProps> = ({
       const service = new XRPLEscrowService(client)
 
       const result = await service.cancelEscrow(
+        primaryProject.id,
         wallet,
         cancelForm.ownerAddress,
         parseInt(cancelForm.sequence)

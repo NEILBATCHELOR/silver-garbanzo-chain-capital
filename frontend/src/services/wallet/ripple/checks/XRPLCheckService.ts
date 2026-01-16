@@ -8,6 +8,7 @@ import {
 } from 'xrpl'
 
 export interface CheckCreateParams {
+  projectId: string // REQUIRED for database tracking
   sender: Wallet
   destination: string
   sendMax: string | { currency: string; issuer: string; value: string }
@@ -62,6 +63,7 @@ export class XRPLCheckService {
    * Cash check with exact amount
    */
   async cashCheckExact(
+    projectId: string,
     destination: Wallet,
     checkId: string,
     amount: string | { currency: string; issuer: string; value: string }
@@ -96,6 +98,7 @@ export class XRPLCheckService {
    * Cash check with delivery amount
    */
   async cashCheckFlexible(
+    projectId: string,
     destination: Wallet,
     checkId: string,
     deliverMin: string | { currency: string; issuer: string; value: string }
@@ -130,6 +133,7 @@ export class XRPLCheckService {
    * Cancel check
    */
   async cancelCheck(
+    projectId: string,
     wallet: Wallet,
     checkId: string
   ): Promise<{ transactionHash: string }> {

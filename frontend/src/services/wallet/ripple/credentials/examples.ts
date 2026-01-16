@@ -21,8 +21,11 @@ export async function exampleIssueKYCCredential() {
   // Subject address (user being verified)
   const subjectAddress = 'rN7n7otQDd6FczFgLdllqpBayJvTpJNTjQz'
 
+  // Example project ID - in real usage, get this from usePrimaryProject hook
+  const projectId = 'example-project-id'
+
   // Issue KYC credential
-  const result = await credentialService.issueCredential(issuerWallet, {
+  const result = await credentialService.issueCredential(projectId, issuerWallet, {
     subject: subjectAddress,
     credentialType: 'KYC_VERIFIED',
     data: {
@@ -56,8 +59,11 @@ export async function exampleAcceptCredential(credentialId: string) {
   // Subject wallet
   const subjectWallet = Wallet.fromSeed('sYYYYYYYYYYYYYYYYYYYYY')
 
+  // Example project ID - in real usage, get this from usePrimaryProject hook
+  const projectId = 'example-project-id'
+
   // Accept the credential
-  const result = await credentialService.acceptCredential(subjectWallet, {
+  const result = await credentialService.acceptCredential(projectId, subjectWallet, {
     credentialId
   })
 
@@ -102,7 +108,10 @@ export async function exampleIssueAccreditedInvestorCredential() {
   const issuerWallet = Wallet.fromSeed('sXXXXXXXXXXXXXXXXXXXXX')
   const subjectAddress = 'rN7n7otQDd6FczFgLdllqpBayJvTpJNTjQz'
 
-  const result = await credentialService.issueCredential(issuerWallet, {
+  // Example project ID - in real usage, get this from usePrimaryProject hook
+  const projectId = 'example-project-id'
+
+  const result = await credentialService.issueCredential(projectId, issuerWallet, {
     subject: subjectAddress,
     credentialType: 'ACCREDITED_INVESTOR',
     data: {
@@ -175,7 +184,10 @@ export async function exampleDeleteCredential(credentialId: string) {
   // Issuer or subject can delete
   const wallet = Wallet.fromSeed('sXXXXXXXXXXXXXXXXXXXXX')
 
-  const result = await credentialService.deleteCredential(wallet, {
+  // Example project ID - in real usage, get this from usePrimaryProject hook
+  const projectId = 'example-project-id'
+
+  const result = await credentialService.deleteCredential(projectId, wallet, {
     credentialId
   })
 
@@ -195,7 +207,10 @@ export async function exampleIssueProfessionalLicense() {
   const issuerWallet = Wallet.fromSeed('sXXXXXXXXXXXXXXXXXXXXX')
   const subjectAddress = 'rN7n7otQDd6FczFgLdllqpBayJvTpJNTjQz'
 
-  const result = await credentialService.issueCredential(issuerWallet, {
+  // Example project ID - in real usage, get this from usePrimaryProject hook
+  const projectId = 'example-project-id'
+
+  const result = await credentialService.issueCredential(projectId, issuerWallet, {
     subject: subjectAddress,
     credentialType: 'PROFESSIONAL_LICENSE',
     data: {

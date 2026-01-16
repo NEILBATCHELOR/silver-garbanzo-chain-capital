@@ -9,6 +9,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Loader2, Image as ImageIcon, Upload } from 'lucide-react'
 import { XRPLNFTService } from '@/services/wallet/ripple/nft/XRPLNFTService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 import {
   Alert,
@@ -27,6 +28,7 @@ export const NFTMinter: React.FC<NFTMinterProps> = ({
   onSuccess
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [loading, setLoading] = useState(false)
   
   const [formData, setFormData] = useState({
@@ -104,6 +106,15 @@ export const NFTMinter: React.FC<NFTMinterProps> = ({
       return
     }
 
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No active project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
     try {
       const nftService = new XRPLNFTService(network)
@@ -122,6 +133,7 @@ export const NFTMinter: React.FC<NFTMinterProps> = ({
       const metadataUri = `ipfs://metadata/${JSON.stringify(metadata)}`
 
       const result = await nftService.mintNFT({
+        projectId: primaryProject.id,
         minter: wallet,
         uri: metadataUri,
         flags: {

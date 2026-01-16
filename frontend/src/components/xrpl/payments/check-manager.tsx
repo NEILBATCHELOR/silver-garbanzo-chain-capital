@@ -10,6 +10,7 @@ import { Loader2, FileText, DollarSign, X, ExternalLink } from 'lucide-react'
 import { XRPLCheckService } from '@/services/wallet/ripple/checks/XRPLCheckService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
 import { XRPL_NETWORKS } from '@/services/wallet/ripple/config/XRPLConfig'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 
 interface CheckManagerProps {
@@ -31,6 +32,7 @@ export const CheckManager: React.FC<CheckManagerProps> = ({
   network = 'TESTNET'
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [loading, setLoading] = useState(false)
   const [checks, setChecks] = useState<Check[]>([])
   const [activeTab, setActiveTab] = useState('create')
@@ -65,6 +67,16 @@ export const CheckManager: React.FC<CheckManagerProps> = ({
 
   const handleCreateCheck = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -72,6 +84,7 @@ export const CheckManager: React.FC<CheckManagerProps> = ({
       const service = new XRPLCheckService(client)
 
       const result = await service.createCheck({
+        projectId: primaryProject.id,
         sender: wallet,
         destination: createForm.destination,
         sendMax: (parseFloat(createForm.amount) * 1_000_000).toString(),
@@ -115,6 +128,16 @@ export const CheckManager: React.FC<CheckManagerProps> = ({
 
   const handleCashCheck = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -124,8 +147,8 @@ export const CheckManager: React.FC<CheckManagerProps> = ({
       const amount = (parseFloat(cashForm.amount) * 1_000_000).toString()
 
       const result = cashForm.useExactAmount
-        ? await service.cashCheckExact(wallet, cashForm.checkId, amount)
-        : await service.cashCheckFlexible(wallet, cashForm.checkId, amount)
+        ? await service.cashCheckExact(primaryProject.id, wallet, cashForm.checkId, amount)
+        : await service.cashCheckFlexible(primaryProject.id, wallet, cashForm.checkId, amount)
 
       toast({
         title: 'Check Cashed',
@@ -146,13 +169,22 @@ export const CheckManager: React.FC<CheckManagerProps> = ({
   }
 
   const handleCancelCheck = async (checkId: string) => {
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
       const client = await xrplClientManager.getClient(network)
       const service = new XRPLCheckService(client)
 
-      await service.cancelCheck(wallet, checkId)
+      await service.cancelCheck(primaryProject.id, wallet, checkId)
 
       toast({
         title: 'Check Cancelled',

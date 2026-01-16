@@ -1,30 +1,14 @@
 import { Client, Wallet, Transaction, Payment } from 'xrpl';
 import { xrplClientManager } from '../core/XRPLClientManager';
 import { XRPLNetwork } from '../config/XRPLConfig';
-
-/**
- * MPT Metadata structure (XLS-89 standard)
- */
-export interface MPTMetadata {
-  ticker: string;        // Short symbol (e.g., "USDC")
-  name: string;         // Full name
-  desc: string;         // Description
-  icon?: string;        // Icon URL
-  asset_class?: string; // e.g., "rwa", "currency"
-  asset_subclass?: string; // e.g., "treasury", "real-estate"
-  issuer_name?: string; // Issuer's legal name
-  uris?: Array<{
-    uri: string;
-    category: string;   // "website", "docs", "whitepaper"
-    title: string;
-  }>;
-  additional_info?: Record<string, unknown>;
-}
+import { XRPLMPTDatabaseService } from './XRPLMPTDatabaseService';
+import type { MPTMetadata } from './types';
 
 /**
  * MPT Issuance creation parameters
  */
 export interface MPTIssuanceParams {
+  projectId: string;
   issuerWallet: Wallet;
   assetScale: number;
   maximumAmount?: string;
@@ -50,24 +34,45 @@ export interface MPTIssuanceResult {
 }
 
 /**
- * MPT Holder information
+ * MPT Authorization parameters
  */
-export interface MPTHolder {
-  address: string;
-  balance: string;
-  authorized: boolean;
+export interface MPTAuthorizationParams {
+  projectId: string;
+  holderWallet: Wallet;
+  mptIssuanceId: string;
 }
 
 /**
- * MPT Issuance details
+ * MPT Issuance parameters
  */
-export interface MPTIssuanceDetails {
-  issuer: string;
-  assetScale: number;
-  maximumAmount?: string;
-  outstandingAmount: string;
-  metadata: MPTMetadata;
-  flags: number;
+export interface MPTIssueParams {
+  projectId: string;
+  issuerWallet: Wallet;
+  destination: string;
+  mptIssuanceId: string;
+  amount: string;
+}
+
+/**
+ * MPT Transfer parameters
+ */
+export interface MPTTransferParams {
+  projectId: string;
+  senderWallet: Wallet;
+  destination: string;
+  mptIssuanceId: string;
+  amount: string;
+}
+
+/**
+ * MPT Clawback parameters
+ */
+export interface MPTClawbackParams {
+  projectId: string;
+  issuerWallet: Wallet;
+  holderAddress: string;
+  mptIssuanceId: string;
+  amount: string;
 }
 
 /**
@@ -97,7 +102,7 @@ export class XRPLMPTService {
   }
 
   /**
-   * Create MPT Issuance with metadata
+   * Create MPT Issuance with metadata and save to database
    */
   async createMPTIssuance(params: MPTIssuanceParams): Promise<MPTIssuanceResult> {
     try {
@@ -149,6 +154,33 @@ export class XRPLMPTService {
       const issuanceId = this.extractIssuanceId(response.result.meta);
       const explorerUrl = this.getExplorerUrl(issuanceId, 'mpt');
 
+      // Save to database
+      await XRPLMPTDatabaseService.createIssuance({
+        project_id: params.projectId,
+        issuance_id: issuanceId,
+        issuer_address: params.issuerWallet.address,
+        asset_scale: params.assetScale,
+        maximum_amount: params.maximumAmount,
+        transfer_fee: params.transferFee,
+        outstanding_amount: '0',
+        ticker: params.metadata.ticker,
+        name: params.metadata.name,
+        description: params.metadata.desc,
+        icon_url: params.metadata.icon,
+        asset_class: params.metadata.asset_class,
+        asset_subclass: params.metadata.asset_subclass,
+        issuer_name: params.metadata.issuer_name,
+        metadata_json: params.metadata as unknown as Record<string, unknown>,
+        can_transfer: params.flags.canTransfer !== false,
+        can_trade: params.flags.canTrade,
+        can_lock: params.flags.canLock,
+        can_clawback: params.flags.canClawback,
+        require_auth: params.flags.requireAuth,
+        flags,
+        status: 'active',
+        creation_transaction_hash: response.result.hash
+      });
+
       return {
         issuanceId,
         transactionHash: response.result.hash,
@@ -163,12 +195,9 @@ export class XRPLMPTService {
   }
 
   /**
-   * Authorize holder to receive MPT
+   * Authorize holder to receive MPT and save to database
    */
-  async authorizeMPTHolder(params: {
-    holderWallet: Wallet;
-    mptIssuanceId: string;
-  }): Promise<{ transactionHash: string }> {
+  async authorizeMPTHolder(params: MPTAuthorizationParams): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
@@ -189,6 +218,17 @@ export class XRPLMPTService {
         }
       }
 
+      // Save to database
+      await XRPLMPTDatabaseService.upsertHolder({
+        project_id: params.projectId,
+        issuance_id: params.mptIssuanceId,
+        holder_address: params.holderWallet.address,
+        balance: '0',
+        authorized: true,
+        authorization_transaction_hash: response.result.hash,
+        authorized_at: new Date().toISOString()
+      });
+
       return {
         transactionHash: response.result.hash
       };
@@ -200,14 +240,9 @@ export class XRPLMPTService {
   }
 
   /**
-   * Issue MPT to authorized holder
+   * Issue MPT to authorized holder and record in database
    */
-  async issueMPT(params: {
-    issuerWallet: Wallet;
-    destination: string;
-    mptIssuanceId: string;
-    amount: string;
-  }): Promise<{ transactionHash: string }> {
+  async issueMPT(params: MPTIssueParams): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
@@ -232,6 +267,32 @@ export class XRPLMPTService {
         }
       }
 
+      // Record transaction in database
+      await XRPLMPTDatabaseService.createTransaction({
+        project_id: params.projectId,
+        issuance_id: params.mptIssuanceId,
+        transaction_type: 'issue',
+        from_address: params.issuerWallet.address,
+        to_address: params.destination,
+        amount: params.amount,
+        transaction_hash: response.result.hash,
+        status: 'success'
+      });
+
+      // Update holder balance (increment)
+      const holders = await XRPLMPTDatabaseService.getHolders(params.projectId, params.mptIssuanceId);
+      const holder = holders.find(h => h.holder_address === params.destination);
+      if (holder) {
+        const currentBalance = parseFloat(holder.balance || '0');
+        const newBalance = (currentBalance + parseFloat(params.amount)).toString();
+        await XRPLMPTDatabaseService.updateHolderBalance(
+          params.projectId,
+          params.mptIssuanceId,
+          params.destination,
+          newBalance
+        );
+      }
+
       return {
         transactionHash: response.result.hash
       };
@@ -243,14 +304,9 @@ export class XRPLMPTService {
   }
 
   /**
-   * Transfer MPT between holders
+   * Transfer MPT between holders and record in database
    */
-  async transferMPT(params: {
-    senderWallet: Wallet;
-    destination: string;
-    mptIssuanceId: string;
-    amount: string;
-  }): Promise<{ transactionHash: string }> {
+  async transferMPT(params: MPTTransferParams): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
@@ -275,6 +331,18 @@ export class XRPLMPTService {
         }
       }
 
+      // Record transaction in database
+      await XRPLMPTDatabaseService.createTransaction({
+        project_id: params.projectId,
+        issuance_id: params.mptIssuanceId,
+        transaction_type: 'transfer',
+        from_address: params.senderWallet.address,
+        to_address: params.destination,
+        amount: params.amount,
+        transaction_hash: response.result.hash,
+        status: 'success'
+      });
+
       return {
         transactionHash: response.result.hash
       };
@@ -286,88 +354,9 @@ export class XRPLMPTService {
   }
 
   /**
-   * Get MPT issuance details
+   * Clawback MPT from holder and record in database
    */
-  async getMPTIssuanceDetails(mptIssuanceId: string): Promise<MPTIssuanceDetails> {
-    try {
-      const client = await this.getClient();
-
-      const response = await client.request({
-        command: 'ledger_entry',
-        mpt_issuance: mptIssuanceId,
-        ledger_index: 'validated'
-      });
-
-      const node = response.result.node as unknown as Record<string, unknown>;
-      const metadataBlob = node.MPTokenMetadata as string;
-      const metadata = this.decodeMetadata(metadataBlob);
-
-      return {
-        issuer: node.Issuer as string,
-        assetScale: node.AssetScale as number,
-        maximumAmount: node.MaximumAmount as string | undefined,
-        outstandingAmount: node.OutstandingAmount as string,
-        metadata,
-        flags: node.Flags as number
-      };
-    } catch (error) {
-      throw new Error(
-        `Failed to get MPT issuance details: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  /**
-   * Get MPT holders
-   * 
-   * NOTE: The 'mpt_holders' command is not yet available in xrpl.js v4.4.1
-   * This is a placeholder for when the feature becomes available.
-   * Alternative: Use account_objects to find MPT holders manually.
-   */
-  async getMPTHolders(mptIssuanceId: string): Promise<MPTHolder[]> {
-    try {
-      const client = await this.getClient();
-
-      // Workaround: Query account_objects to find MPT holders
-      // This is less efficient but works with current xrpl.js version
-      const response = await client.request({
-        command: 'account_objects',
-        account: mptIssuanceId, // Use issuer address here
-        type: 'mpt_issuance',
-        ledger_index: 'validated'
-      });
-
-      const objects = response.result.account_objects;
-
-      return objects
-        .filter((obj: unknown) => {
-          const entry = obj as Record<string, unknown>;
-          return entry.LedgerEntryType === 'MPToken';
-        })
-        .map((obj: unknown) => {
-          const entry = obj as Record<string, unknown>;
-          return {
-            address: entry.Account as string,
-            balance: entry.MPTAmount as string,
-            authorized: true
-          };
-        });
-    } catch (error) {
-      // If MPT feature not available, return empty array
-      console.warn('MPT holders query not supported:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Clawback MPT from holder
-   */
-  async clawbackMPT(params: {
-    issuerWallet: Wallet;
-    holderAddress: string;
-    mptIssuanceId: string;
-    amount: string;
-  }): Promise<{ transactionHash: string }> {
+  async clawbackMPT(params: MPTClawbackParams): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
@@ -392,6 +381,18 @@ export class XRPLMPTService {
         }
       }
 
+      // Record transaction in database
+      await XRPLMPTDatabaseService.createTransaction({
+        project_id: params.projectId,
+        issuance_id: params.mptIssuanceId,
+        transaction_type: 'clawback',
+        from_address: params.holderAddress,
+        to_address: params.issuerWallet.address,
+        amount: params.amount,
+        transaction_hash: response.result.hash,
+        status: 'success'
+      });
+
       return {
         transactionHash: response.result.hash
       };
@@ -403,24 +404,13 @@ export class XRPLMPTService {
   }
 
   /**
-   * Encode metadata to hex (XLS-89 format)
+   * Helper methods
    */
   private encodeMetadata(metadata: MPTMetadata): string {
     const metadataJson = JSON.stringify(metadata);
     return Buffer.from(metadataJson).toString('hex').toUpperCase();
   }
 
-  /**
-   * Decode metadata from hex
-   */
-  private decodeMetadata(metadataHex: string): MPTMetadata {
-    const metadataJson = Buffer.from(metadataHex, 'hex').toString('utf8');
-    return JSON.parse(metadataJson) as MPTMetadata;
-  }
-
-  /**
-   * Extract issuance ID from transaction metadata
-   */
   private extractIssuanceId(meta: unknown): string {
     if (!meta || typeof meta !== 'object') {
       throw new Error('Invalid transaction metadata');
@@ -448,9 +438,6 @@ export class XRPLMPTService {
     throw new Error('Could not extract issuance ID from transaction metadata');
   }
 
-  /**
-   * Get explorer URL for entity
-   */
   private getExplorerUrl(id: string, type: 'mpt' | 'transaction'): string {
     const explorers: Record<string, string> = {
       MAINNET: 'https://xrpl.org',
@@ -460,5 +447,88 @@ export class XRPLMPTService {
 
     const baseUrl = explorers[this.network] || explorers.TESTNET;
     return `${baseUrl}/${type}/${id}`;
+  }
+
+  /**
+   * Get MPT issuance details from XRPL ledger
+   */
+  async getMPTIssuanceDetails(mptIssuanceId: string): Promise<{
+    issuer: string;
+    assetScale: number;
+    maximumAmount?: string;
+    outstandingAmount: string;
+    metadata: MPTMetadata;
+    flags: number;
+  }> {
+    try {
+      const client = await this.getClient();
+
+      const response = await client.request({
+        command: 'ledger_entry',
+        mpt_issuance: mptIssuanceId,
+        ledger_index: 'validated'
+      });
+
+      const { node } = response.result;
+
+      // Type assertion for MPT-specific fields (not yet in xrpl.js types)
+      const mptNode = node as any;
+
+      // Decode metadata from hex
+      let metadata: MPTMetadata;
+      try {
+        const metadataStr = Buffer.from(mptNode.MPTokenMetadata || '', 'hex').toString('utf8');
+        metadata = JSON.parse(metadataStr);
+      } catch {
+        // Fallback to empty metadata if decoding fails
+        metadata = {
+          ticker: 'UNKNOWN',
+          name: 'Unknown Token',
+          desc: 'No description available'
+        };
+      }
+
+      return {
+        issuer: mptNode.Issuer,
+        assetScale: mptNode.AssetScale,
+        maximumAmount: mptNode.MaximumAmount,
+        outstandingAmount: mptNode.OutstandingAmount || '0',
+        metadata,
+        flags: mptNode.Flags || 0
+      };
+    } catch (error) {
+      throw new Error(
+        `Failed to get MPT issuance details: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+  }
+
+  /**
+   * Get MPT holders from XRPL ledger
+   */
+  async getMPTHolders(mptIssuanceId: string): Promise<Array<{
+    address: string;
+    balance: string;
+  }>> {
+    try {
+      const client = await this.getClient();
+
+      // Type assertion for MPT-specific command (not yet in xrpl.js types)
+      const response = await client.request({
+        command: 'mpt_holders',
+        mpt_issuance_id: mptIssuanceId,
+        ledger_index: 'validated'
+      } as any);
+
+      const result = response.result as any;
+      return result.mpt_holders.map((holder: { account: string; MPTAmount: string }) => ({
+        address: holder.account,
+        balance: holder.MPTAmount
+      }));
+    } catch (error) {
+      throw new Error(
+        `Failed to get MPT holders: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
   }
 }

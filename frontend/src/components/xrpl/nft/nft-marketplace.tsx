@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { XRPLNFTService } from '@/services/wallet/ripple/nft/XRPLNFTService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 import {
   Tabs,
@@ -58,6 +59,7 @@ export const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
   nftId
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [loading, setLoading] = useState(false)
   const [sellOffers, setSellOffers] = useState<NFTOffer[]>([])
   const [buyOffers, setBuyOffers] = useState<NFTOffer[]>([])
@@ -104,9 +106,19 @@ export const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
 
   const handleCreateSellOffer = async () => {
     try {
+      if (!primaryProject?.id) {
+        toast({
+          title: 'Error',
+          description: 'No active project selected',
+          variant: 'destructive'
+        })
+        return
+      }
+
       const nftService = new XRPLNFTService(network)
 
       await nftService.createSellOffer({
+        projectId: primaryProject.id,
         wallet,
         nftId: offerData.nftId,
         amount: offerData.amount,
@@ -142,9 +154,19 @@ export const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
 
   const handleCreateBuyOffer = async () => {
     try {
+      if (!primaryProject?.id) {
+        toast({
+          title: 'Error',
+          description: 'No active project selected',
+          variant: 'destructive'
+        })
+        return
+      }
+
       const nftService = new XRPLNFTService(network)
 
       await nftService.createBuyOffer({
+        projectId: primaryProject.id,
         wallet,
         nftId: offerData.nftId,
         owner: offerData.owner,
@@ -179,19 +201,35 @@ export const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
   }
 
   const handleAcceptOffer = async (offerIndex: string) => {
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    if (!nftId) {
+      toast({
+        title: 'Error',
+        description: 'NFT ID is required',
+        variant: 'destructive'
+      })
+      return
+    }
+
     try {
       const nftService = new XRPLNFTService(network)
 
-      await nftService.acceptOffer(wallet, offerIndex)
+      await nftService.acceptOffer(primaryProject.id, wallet, offerIndex, nftId)
 
       toast({
         title: 'Offer Accepted',
         description: 'NFT transfer completed successfully'
       })
 
-      if (nftId) {
-        loadOffers(nftId)
-      }
+      loadOffers(nftId)
     } catch (error) {
       console.error('Failed to accept offer:', error)
       toast({
@@ -203,10 +241,19 @@ export const NFTMarketplace: React.FC<NFTMarketplaceProps> = ({
   }
 
   const handleCancelOffer = async (offerIndex: string) => {
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     try {
       const nftService = new XRPLNFTService(network)
 
-      await nftService.cancelOffer(wallet, [offerIndex])
+      await nftService.cancelOffer(primaryProject.id, wallet, [offerIndex])
 
       toast({
         title: 'Offer Cancelled',

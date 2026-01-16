@@ -17472,6 +17472,7 @@ export type Database = {
           holder_address: string
           id: string
           issuance_id: string
+          project_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -17483,6 +17484,7 @@ export type Database = {
           holder_address: string
           id?: string
           issuance_id: string
+          project_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -17494,6 +17496,7 @@ export type Database = {
           holder_address?: string
           id?: string
           issuance_id?: string
+          project_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -17503,6 +17506,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "mpt_issuances"
             referencedColumns: ["issuance_id"]
+          },
+          {
+            foreignKeyName: "mpt_holders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -17612,6 +17622,7 @@ export type Database = {
           id: string
           issuance_id: string
           ledger_index: number | null
+          project_id: string | null
           status: string | null
           to_address: string
           transaction_hash: string
@@ -17624,6 +17635,7 @@ export type Database = {
           id?: string
           issuance_id: string
           ledger_index?: number | null
+          project_id?: string | null
           status?: string | null
           to_address: string
           transaction_hash: string
@@ -17636,6 +17648,7 @@ export type Database = {
           id?: string
           issuance_id?: string
           ledger_index?: number | null
+          project_id?: string | null
           status?: string | null
           to_address?: string
           transaction_hash?: string
@@ -17648,6 +17661,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "mpt_issuances"
             referencedColumns: ["issuance_id"]
+          },
+          {
+            foreignKeyName: "mpt_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -38029,6 +38049,325 @@ export type Database = {
         }
         Relationships: []
       }
+      xrpl_checks: {
+        Row: {
+          cancel_transaction_hash: string | null
+          canceled_at: string | null
+          cash_transaction_hash: string | null
+          cashed_amount: string | null
+          cashed_at: string | null
+          check_id: string
+          created_at: string | null
+          creation_transaction_hash: string
+          currency_code: string | null
+          destination_address: string
+          destination_tag: number | null
+          expiration: string | null
+          id: string
+          invoice_id: string | null
+          issuer_address: string | null
+          project_id: string | null
+          send_max: string
+          sender_address: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cancel_transaction_hash?: string | null
+          canceled_at?: string | null
+          cash_transaction_hash?: string | null
+          cashed_amount?: string | null
+          cashed_at?: string | null
+          check_id: string
+          created_at?: string | null
+          creation_transaction_hash: string
+          currency_code?: string | null
+          destination_address: string
+          destination_tag?: number | null
+          expiration?: string | null
+          id?: string
+          invoice_id?: string | null
+          issuer_address?: string | null
+          project_id?: string | null
+          send_max: string
+          sender_address: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cancel_transaction_hash?: string | null
+          canceled_at?: string | null
+          cash_transaction_hash?: string | null
+          cashed_amount?: string | null
+          cashed_at?: string | null
+          check_id?: string
+          created_at?: string | null
+          creation_transaction_hash?: string
+          currency_code?: string | null
+          destination_address?: string
+          destination_tag?: number | null
+          expiration?: string | null
+          id?: string
+          invoice_id?: string | null
+          issuer_address?: string | null
+          project_id?: string | null
+          send_max?: string
+          sender_address?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_check_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_checks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_credential_verifications: {
+        Row: {
+          confidence_score: number | null
+          credential_id: string
+          id: string
+          is_expired: boolean
+          is_valid: boolean
+          metadata: Json | null
+          project_id: string | null
+          verification_method: string | null
+          verification_notes: string | null
+          verification_result: string
+          verification_type: string
+          verified_at: string | null
+          verifier_address: string
+        }
+        Insert: {
+          confidence_score?: number | null
+          credential_id: string
+          id?: string
+          is_expired: boolean
+          is_valid: boolean
+          metadata?: Json | null
+          project_id?: string | null
+          verification_method?: string | null
+          verification_notes?: string | null
+          verification_result: string
+          verification_type: string
+          verified_at?: string | null
+          verifier_address: string
+        }
+        Update: {
+          confidence_score?: number | null
+          credential_id?: string
+          id?: string
+          is_expired?: boolean
+          is_valid?: boolean
+          metadata?: Json | null
+          project_id?: string | null
+          verification_method?: string | null
+          verification_notes?: string | null
+          verification_result?: string
+          verification_type?: string
+          verified_at?: string | null
+          verifier_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_credential"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_credentials"
+            referencedColumns: ["credential_id"]
+          },
+          {
+            foreignKeyName: "fk_credential"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_credentials_with_expiry"
+            referencedColumns: ["credential_id"]
+          },
+          {
+            foreignKeyName: "xrpl_credential_verifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_credentials: {
+        Row: {
+          accept_transaction_hash: string | null
+          accepted_at: string | null
+          created_at: string | null
+          credential_id: string
+          credential_type: string
+          data_hash: string | null
+          data_json: Json
+          delete_transaction_hash: string | null
+          deleted_at: string | null
+          expiration: string | null
+          id: string
+          is_accepted: boolean | null
+          issue_transaction_hash: string
+          issued_at: string | null
+          issuer_address: string
+          metadata: Json | null
+          project_id: string | null
+          status: string | null
+          subject_address: string
+          updated_at: string | null
+        }
+        Insert: {
+          accept_transaction_hash?: string | null
+          accepted_at?: string | null
+          created_at?: string | null
+          credential_id: string
+          credential_type: string
+          data_hash?: string | null
+          data_json: Json
+          delete_transaction_hash?: string | null
+          deleted_at?: string | null
+          expiration?: string | null
+          id?: string
+          is_accepted?: boolean | null
+          issue_transaction_hash: string
+          issued_at?: string | null
+          issuer_address: string
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string | null
+          subject_address: string
+          updated_at?: string | null
+        }
+        Update: {
+          accept_transaction_hash?: string | null
+          accepted_at?: string | null
+          created_at?: string | null
+          credential_id?: string
+          credential_type?: string
+          data_hash?: string | null
+          data_json?: Json
+          delete_transaction_hash?: string | null
+          deleted_at?: string | null
+          expiration?: string | null
+          id?: string
+          is_accepted?: boolean | null
+          issue_transaction_hash?: string
+          issued_at?: string | null
+          issuer_address?: string
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string | null
+          subject_address?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_credentials_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_escrows: {
+        Row: {
+          amount: string
+          cancel_after: string | null
+          cancel_transaction_hash: string | null
+          canceled_at: string | null
+          condition: string | null
+          created_at: string | null
+          creation_transaction_hash: string
+          destination_address: string
+          destination_tag: number | null
+          finish_after: string | null
+          finish_transaction_hash: string | null
+          finished_at: string | null
+          fulfillment: string | null
+          id: string
+          owner_address: string
+          project_id: string | null
+          sequence: number
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: string
+          cancel_after?: string | null
+          cancel_transaction_hash?: string | null
+          canceled_at?: string | null
+          condition?: string | null
+          created_at?: string | null
+          creation_transaction_hash: string
+          destination_address: string
+          destination_tag?: number | null
+          finish_after?: string | null
+          finish_transaction_hash?: string | null
+          finished_at?: string | null
+          fulfillment?: string | null
+          id?: string
+          owner_address: string
+          project_id?: string | null
+          sequence: number
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: string
+          cancel_after?: string | null
+          cancel_transaction_hash?: string | null
+          canceled_at?: string | null
+          condition?: string | null
+          created_at?: string | null
+          creation_transaction_hash?: string
+          destination_address?: string
+          destination_tag?: number | null
+          finish_after?: string | null
+          finish_transaction_hash?: string | null
+          finished_at?: string | null
+          fulfillment?: string | null
+          id?: string
+          owner_address?: string
+          project_id?: string | null
+          sequence?: number
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_escrow_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_escrows_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_nft_offers: {
         Row: {
           accepted_at: string | null
@@ -38044,6 +38383,7 @@ export type Database = {
           offer_index: string
           offer_type: string
           owner_address: string
+          project_id: string | null
           status: string | null
           transaction_hash: string | null
           updated_at: string | null
@@ -38062,6 +38402,7 @@ export type Database = {
           offer_index: string
           offer_type: string
           owner_address: string
+          project_id?: string | null
           status?: string | null
           transaction_hash?: string | null
           updated_at?: string | null
@@ -38080,6 +38421,7 @@ export type Database = {
           offer_index?: string
           offer_type?: string
           owner_address?: string
+          project_id?: string | null
           status?: string | null
           transaction_hash?: string | null
           updated_at?: string | null
@@ -38091,6 +38433,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "xrpl_nfts"
             referencedColumns: ["nft_id"]
+          },
+          {
+            foreignKeyName: "xrpl_nft_offers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -38104,6 +38453,7 @@ export type Database = {
           issuer_address: string | null
           nft_id: string
           price: string | null
+          project_id: string | null
           to_address: string
           transaction_hash: string
           transferred_at: string | null
@@ -38117,6 +38467,7 @@ export type Database = {
           issuer_address?: string | null
           nft_id: string
           price?: string | null
+          project_id?: string | null
           to_address: string
           transaction_hash: string
           transferred_at?: string | null
@@ -38130,6 +38481,7 @@ export type Database = {
           issuer_address?: string | null
           nft_id?: string
           price?: string | null
+          project_id?: string | null
           to_address?: string
           transaction_hash?: string
           transferred_at?: string | null
@@ -38141,6 +38493,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "xrpl_nfts"
             referencedColumns: ["nft_id"]
+          },
+          {
+            foreignKeyName: "xrpl_nft_transfers_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -38227,6 +38586,297 @@ export type Database = {
           },
         ]
       }
+      xrpl_oracle_price_data: {
+        Row: {
+          asset_price: number
+          base_asset: string
+          created_at: string | null
+          id: string
+          oracle_id: string
+          project_id: string | null
+          quote_asset: string
+          scale: number
+          update_time: number
+        }
+        Insert: {
+          asset_price: number
+          base_asset: string
+          created_at?: string | null
+          id?: string
+          oracle_id: string
+          project_id?: string | null
+          quote_asset: string
+          scale: number
+          update_time: number
+        }
+        Update: {
+          asset_price?: number
+          base_asset?: string
+          created_at?: string | null
+          id?: string
+          oracle_id?: string
+          project_id?: string | null
+          quote_asset?: string
+          scale?: number
+          update_time?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_oracle_price_data_oracle_id_fkey"
+            columns: ["oracle_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_price_oracles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_oracle_price_data_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_oracle_updates: {
+        Row: {
+          created_at: string | null
+          id: string
+          ledger_index: number | null
+          oracle_id: string
+          previous_price_data: Json | null
+          price_data: Json
+          project_id: string | null
+          transaction_hash: string
+          update_time: number
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ledger_index?: number | null
+          oracle_id: string
+          previous_price_data?: Json | null
+          price_data: Json
+          project_id?: string | null
+          transaction_hash: string
+          update_time: number
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ledger_index?: number | null
+          oracle_id?: string
+          previous_price_data?: Json | null
+          price_data?: Json
+          project_id?: string | null
+          transaction_hash?: string
+          update_time?: number
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_oracle_updates_oracle_id_fkey"
+            columns: ["oracle_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_price_oracles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_oracle_updates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_payment_channel_claims: {
+        Row: {
+          amount: string
+          channel_id: string
+          claimed_at: string | null
+          claimer_address: string
+          created_at: string | null
+          id: string
+          project_id: string | null
+          signature: string | null
+          status: string | null
+          transaction_hash: string | null
+        }
+        Insert: {
+          amount: string
+          channel_id: string
+          claimed_at?: string | null
+          claimer_address: string
+          created_at?: string | null
+          id?: string
+          project_id?: string | null
+          signature?: string | null
+          status?: string | null
+          transaction_hash?: string | null
+        }
+        Update: {
+          amount?: string
+          channel_id?: string
+          claimed_at?: string | null
+          claimer_address?: string
+          created_at?: string | null
+          id?: string
+          project_id?: string | null
+          signature?: string | null
+          status?: string | null
+          transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_channel_claim"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_payment_channels"
+            referencedColumns: ["channel_id"]
+          },
+          {
+            foreignKeyName: "xrpl_payment_channel_claims_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_payment_channels: {
+        Row: {
+          amount: string
+          balance: string
+          cancel_after: string | null
+          channel_id: string
+          closed_at: string | null
+          created_at: string | null
+          creation_transaction_hash: string
+          destination_address: string
+          destination_tag: number | null
+          id: string
+          project_id: string | null
+          public_key: string
+          settle_delay: number
+          source_address: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: string
+          balance?: string
+          cancel_after?: string | null
+          channel_id: string
+          closed_at?: string | null
+          created_at?: string | null
+          creation_transaction_hash: string
+          destination_address: string
+          destination_tag?: number | null
+          id?: string
+          project_id?: string | null
+          public_key: string
+          settle_delay: number
+          source_address: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: string
+          balance?: string
+          cancel_after?: string | null
+          channel_id?: string
+          closed_at?: string | null
+          created_at?: string | null
+          creation_transaction_hash?: string
+          destination_address?: string
+          destination_tag?: number | null
+          id?: string
+          project_id?: string | null
+          public_key?: string
+          settle_delay?: number
+          source_address?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_payment_channel_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_payment_channels_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_price_oracles: {
+        Row: {
+          asset_class: string
+          created_at: string | null
+          created_by: string | null
+          id: string
+          last_update_time: number | null
+          oracle_address: string
+          oracle_document_id: number
+          project_id: string | null
+          provider: string
+          status: string | null
+          updated_at: string | null
+          uri: string | null
+        }
+        Insert: {
+          asset_class: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_update_time?: number | null
+          oracle_address: string
+          oracle_document_id: number
+          project_id?: string | null
+          provider: string
+          status?: string | null
+          updated_at?: string | null
+          uri?: string | null
+        }
+        Update: {
+          asset_class?: string
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          last_update_time?: number | null
+          oracle_address?: string
+          oracle_document_id?: number
+          project_id?: string | null
+          provider?: string
+          status?: string | null
+          updated_at?: string | null
+          uri?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_price_oracles_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_trust_line_holders: {
         Row: {
           authorized: boolean | null
@@ -38240,6 +38890,7 @@ export type Database = {
           no_ripple: boolean | null
           no_ripple_peer: boolean | null
           peer_authorized: boolean | null
+          project_id: string | null
           quality_in: number | null
           quality_out: number | null
           token_id: string
@@ -38257,6 +38908,7 @@ export type Database = {
           no_ripple?: boolean | null
           no_ripple_peer?: boolean | null
           peer_authorized?: boolean | null
+          project_id?: string | null
           quality_in?: number | null
           quality_out?: number | null
           token_id: string
@@ -38274,6 +38926,7 @@ export type Database = {
           no_ripple?: boolean | null
           no_ripple_peer?: boolean | null
           peer_authorized?: boolean | null
+          project_id?: string | null
           quality_in?: number | null
           quality_out?: number | null
           token_id?: string
@@ -38285,6 +38938,13 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "xrpl_trust_line_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_trust_line_holders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -38370,6 +39030,7 @@ export type Database = {
           from_address: string
           id: string
           ledger_index: number | null
+          project_id: string | null
           status: string | null
           to_address: string
           token_id: string
@@ -38382,6 +39043,7 @@ export type Database = {
           from_address: string
           id?: string
           ledger_index?: number | null
+          project_id?: string | null
           status?: string | null
           to_address: string
           token_id: string
@@ -38394,6 +39056,7 @@ export type Database = {
           from_address?: string
           id?: string
           ledger_index?: number | null
+          project_id?: string | null
           status?: string | null
           to_address?: string
           token_id?: string
@@ -38406,6 +39069,13 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "xrpl_trust_line_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_trust_line_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -39878,6 +40548,93 @@ export type Database = {
             columns: ["public_key_vault_id"]
             isOneToOne: false
             referencedRelation: "key_vault_keys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_credentials_with_expiry: {
+        Row: {
+          accept_transaction_hash: string | null
+          accepted_at: string | null
+          created_at: string | null
+          credential_id: string | null
+          credential_type: string | null
+          data_hash: string | null
+          data_json: Json | null
+          delete_transaction_hash: string | null
+          deleted_at: string | null
+          expiration: string | null
+          id: string | null
+          is_accepted: boolean | null
+          is_expired: boolean | null
+          issue_transaction_hash: string | null
+          issued_at: string | null
+          issuer_address: string | null
+          metadata: Json | null
+          project_id: string | null
+          status: string | null
+          subject_address: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          accept_transaction_hash?: string | null
+          accepted_at?: string | null
+          created_at?: string | null
+          credential_id?: string | null
+          credential_type?: string | null
+          data_hash?: string | null
+          data_json?: Json | null
+          delete_transaction_hash?: string | null
+          deleted_at?: string | null
+          expiration?: string | null
+          id?: string | null
+          is_accepted?: boolean | null
+          is_expired?: never
+          issue_transaction_hash?: string | null
+          issued_at?: string | null
+          issuer_address?: string | null
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string | null
+          subject_address?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          accept_transaction_hash?: string | null
+          accepted_at?: string | null
+          created_at?: string | null
+          credential_id?: string | null
+          credential_type?: string | null
+          data_hash?: string | null
+          data_json?: Json | null
+          delete_transaction_hash?: string | null
+          deleted_at?: string | null
+          expiration?: string | null
+          id?: string | null
+          is_accepted?: boolean | null
+          is_expired?: never
+          issue_transaction_hash?: string | null
+          issued_at?: string | null
+          issuer_address?: string | null
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string | null
+          subject_address?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "xrpl_credentials_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

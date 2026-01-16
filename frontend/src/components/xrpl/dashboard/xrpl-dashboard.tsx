@@ -27,11 +27,13 @@ interface AccountInfo {
 interface XRPLDashboardProps {
   walletAddress?: string
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
+  projectId?: string
 }
 
 export const XRPLDashboard: React.FC<XRPLDashboardProps> = ({ 
   walletAddress,
-  network = 'TESTNET' 
+  network = 'TESTNET',
+  projectId
 }) => {
   const [accountInfo, setAccountInfo] = useState<AccountInfo | null>(null)
   const [loading, setLoading] = useState(false)

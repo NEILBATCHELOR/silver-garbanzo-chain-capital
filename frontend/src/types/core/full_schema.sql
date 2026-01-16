@@ -7857,10 +7857,38 @@ $$;
 
 
 --
+-- Name: update_xrpl_credentials_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_xrpl_credentials_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_xrpl_nfts_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.update_xrpl_nfts_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_xrpl_payment_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_xrpl_payment_updated_at() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
@@ -17555,7 +17583,8 @@ CREATE TABLE public.mpt_holders (
     authorization_transaction_hash character varying(64),
     authorized_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
@@ -17608,7 +17637,8 @@ CREATE TABLE public.mpt_transactions (
     transaction_hash character varying(64) NOT NULL,
     ledger_index integer,
     status character varying(20) DEFAULT 'confirmed'::character varying,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
@@ -28857,6 +28887,157 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: xrpl_checks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_checks (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    check_id character varying(64) NOT NULL,
+    project_id uuid,
+    sender_address character varying(64) NOT NULL,
+    destination_address character varying(64) NOT NULL,
+    send_max character varying(32) NOT NULL,
+    currency_code character varying(3),
+    issuer_address character varying(64),
+    destination_tag integer,
+    expiration timestamp with time zone,
+    invoice_id character varying(64),
+    status character varying(20) DEFAULT 'active'::character varying,
+    cashed_at timestamp with time zone,
+    canceled_at timestamp with time zone,
+    cashed_amount character varying(32),
+    creation_transaction_hash character varying(64) NOT NULL,
+    cash_transaction_hash character varying(64),
+    cancel_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_credential_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_credential_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credential_id character varying(64) NOT NULL,
+    verifier_address character varying(64) NOT NULL,
+    verification_type character varying(50) NOT NULL,
+    verification_result character varying(20) NOT NULL,
+    is_valid boolean NOT NULL,
+    is_expired boolean NOT NULL,
+    confidence_score numeric(3,2),
+    verification_method character varying(100),
+    verification_notes text,
+    verified_at timestamp with time zone DEFAULT now(),
+    metadata jsonb,
+    project_id uuid
+);
+
+
+--
+-- Name: TABLE xrpl_credential_verifications; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_credential_verifications IS 'Tracks verification checks performed on XRPL credentials';
+
+
+--
+-- Name: xrpl_credentials; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_credentials (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    credential_id character varying(64) NOT NULL,
+    project_id uuid,
+    issuer_address character varying(64) NOT NULL,
+    subject_address character varying(64) NOT NULL,
+    credential_type character varying(255) NOT NULL,
+    data_json jsonb NOT NULL,
+    data_hash character varying(64),
+    status character varying(20) DEFAULT 'active'::character varying,
+    is_accepted boolean DEFAULT false,
+    expiration timestamp with time zone,
+    issue_transaction_hash character varying(64) NOT NULL,
+    accept_transaction_hash character varying(64),
+    delete_transaction_hash character varying(64),
+    issued_at timestamp with time zone DEFAULT now(),
+    accepted_at timestamp with time zone,
+    deleted_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    metadata jsonb,
+    CONSTRAINT chk_deleted_not_active CHECK ((((deleted_at IS NULL) AND ((status)::text <> 'deleted'::text)) OR ((deleted_at IS NOT NULL) AND ((status)::text = 'deleted'::text))))
+);
+
+
+--
+-- Name: TABLE xrpl_credentials; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_credentials IS 'Stores XRPL blockchain-based verifiable credentials';
+
+
+--
+-- Name: xrpl_credentials_with_expiry; Type: VIEW; Schema: public; Owner: -
+--
+
+CREATE VIEW public.xrpl_credentials_with_expiry AS
+ SELECT xrpl_credentials.id,
+    xrpl_credentials.credential_id,
+    xrpl_credentials.project_id,
+    xrpl_credentials.issuer_address,
+    xrpl_credentials.subject_address,
+    xrpl_credentials.credential_type,
+    xrpl_credentials.data_json,
+    xrpl_credentials.data_hash,
+    xrpl_credentials.status,
+    xrpl_credentials.is_accepted,
+    xrpl_credentials.expiration,
+    xrpl_credentials.issue_transaction_hash,
+    xrpl_credentials.accept_transaction_hash,
+    xrpl_credentials.delete_transaction_hash,
+    xrpl_credentials.issued_at,
+    xrpl_credentials.accepted_at,
+    xrpl_credentials.deleted_at,
+    xrpl_credentials.created_at,
+    xrpl_credentials.updated_at,
+    xrpl_credentials.metadata,
+        CASE
+            WHEN ((xrpl_credentials.expiration IS NOT NULL) AND (xrpl_credentials.expiration < now())) THEN true
+            ELSE false
+        END AS is_expired
+   FROM public.xrpl_credentials;
+
+
+--
+-- Name: xrpl_escrows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_escrows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    owner_address character varying(64) NOT NULL,
+    destination_address character varying(64) NOT NULL,
+    amount character varying(32) NOT NULL,
+    sequence integer NOT NULL,
+    condition character varying(256),
+    fulfillment character varying(256),
+    finish_after timestamp with time zone,
+    cancel_after timestamp with time zone,
+    destination_tag integer,
+    status character varying(20) DEFAULT 'active'::character varying,
+    finished_at timestamp with time zone,
+    canceled_at timestamp with time zone,
+    creation_transaction_hash character varying(64) NOT NULL,
+    finish_transaction_hash character varying(64),
+    cancel_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: xrpl_nft_offers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -28877,6 +29058,7 @@ CREATE TABLE public.xrpl_nft_offers (
     transaction_hash character varying(64),
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
+    project_id uuid,
     CONSTRAINT xrpl_nft_offers_offer_type_check CHECK (((offer_type)::text = ANY ((ARRAY['sell'::character varying, 'buy'::character varying])::text[]))),
     CONSTRAINT xrpl_nft_offers_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'accepted'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[])))
 );
@@ -28887,6 +29069,20 @@ CREATE TABLE public.xrpl_nft_offers (
 --
 
 COMMENT ON TABLE public.xrpl_nft_offers IS 'Stores XRPL NFT buy and sell offers';
+
+
+--
+-- Name: COLUMN xrpl_nft_offers.offer_index; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_nft_offers.offer_index IS 'Unique XRPL offer ledger index';
+
+
+--
+-- Name: COLUMN xrpl_nft_offers.offer_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_nft_offers.offer_type IS 'Type of offer: sell or buy';
 
 
 --
@@ -28904,7 +29100,8 @@ CREATE TABLE public.xrpl_nft_transfers (
     broker_address character varying(64),
     broker_fee character varying(32),
     transaction_hash character varying(64) NOT NULL,
-    transferred_at timestamp with time zone DEFAULT now()
+    transferred_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
@@ -28954,6 +29151,145 @@ COMMENT ON TABLE public.xrpl_nfts IS 'Stores XRPL NFT metadata and ownership';
 
 
 --
+-- Name: COLUMN xrpl_nfts.nft_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_nfts.nft_id IS 'Unique XRPL NFToken ID (256-bit identifier)';
+
+
+--
+-- Name: COLUMN xrpl_nfts.taxon; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_nfts.taxon IS 'NFT collection identifier';
+
+
+--
+-- Name: COLUMN xrpl_nfts.transfer_fee; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_nfts.transfer_fee IS 'Transfer fee in basis points (0-50000)';
+
+
+--
+-- Name: xrpl_oracle_price_data; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_oracle_price_data (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    oracle_id uuid NOT NULL,
+    base_asset character varying(10) NOT NULL,
+    quote_asset character varying(10) NOT NULL,
+    asset_price numeric(30,15) NOT NULL,
+    scale integer NOT NULL,
+    update_time bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    project_id uuid
+);
+
+
+--
+-- Name: TABLE xrpl_oracle_price_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_oracle_price_data IS 'Historical price data from XRPL oracles';
+
+
+--
+-- Name: xrpl_oracle_updates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_oracle_updates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    oracle_id uuid NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index bigint,
+    price_data jsonb NOT NULL,
+    previous_price_data jsonb,
+    update_time bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_by uuid,
+    project_id uuid
+);
+
+
+--
+-- Name: TABLE xrpl_oracle_updates; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_oracle_updates IS 'Transaction history of oracle updates';
+
+
+--
+-- Name: xrpl_payment_channel_claims; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_payment_channel_claims (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    channel_id character varying(64) NOT NULL,
+    claimer_address character varying(64) NOT NULL,
+    amount character varying(32) NOT NULL,
+    signature character varying(132),
+    status character varying(20) DEFAULT 'pending'::character varying,
+    claimed_at timestamp with time zone,
+    transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    project_id uuid
+);
+
+
+--
+-- Name: xrpl_payment_channels; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_payment_channels (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    channel_id character varying(64) NOT NULL,
+    project_id uuid,
+    source_address character varying(64) NOT NULL,
+    destination_address character varying(64) NOT NULL,
+    amount character varying(32) NOT NULL,
+    balance character varying(32) DEFAULT '0'::character varying NOT NULL,
+    settle_delay integer NOT NULL,
+    public_key character varying(66) NOT NULL,
+    cancel_after timestamp with time zone,
+    destination_tag integer,
+    status character varying(20) DEFAULT 'active'::character varying,
+    closed_at timestamp with time zone,
+    creation_transaction_hash character varying(64) NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_price_oracles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_price_oracles (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    oracle_address character varying(64) NOT NULL,
+    oracle_document_id integer NOT NULL,
+    provider character varying(255) NOT NULL,
+    uri text,
+    asset_class character varying(50) NOT NULL,
+    status character varying(20) DEFAULT 'active'::character varying,
+    last_update_time bigint,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    created_by uuid
+);
+
+
+--
+-- Name: TABLE xrpl_price_oracles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_price_oracles IS 'XRPL on-chain price oracle configurations';
+
+
+--
 -- Name: xrpl_trust_line_holders; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -28972,7 +29308,8 @@ CREATE TABLE public.xrpl_trust_line_holders (
     quality_in integer DEFAULT 0,
     quality_out integer DEFAULT 0,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
@@ -29017,7 +29354,8 @@ CREATE TABLE public.xrpl_trust_line_transactions (
     transaction_hash character varying(64) NOT NULL,
     ledger_index integer,
     status character varying(20) DEFAULT 'confirmed'::character varying,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
@@ -35160,6 +35498,14 @@ ALTER TABLE ONLY public.energy_assets
 
 
 --
+-- Name: xrpl_escrows unique_escrow_sequence; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_escrows
+    ADD CONSTRAINT unique_escrow_sequence UNIQUE (owner_address, sequence);
+
+
+--
 -- Name: fund_nav_data unique_fund_date; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35181,6 +35527,14 @@ ALTER TABLE ONLY public.mpt_holders
 
 ALTER TABLE ONLY public.sidebar_items
     ADD CONSTRAINT unique_item_per_section UNIQUE (item_id, section_id);
+
+
+--
+-- Name: xrpl_price_oracles unique_oracle_document; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_price_oracles
+    ADD CONSTRAINT unique_oracle_document UNIQUE (oracle_address, oracle_document_id);
 
 
 --
@@ -35736,6 +36090,70 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: xrpl_checks xrpl_checks_check_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_checks
+    ADD CONSTRAINT xrpl_checks_check_id_key UNIQUE (check_id);
+
+
+--
+-- Name: xrpl_checks xrpl_checks_creation_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_checks
+    ADD CONSTRAINT xrpl_checks_creation_transaction_hash_key UNIQUE (creation_transaction_hash);
+
+
+--
+-- Name: xrpl_checks xrpl_checks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_checks
+    ADD CONSTRAINT xrpl_checks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_credential_verifications xrpl_credential_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credential_verifications
+    ADD CONSTRAINT xrpl_credential_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_credentials xrpl_credentials_credential_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credentials
+    ADD CONSTRAINT xrpl_credentials_credential_id_key UNIQUE (credential_id);
+
+
+--
+-- Name: xrpl_credentials xrpl_credentials_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credentials
+    ADD CONSTRAINT xrpl_credentials_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_escrows xrpl_escrows_creation_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_escrows
+    ADD CONSTRAINT xrpl_escrows_creation_transaction_hash_key UNIQUE (creation_transaction_hash);
+
+
+--
+-- Name: xrpl_escrows xrpl_escrows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_escrows
+    ADD CONSTRAINT xrpl_escrows_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_nft_offers xrpl_nft_offers_offer_index_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35781,6 +36199,70 @@ ALTER TABLE ONLY public.xrpl_nfts
 
 ALTER TABLE ONLY public.xrpl_nfts
     ADD CONSTRAINT xrpl_nfts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_oracle_price_data xrpl_oracle_price_data_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_price_data
+    ADD CONSTRAINT xrpl_oracle_price_data_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_oracle_updates xrpl_oracle_updates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_updates
+    ADD CONSTRAINT xrpl_oracle_updates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_oracle_updates xrpl_oracle_updates_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_updates
+    ADD CONSTRAINT xrpl_oracle_updates_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
+-- Name: xrpl_payment_channel_claims xrpl_payment_channel_claims_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channel_claims
+    ADD CONSTRAINT xrpl_payment_channel_claims_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_payment_channel_claims xrpl_payment_channel_claims_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channel_claims
+    ADD CONSTRAINT xrpl_payment_channel_claims_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
+-- Name: xrpl_payment_channels xrpl_payment_channels_channel_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channels
+    ADD CONSTRAINT xrpl_payment_channels_channel_id_key UNIQUE (channel_id);
+
+
+--
+-- Name: xrpl_payment_channels xrpl_payment_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channels
+    ADD CONSTRAINT xrpl_payment_channels_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_price_oracles xrpl_price_oracles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_price_oracles
+    ADD CONSTRAINT xrpl_price_oracles_pkey PRIMARY KEY (id);
 
 
 --
@@ -36989,6 +37471,55 @@ CREATE INDEX idx_cf_rebalancing_events_fund ON public.cf_rebalancing_events USIN
 --
 
 CREATE INDEX idx_cf_rebalancing_events_type ON public.cf_rebalancing_events USING btree (rebalancing_type);
+
+
+--
+-- Name: idx_channel_claims_channel; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_claims_channel ON public.xrpl_payment_channel_claims USING btree (channel_id);
+
+
+--
+-- Name: idx_channel_claims_claimer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_claims_claimer ON public.xrpl_payment_channel_claims USING btree (claimer_address);
+
+
+--
+-- Name: idx_channel_claims_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_channel_claims_status ON public.xrpl_payment_channel_claims USING btree (status);
+
+
+--
+-- Name: idx_checks_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_checks_destination ON public.xrpl_checks USING btree (destination_address);
+
+
+--
+-- Name: idx_checks_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_checks_project ON public.xrpl_checks USING btree (project_id);
+
+
+--
+-- Name: idx_checks_sender; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_checks_sender ON public.xrpl_checks USING btree (sender_address);
+
+
+--
+-- Name: idx_checks_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_checks_status ON public.xrpl_checks USING btree (status);
 
 
 --
@@ -39351,6 +39882,34 @@ CREATE INDEX idx_escalation_schedule_status ON public.escalation_schedule USING 
 
 
 --
+-- Name: idx_escrows_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_escrows_destination ON public.xrpl_escrows USING btree (destination_address);
+
+
+--
+-- Name: idx_escrows_owner; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_escrows_owner ON public.xrpl_escrows USING btree (owner_address);
+
+
+--
+-- Name: idx_escrows_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_escrows_project ON public.xrpl_escrows USING btree (project_id);
+
+
+--
+-- Name: idx_escrows_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_escrows_status ON public.xrpl_escrows USING btree (status);
+
+
+--
 -- Name: idx_etf_creation_redemption_date; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41325,6 +41884,13 @@ CREATE INDEX idx_mpt_holders_issuance ON public.mpt_holders USING btree (issuanc
 
 
 --
+-- Name: idx_mpt_holders_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_holders_project_id ON public.mpt_holders USING btree (project_id);
+
+
+--
 -- Name: idx_mpt_issuances_created; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41378,6 +41944,13 @@ CREATE INDEX idx_mpt_transactions_from ON public.mpt_transactions USING btree (f
 --
 
 CREATE INDEX idx_mpt_transactions_issuance ON public.mpt_transactions USING btree (issuance_id);
+
+
+--
+-- Name: idx_mpt_transactions_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_project_id ON public.mpt_transactions USING btree (project_id);
 
 
 --
@@ -42099,6 +42672,34 @@ CREATE INDEX idx_paymaster_policies_chain_active ON public.paymaster_policies US
 --
 
 CREATE INDEX idx_paymaster_policies_chain_id ON public.paymaster_policies USING btree (chain_id);
+
+
+--
+-- Name: idx_payment_channels_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_channels_destination ON public.xrpl_payment_channels USING btree (destination_address);
+
+
+--
+-- Name: idx_payment_channels_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_channels_project ON public.xrpl_payment_channels USING btree (project_id);
+
+
+--
+-- Name: idx_payment_channels_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_channels_source ON public.xrpl_payment_channels USING btree (source_address);
+
+
+--
+-- Name: idx_payment_channels_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_payment_channels_status ON public.xrpl_payment_channels USING btree (status);
 
 
 --
@@ -46421,6 +47022,97 @@ CREATE INDEX idx_whitelist_sync_status ON public.whitelist_blockchain_sync USING
 
 
 --
+-- Name: idx_xrpl_credential_verifications_credential; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credential_verifications_credential ON public.xrpl_credential_verifications USING btree (credential_id);
+
+
+--
+-- Name: idx_xrpl_credential_verifications_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credential_verifications_project_id ON public.xrpl_credential_verifications USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_credential_verifications_verified_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credential_verifications_verified_at ON public.xrpl_credential_verifications USING btree (verified_at);
+
+
+--
+-- Name: idx_xrpl_credential_verifications_verifier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credential_verifications_verifier ON public.xrpl_credential_verifications USING btree (verifier_address);
+
+
+--
+-- Name: idx_xrpl_credentials_data_json; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_data_json ON public.xrpl_credentials USING gin (data_json);
+
+
+--
+-- Name: idx_xrpl_credentials_expiration; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_expiration ON public.xrpl_credentials USING btree (expiration);
+
+
+--
+-- Name: idx_xrpl_credentials_issued_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_issued_at ON public.xrpl_credentials USING btree (issued_at);
+
+
+--
+-- Name: idx_xrpl_credentials_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_issuer ON public.xrpl_credentials USING btree (issuer_address);
+
+
+--
+-- Name: idx_xrpl_credentials_metadata; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_metadata ON public.xrpl_credentials USING gin (metadata);
+
+
+--
+-- Name: idx_xrpl_credentials_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_project ON public.xrpl_credentials USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_credentials_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_status ON public.xrpl_credentials USING btree (status);
+
+
+--
+-- Name: idx_xrpl_credentials_subject; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_subject ON public.xrpl_credentials USING btree (subject_address);
+
+
+--
+-- Name: idx_xrpl_credentials_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_credentials_type ON public.xrpl_credentials USING btree (credential_type);
+
+
+--
 -- Name: idx_xrpl_nft_offers_nft; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -46432,6 +47124,13 @@ CREATE INDEX idx_xrpl_nft_offers_nft ON public.xrpl_nft_offers USING btree (nft_
 --
 
 CREATE INDEX idx_xrpl_nft_offers_owner ON public.xrpl_nft_offers USING btree (owner_address);
+
+
+--
+-- Name: idx_xrpl_nft_offers_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_offers_project_id ON public.xrpl_nft_offers USING btree (project_id);
 
 
 --
@@ -46453,6 +47152,13 @@ CREATE INDEX idx_xrpl_nft_transfers_from ON public.xrpl_nft_transfers USING btre
 --
 
 CREATE INDEX idx_xrpl_nft_transfers_nft ON public.xrpl_nft_transfers USING btree (nft_id);
+
+
+--
+-- Name: idx_xrpl_nft_transfers_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_nft_transfers_project_id ON public.xrpl_nft_transfers USING btree (project_id);
 
 
 --
@@ -46502,6 +47208,104 @@ CREATE INDEX idx_xrpl_nfts_status ON public.xrpl_nfts USING btree (status);
 --
 
 CREATE INDEX idx_xrpl_nfts_taxon ON public.xrpl_nfts USING btree (taxon);
+
+
+--
+-- Name: idx_xrpl_oracle_price_data_assets; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_price_data_assets ON public.xrpl_oracle_price_data USING btree (base_asset, quote_asset);
+
+
+--
+-- Name: idx_xrpl_oracle_price_data_oracle; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_price_data_oracle ON public.xrpl_oracle_price_data USING btree (oracle_id);
+
+
+--
+-- Name: idx_xrpl_oracle_price_data_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_price_data_project_id ON public.xrpl_oracle_price_data USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_oracle_price_data_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_price_data_time ON public.xrpl_oracle_price_data USING btree (update_time DESC);
+
+
+--
+-- Name: idx_xrpl_oracle_updates_oracle; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_updates_oracle ON public.xrpl_oracle_updates USING btree (oracle_id);
+
+
+--
+-- Name: idx_xrpl_oracle_updates_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_updates_project_id ON public.xrpl_oracle_updates USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_oracle_updates_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_updates_time ON public.xrpl_oracle_updates USING btree (update_time DESC);
+
+
+--
+-- Name: idx_xrpl_oracle_updates_tx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracle_updates_tx ON public.xrpl_oracle_updates USING btree (transaction_hash);
+
+
+--
+-- Name: idx_xrpl_oracles_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracles_address ON public.xrpl_price_oracles USING btree (oracle_address);
+
+
+--
+-- Name: idx_xrpl_oracles_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracles_project ON public.xrpl_price_oracles USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_oracles_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_oracles_status ON public.xrpl_price_oracles USING btree (status);
+
+
+--
+-- Name: idx_xrpl_payment_channel_claims_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_payment_channel_claims_project_id ON public.xrpl_payment_channel_claims USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_trust_line_holders_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_trust_line_holders_project_id ON public.xrpl_trust_line_holders USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_trust_line_transactions_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_trust_line_transactions_project_id ON public.xrpl_trust_line_transactions USING btree (project_id);
 
 
 --
@@ -47600,6 +48404,13 @@ CREATE TRIGGER trigger_update_whitelist_sync_updated_at BEFORE UPDATE ON public.
 
 
 --
+-- Name: xrpl_credentials trigger_update_xrpl_credentials_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_xrpl_credentials_updated_at BEFORE UPDATE ON public.xrpl_credentials FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_credentials_updated_at();
+
+
+--
 -- Name: user_operations trigger_user_operations_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -48251,6 +49062,20 @@ CREATE TRIGGER update_wallet_transactions_updated_at BEFORE UPDATE ON public.wal
 
 
 --
+-- Name: xrpl_checks update_xrpl_checks_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_xrpl_checks_updated_at BEFORE UPDATE ON public.xrpl_checks FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_payment_updated_at();
+
+
+--
+-- Name: xrpl_escrows update_xrpl_escrows_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_xrpl_escrows_updated_at BEFORE UPDATE ON public.xrpl_escrows FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_payment_updated_at();
+
+
+--
 -- Name: xrpl_nft_offers update_xrpl_nft_offers_updated_at_trigger; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -48262,6 +49087,13 @@ CREATE TRIGGER update_xrpl_nft_offers_updated_at_trigger BEFORE UPDATE ON public
 --
 
 CREATE TRIGGER update_xrpl_nfts_updated_at_trigger BEFORE UPDATE ON public.xrpl_nfts FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_nfts_updated_at();
+
+
+--
+-- Name: xrpl_payment_channels update_xrpl_payment_channels_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_xrpl_payment_channels_updated_at BEFORE UPDATE ON public.xrpl_payment_channels FOR EACH ROW EXECUTE FUNCTION public.update_xrpl_payment_updated_at();
 
 
 --
@@ -49517,6 +50349,22 @@ ALTER TABLE ONLY public.bond_products
 
 
 --
+-- Name: xrpl_payment_channel_claims fk_channel_claim; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channel_claims
+    ADD CONSTRAINT fk_channel_claim FOREIGN KEY (channel_id) REFERENCES public.xrpl_payment_channels(channel_id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_checks fk_check_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_checks
+    ADD CONSTRAINT fk_check_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: climate_incentives fk_climate_incentives_project_id; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -49541,6 +50389,14 @@ ALTER TABLE ONLY public.commodities_products
 
 
 --
+-- Name: xrpl_credential_verifications fk_credential; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credential_verifications
+    ADD CONSTRAINT fk_credential FOREIGN KEY (credential_id) REFERENCES public.xrpl_credentials(credential_id) ON DELETE CASCADE;
+
+
+--
 -- Name: digital_tokenised_funds fk_digital_tokenised_funds_project; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -49562,6 +50418,14 @@ ALTER TABLE ONLY public.energy_products
 
 ALTER TABLE ONLY public.equity_products
     ADD CONSTRAINT fk_equity_products_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_escrows fk_escrow_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_escrows
+    ADD CONSTRAINT fk_escrow_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -49677,6 +50541,14 @@ ALTER TABLE ONLY public.redemption_notifications
 
 
 --
+-- Name: xrpl_payment_channels fk_payment_channel_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channels
+    ADD CONSTRAINT fk_payment_channel_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: private_debt_products fk_private_debt_products_project; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -49690,6 +50562,22 @@ ALTER TABLE ONLY public.private_debt_products
 
 ALTER TABLE ONLY public.private_equity_products
     ADD CONSTRAINT fk_private_equity_products_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_price_oracles fk_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_price_oracles
+    ADD CONSTRAINT fk_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_credentials fk_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credentials
+    ADD CONSTRAINT fk_project FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -50349,11 +51237,27 @@ ALTER TABLE ONLY public.mmf_transactions
 
 
 --
+-- Name: mpt_holders mpt_holders_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_holders
+    ADD CONSTRAINT mpt_holders_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: mpt_issuances mpt_issuances_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.mpt_issuances
     ADD CONSTRAINT mpt_issuances_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: mpt_transactions mpt_transactions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_transactions
+    ADD CONSTRAINT mpt_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -52459,11 +53363,139 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: xrpl_checks xrpl_checks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_checks
+    ADD CONSTRAINT xrpl_checks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_credential_verifications xrpl_credential_verifications_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credential_verifications
+    ADD CONSTRAINT xrpl_credential_verifications_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_credentials xrpl_credentials_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_credentials
+    ADD CONSTRAINT xrpl_credentials_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_escrows xrpl_escrows_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_escrows
+    ADD CONSTRAINT xrpl_escrows_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_nft_offers xrpl_nft_offers_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_offers
+    ADD CONSTRAINT xrpl_nft_offers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_nft_transfers xrpl_nft_transfers_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_nft_transfers
+    ADD CONSTRAINT xrpl_nft_transfers_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_nfts xrpl_nfts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xrpl_nfts
     ADD CONSTRAINT xrpl_nfts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_oracle_price_data xrpl_oracle_price_data_oracle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_price_data
+    ADD CONSTRAINT xrpl_oracle_price_data_oracle_id_fkey FOREIGN KEY (oracle_id) REFERENCES public.xrpl_price_oracles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_oracle_price_data xrpl_oracle_price_data_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_price_data
+    ADD CONSTRAINT xrpl_oracle_price_data_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_oracle_updates xrpl_oracle_updates_oracle_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_updates
+    ADD CONSTRAINT xrpl_oracle_updates_oracle_id_fkey FOREIGN KEY (oracle_id) REFERENCES public.xrpl_price_oracles(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_oracle_updates xrpl_oracle_updates_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_updates
+    ADD CONSTRAINT xrpl_oracle_updates_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_oracle_updates xrpl_oracle_updates_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_oracle_updates
+    ADD CONSTRAINT xrpl_oracle_updates_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: xrpl_payment_channel_claims xrpl_payment_channel_claims_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channel_claims
+    ADD CONSTRAINT xrpl_payment_channel_claims_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_payment_channels xrpl_payment_channels_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_payment_channels
+    ADD CONSTRAINT xrpl_payment_channels_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_price_oracles xrpl_price_oracles_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_price_oracles
+    ADD CONSTRAINT xrpl_price_oracles_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: xrpl_price_oracles xrpl_price_oracles_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_price_oracles
+    ADD CONSTRAINT xrpl_price_oracles_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
+
+
+--
+-- Name: xrpl_trust_line_holders xrpl_trust_line_holders_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_trust_line_holders
+    ADD CONSTRAINT xrpl_trust_line_holders_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -52475,283 +53507,12 @@ ALTER TABLE ONLY public.xrpl_trust_line_tokens
 
 
 --
--- Name: multi_sig_proposals Allow authenticated users to create proposals; Type: POLICY; Schema: public; Owner: -
+-- Name: xrpl_trust_line_transactions xrpl_trust_line_transactions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-CREATE POLICY "Allow authenticated users to create proposals" ON public.multi_sig_proposals FOR INSERT TO authenticated WITH CHECK ((created_by = auth.uid()));
+ALTER TABLE ONLY public.xrpl_trust_line_transactions
+    ADD CONSTRAINT xrpl_trust_line_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
-
---
--- Name: multi_sig_proposals Allow authenticated users to read proposals; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated users to read proposals" ON public.multi_sig_proposals FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: proposal_signatures Allow authenticated users to read signatures; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated users to read signatures" ON public.proposal_signatures FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: proposal_signatures Allow authenticated users to sign proposals; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated users to sign proposals" ON public.proposal_signatures FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
--- Name: multi_sig_proposals Allow authenticated users to update proposals; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Allow authenticated users to update proposals" ON public.multi_sig_proposals FOR UPDATE TO authenticated USING (((created_by = auth.uid()) OR (EXISTS ( SELECT 1
-   FROM public.multi_sig_wallet_owners mwo
-  WHERE ((mwo.wallet_id = multi_sig_proposals.wallet_id) AND (mwo.user_id = auth.uid()))))));
-
-
---
--- Name: xrpl_nfts Authenticated users can create NFTs; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can create NFTs" ON public.xrpl_nfts FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nft_offers Authenticated users can create offers; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can create offers" ON public.xrpl_nft_offers FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nft_transfers Authenticated users can create transfers; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can create transfers" ON public.xrpl_nft_transfers FOR INSERT WITH CHECK ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nfts Authenticated users can update NFTs; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can update NFTs" ON public.xrpl_nfts FOR UPDATE USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nft_offers Authenticated users can update offers; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can update offers" ON public.xrpl_nft_offers FOR UPDATE USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nfts Authenticated users can view NFTs; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can view NFTs" ON public.xrpl_nfts FOR SELECT USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nft_offers Authenticated users can view offers; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can view offers" ON public.xrpl_nft_offers FOR SELECT USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: xrpl_nft_transfers Authenticated users can view transfers; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Authenticated users can view transfers" ON public.xrpl_nft_transfers FOR SELECT USING ((auth.uid() IS NOT NULL));
-
-
---
--- Name: multi_sig_proposals Wallet owners can delete non-executed proposals; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY "Wallet owners can delete non-executed proposals" ON public.multi_sig_proposals FOR DELETE USING (((EXISTS ( SELECT 1
-   FROM public.multi_sig_wallet_owners
-  WHERE ((multi_sig_wallet_owners.wallet_id = multi_sig_proposals.wallet_id) AND (multi_sig_wallet_owners.user_id = auth.uid())))) AND (executed_at IS NULL) AND (status <> 'executed'::text)));
-
-
---
--- Name: accreditation_documents accred_docs_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY accred_docs_select ON public.accreditation_documents FOR SELECT TO authenticated USING ((EXISTS ( SELECT 1
-   FROM public.accreditation_verifications av
-  WHERE ((av.id = accreditation_documents.verification_id) AND (av.user_id = auth.uid())))));
-
-
---
--- Name: accreditation_verifications accred_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY accred_select ON public.accreditation_verifications FOR SELECT TO authenticated USING ((auth.uid() = user_id));
-
-
---
--- Name: accreditation_documents; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.accreditation_documents ENABLE ROW LEVEL SECURITY;
-
---
--- Name: accreditation_verifications; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.accreditation_verifications ENABLE ROW LEVEL SECURITY;
-
---
--- Name: compliance_data_cache compliance_cache_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY compliance_cache_insert ON public.compliance_data_cache FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
--- Name: compliance_data_cache compliance_cache_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY compliance_cache_select ON public.compliance_data_cache FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: compliance_data_cache compliance_cache_update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY compliance_cache_update ON public.compliance_data_cache FOR UPDATE TO authenticated USING (true);
-
-
---
--- Name: compliance_data_cache; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.compliance_data_cache ENABLE ROW LEVEL SECURITY;
-
---
--- Name: hybrid_enforcement_decisions hybrid_decisions_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY hybrid_decisions_insert ON public.hybrid_enforcement_decisions FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
--- Name: hybrid_enforcement_decisions hybrid_decisions_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY hybrid_decisions_select ON public.hybrid_enforcement_decisions FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: hybrid_enforcement_decisions; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.hybrid_enforcement_decisions ENABLE ROW LEVEL SECURITY;
-
---
--- Name: multi_sig_proposals; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.multi_sig_proposals ENABLE ROW LEVEL SECURITY;
-
---
--- Name: oracle_updates; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.oracle_updates ENABLE ROW LEVEL SECURITY;
-
---
--- Name: oracle_updates oracle_updates_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY oracle_updates_insert ON public.oracle_updates FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
--- Name: oracle_updates oracle_updates_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY oracle_updates_select ON public.oracle_updates FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: policy_blockchain_sync; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.policy_blockchain_sync ENABLE ROW LEVEL SECURITY;
-
---
--- Name: policy_engines; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.policy_engines ENABLE ROW LEVEL SECURITY;
-
---
--- Name: proposal_signatures; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.proposal_signatures ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sanctions_matches; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.sanctions_matches ENABLE ROW LEVEL SECURITY;
-
---
--- Name: sanctions_matches sanctions_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY sanctions_select ON public.sanctions_matches FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: whitelist_blockchain_sync; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.whitelist_blockchain_sync ENABLE ROW LEVEL SECURITY;
-
---
--- Name: whitelist_blockchain_sync whitelist_sync_insert; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY whitelist_sync_insert ON public.whitelist_blockchain_sync FOR INSERT TO authenticated WITH CHECK (true);
-
-
---
--- Name: whitelist_blockchain_sync whitelist_sync_select; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY whitelist_sync_select ON public.whitelist_blockchain_sync FOR SELECT TO authenticated USING (true);
-
-
---
--- Name: whitelist_blockchain_sync whitelist_sync_update; Type: POLICY; Schema: public; Owner: -
---
-
-CREATE POLICY whitelist_sync_update ON public.whitelist_blockchain_sync FOR UPDATE TO authenticated USING (true);
-
-
---
--- Name: xrpl_nft_offers; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.xrpl_nft_offers ENABLE ROW LEVEL SECURITY;
-
---
--- Name: xrpl_nft_transfers; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.xrpl_nft_transfers ENABLE ROW LEVEL SECURITY;
-
---
--- Name: xrpl_nfts; Type: ROW SECURITY; Schema: public; Owner: -
---
-
-ALTER TABLE public.xrpl_nfts ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -54981,6 +55742,16 @@ GRANT ALL ON FUNCTION public.update_whitelist_sync_updated_at() TO prisma;
 
 
 --
+-- Name: FUNCTION update_xrpl_credentials_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_xrpl_credentials_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_xrpl_credentials_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_xrpl_credentials_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_xrpl_credentials_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_xrpl_nfts_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -54988,6 +55759,16 @@ GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_xrpl_nfts_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_xrpl_payment_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_xrpl_payment_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_xrpl_payment_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_xrpl_payment_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_xrpl_payment_updated_at() TO prisma;
 
 
 --
@@ -61212,6 +61993,56 @@ GRANT ALL ON TABLE public.workflow_stages TO prisma;
 
 
 --
+-- Name: TABLE xrpl_checks; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_checks TO anon;
+GRANT ALL ON TABLE public.xrpl_checks TO authenticated;
+GRANT ALL ON TABLE public.xrpl_checks TO service_role;
+GRANT ALL ON TABLE public.xrpl_checks TO prisma;
+
+
+--
+-- Name: TABLE xrpl_credential_verifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_credential_verifications TO anon;
+GRANT ALL ON TABLE public.xrpl_credential_verifications TO authenticated;
+GRANT ALL ON TABLE public.xrpl_credential_verifications TO service_role;
+GRANT ALL ON TABLE public.xrpl_credential_verifications TO prisma;
+
+
+--
+-- Name: TABLE xrpl_credentials; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_credentials TO anon;
+GRANT ALL ON TABLE public.xrpl_credentials TO authenticated;
+GRANT ALL ON TABLE public.xrpl_credentials TO service_role;
+GRANT ALL ON TABLE public.xrpl_credentials TO prisma;
+
+
+--
+-- Name: TABLE xrpl_credentials_with_expiry; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO anon;
+GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO authenticated;
+GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO service_role;
+GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO prisma;
+
+
+--
+-- Name: TABLE xrpl_escrows; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_escrows TO anon;
+GRANT ALL ON TABLE public.xrpl_escrows TO authenticated;
+GRANT ALL ON TABLE public.xrpl_escrows TO service_role;
+GRANT ALL ON TABLE public.xrpl_escrows TO prisma;
+
+
+--
 -- Name: TABLE xrpl_nft_offers; Type: ACL; Schema: public; Owner: -
 --
 
@@ -61239,6 +62070,56 @@ GRANT ALL ON TABLE public.xrpl_nfts TO anon;
 GRANT ALL ON TABLE public.xrpl_nfts TO authenticated;
 GRANT ALL ON TABLE public.xrpl_nfts TO service_role;
 GRANT ALL ON TABLE public.xrpl_nfts TO prisma;
+
+
+--
+-- Name: TABLE xrpl_oracle_price_data; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_oracle_price_data TO anon;
+GRANT ALL ON TABLE public.xrpl_oracle_price_data TO authenticated;
+GRANT ALL ON TABLE public.xrpl_oracle_price_data TO service_role;
+GRANT ALL ON TABLE public.xrpl_oracle_price_data TO prisma;
+
+
+--
+-- Name: TABLE xrpl_oracle_updates; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_oracle_updates TO anon;
+GRANT ALL ON TABLE public.xrpl_oracle_updates TO authenticated;
+GRANT ALL ON TABLE public.xrpl_oracle_updates TO service_role;
+GRANT ALL ON TABLE public.xrpl_oracle_updates TO prisma;
+
+
+--
+-- Name: TABLE xrpl_payment_channel_claims; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_payment_channel_claims TO anon;
+GRANT ALL ON TABLE public.xrpl_payment_channel_claims TO authenticated;
+GRANT ALL ON TABLE public.xrpl_payment_channel_claims TO service_role;
+GRANT ALL ON TABLE public.xrpl_payment_channel_claims TO prisma;
+
+
+--
+-- Name: TABLE xrpl_payment_channels; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_payment_channels TO anon;
+GRANT ALL ON TABLE public.xrpl_payment_channels TO authenticated;
+GRANT ALL ON TABLE public.xrpl_payment_channels TO service_role;
+GRANT ALL ON TABLE public.xrpl_payment_channels TO prisma;
+
+
+--
+-- Name: TABLE xrpl_price_oracles; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_price_oracles TO anon;
+GRANT ALL ON TABLE public.xrpl_price_oracles TO authenticated;
+GRANT ALL ON TABLE public.xrpl_price_oracles TO service_role;
+GRANT ALL ON TABLE public.xrpl_price_oracles TO prisma;
 
 
 --

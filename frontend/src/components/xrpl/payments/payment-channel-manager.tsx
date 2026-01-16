@@ -10,6 +10,7 @@ import { Loader2, Plus, DollarSign, X, ExternalLink } from 'lucide-react'
 import { XRPLPaymentChannelService } from '@/services/wallet/ripple/channels/XRPLPaymentChannelService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
 import { XRPL_NETWORKS } from '@/services/wallet/ripple/config/XRPLConfig'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 
 interface PaymentChannelManagerProps {
@@ -29,6 +30,7 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
   network = 'TESTNET'
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [loading, setLoading] = useState(false)
   const [channels, setChannels] = useState<Channel[]>([])
   const [activeTab, setActiveTab] = useState('create')
@@ -66,6 +68,16 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
 
   const handleCreateChannel = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -73,6 +85,7 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
       const service = new XRPLPaymentChannelService(client)
 
       const result = await service.createChannel({
+        projectId: primaryProject.id,
         source: wallet,
         destination: createForm.destination,
         amount: (parseFloat(createForm.amount) * 1_000_000).toString(),
@@ -108,6 +121,16 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
 
   const handleFundChannel = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -115,6 +138,7 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
       const service = new XRPLPaymentChannelService(client)
 
       const result = await service.fundChannel(
+        primaryProject.id,
         wallet,
         fundForm.channelId,
         (parseFloat(fundForm.amount) * 1_000_000).toString()
@@ -140,6 +164,16 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
 
   const handleClaimChannel = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -147,6 +181,7 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
       const service = new XRPLPaymentChannelService(client)
 
       const result = await service.claimChannel(
+        primaryProject.id,
         wallet,
         claimForm.channelId,
         (parseFloat(claimForm.amount) * 1_000_000).toString()
@@ -171,13 +206,22 @@ export const PaymentChannelManager: React.FC<PaymentChannelManagerProps> = ({
   }
 
   const handleCloseChannel = async (channelId: string) => {
+    if (!primaryProject?.id) {
+      toast({
+        title: 'Error',
+        description: 'No primary project selected',
+        variant: 'destructive'
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
       const client = await xrplClientManager.getClient(network)
       const service = new XRPLPaymentChannelService(client)
 
-      await service.closeChannel(wallet, channelId)
+      await service.closeChannel(primaryProject.id, wallet, channelId)
 
       toast({
         title: 'Channel Closed',

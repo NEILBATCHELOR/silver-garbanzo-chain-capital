@@ -10,6 +10,12 @@ import {
 } from 'xrpl';
 import { xrplClientManager } from '../core/XRPLClientManager';
 import { XRPLNetwork } from '../config/XRPLConfig';
+import { 
+  XRPLNFTDatabaseService,
+  NFTRecord,
+  NFTOfferRecord,
+  NFTTransferRecord
+} from './XRPLNFTDatabaseService';
 
 /**
  * NFT Metadata structure (IPFS or HTTP URI)
@@ -31,6 +37,7 @@ export interface NFTMetadata {
  * NFT Minting parameters
  */
 export interface NFTMintParams {
+  projectId: string; // REQUIRED for database tracking
   minter: Wallet;
   uri?: string; // IPFS or HTTP URI for metadata
   flags?: {
@@ -41,12 +48,14 @@ export interface NFTMintParams {
   };
   transferFee?: number; // 0-50000 (0-50%)
   taxon?: number;
+  metadata?: NFTMetadata; // Optional metadata for database
 }
 
 /**
  * NFT Offer parameters
  */
 export interface NFTOfferParams {
+  projectId: string; // REQUIRED for database tracking
   wallet: Wallet;
   nftId: string;
   amount: string | { currency: string; issuer: string; value: string };
@@ -85,6 +94,9 @@ export interface NFTOffer {
  * Handles NFT minting, trading, and marketplace operations.
  * Based on XRPL's native NFToken functionality.
  * 
+ * IMPORTANT: Flow: Blockchain first → Database second (for audit trail and querying)
+ * All methods now require projectId for multi-tenant isolation.
+ * 
  * Based on: xrpl-dev-portal _code-samples/non-fungible-token/
  */
 export class XRPLNFTService {
@@ -107,6 +119,8 @@ export class XRPLNFTService {
 
   /**
    * Mint new NFT
+   * 1. Submits NFT mint transaction to XRPL blockchain
+   * 2. Creates database record with project_id for tracking
    */
   async mintNFT(params: NFTMintParams): Promise<{
     nftId: string;
@@ -131,6 +145,7 @@ export class XRPLNFTService {
         flags |= 0x0008; // tfTransferable
       }
 
+      // 1. BLOCKCHAIN OPERATION
       const tx: NFTokenMint = {
         TransactionType: 'NFTokenMint',
         Account: params.minter.address,
@@ -155,6 +170,30 @@ export class XRPLNFTService {
       const nftId = this.extractNFTId(response.result.meta);
       const explorerUrl = this.getExplorerUrl(nftId, 'nft');
 
+      // 2. DATABASE OPERATION
+      const nftRecord: NFTRecord = {
+        project_id: params.projectId,
+        nft_id: nftId,
+        issuer_address: params.minter.address,
+        owner_address: params.minter.address,
+        taxon: params.taxon || 0,
+        serial: 0, // Will be extracted from blockchain data
+        uri: params.uri,
+        name: params.metadata?.name,
+        description: params.metadata?.description,
+        image_url: params.metadata?.image,
+        metadata_json: params.metadata as unknown as Record<string, unknown>,
+        transfer_fee: params.transferFee,
+        flags,
+        is_burnable: params.flags?.burnable,
+        is_only_xrp: params.flags?.onlyXRP,
+        is_transferable: params.flags?.transferable !== false,
+        status: 'active',
+        mint_transaction_hash: response.result.hash
+      };
+
+      await XRPLNFTDatabaseService.createNFT(nftRecord);
+
       return {
         nftId,
         transactionHash: response.result.hash,
@@ -171,8 +210,9 @@ export class XRPLNFTService {
    * Batch mint NFTs
    */
   async batchMintNFTs(
+    projectId: string,
     minter: Wallet,
-    nfts: Array<Omit<NFTMintParams, 'minter'>>
+    nfts: Array<Omit<NFTMintParams, 'minter' | 'projectId'>>
   ): Promise<Array<{
     nftId: string;
     transactionHash: string;
@@ -180,7 +220,7 @@ export class XRPLNFTService {
     const results = [];
 
     for (const nft of nfts) {
-      const result = await this.mintNFT({ ...nft, minter });
+      const result = await this.mintNFT({ ...nft, projectId, minter });
       results.push(result);
       
       // Small delay to avoid overwhelming the network
@@ -192,6 +232,8 @@ export class XRPLNFTService {
 
   /**
    * Create sell offer for NFT
+   * 1. Creates sell offer on blockchain
+   * 2. Saves offer to database with project_id
    */
   async createSellOffer(params: NFTOfferParams): Promise<{
     offerIndex: string;
@@ -200,6 +242,7 @@ export class XRPLNFTService {
     try {
       const client = await this.getClient();
 
+      // 1. BLOCKCHAIN OPERATION
       const tx: NFTokenCreateOffer = {
         TransactionType: 'NFTokenCreateOffer',
         Account: params.wallet.address,
@@ -223,6 +266,24 @@ export class XRPLNFTService {
 
       const offerIndex = this.extractOfferIndex(response.result.meta);
 
+      // 2. DATABASE OPERATION
+      const offerRecord: NFTOfferRecord = {
+        project_id: params.projectId,
+        offer_index: offerIndex,
+        nft_id: params.nftId,
+        offer_type: 'sell',
+        owner_address: params.wallet.address,
+        amount: typeof params.amount === 'string' ? params.amount : params.amount.value,
+        currency_code: typeof params.amount === 'object' ? params.amount.currency : 'XRP',
+        issuer_address: typeof params.amount === 'object' ? params.amount.issuer : undefined,
+        destination_address: params.destination,
+        expiration: params.expiration ? new Date(params.expiration * 1000).toISOString() : undefined,
+        status: 'active',
+        transaction_hash: response.result.hash
+      };
+
+      await XRPLNFTDatabaseService.createOffer(offerRecord);
+
       return {
         offerIndex,
         transactionHash: response.result.hash
@@ -236,6 +297,8 @@ export class XRPLNFTService {
 
   /**
    * Create buy offer for NFT
+   * 1. Creates buy offer on blockchain
+   * 2. Saves offer to database with project_id
    */
   async createBuyOffer(params: NFTOfferParams): Promise<{
     offerIndex: string;
@@ -244,6 +307,7 @@ export class XRPLNFTService {
     try {
       const client = await this.getClient();
 
+      // 1. BLOCKCHAIN OPERATION
       const tx: NFTokenCreateOffer = {
         TransactionType: 'NFTokenCreateOffer',
         Account: params.wallet.address,
@@ -267,6 +331,23 @@ export class XRPLNFTService {
 
       const offerIndex = this.extractOfferIndex(response.result.meta);
 
+      // 2. DATABASE OPERATION
+      const offerRecord: NFTOfferRecord = {
+        project_id: params.projectId,
+        offer_index: offerIndex,
+        nft_id: params.nftId,
+        offer_type: 'buy',
+        owner_address: params.wallet.address,
+        amount: typeof params.amount === 'string' ? params.amount : params.amount.value,
+        currency_code: typeof params.amount === 'object' ? params.amount.currency : 'XRP',
+        issuer_address: typeof params.amount === 'object' ? params.amount.issuer : undefined,
+        expiration: params.expiration ? new Date(params.expiration * 1000).toISOString() : undefined,
+        status: 'active',
+        transaction_hash: response.result.hash
+      };
+
+      await XRPLNFTDatabaseService.createOffer(offerRecord);
+
       return {
         offerIndex,
         transactionHash: response.result.hash
@@ -280,15 +361,20 @@ export class XRPLNFTService {
 
   /**
    * Accept NFT offer (either buy or sell)
+   * 1. Accepts offer on blockchain
+   * 2. Updates offer status and NFT owner in database
    */
   async acceptOffer(
+    projectId: string,
     wallet: Wallet,
     offerIndex: string,
+    nftId: string,
     brokerFee?: string
   ): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
+      // 1. BLOCKCHAIN OPERATION
       const tx: NFTokenAcceptOffer = {
         TransactionType: 'NFTokenAcceptOffer',
         Account: wallet.address,
@@ -307,6 +393,25 @@ export class XRPLNFTService {
         }
       }
 
+      // 2. DATABASE OPERATIONS
+      // Update offer status
+      await XRPLNFTDatabaseService.updateOfferStatus(projectId, offerIndex, 'accepted');
+
+      // Update NFT owner
+      await XRPLNFTDatabaseService.updateNFTOwner(projectId, nftId, wallet.address);
+
+      // Create transfer record
+      const transferRecord: NFTTransferRecord = {
+        project_id: projectId,
+        nft_id: nftId,
+        from_address: '', // Would need to extract from offer
+        to_address: wallet.address,
+        broker_fee: brokerFee,
+        transaction_hash: response.result.hash
+      };
+
+      await XRPLNFTDatabaseService.createTransfer(transferRecord);
+
       return {
         transactionHash: response.result.hash
       };
@@ -321,14 +426,17 @@ export class XRPLNFTService {
    * Accept offer as broker (matching buy and sell)
    */
   async brokerNFTSale(
+    projectId: string,
     broker: Wallet,
     sellOfferIndex: string,
     buyOfferIndex: string,
+    nftId: string,
     brokerFee?: string
   ): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
+      // 1. BLOCKCHAIN OPERATION
       const tx: NFTokenAcceptOffer = {
         TransactionType: 'NFTokenAcceptOffer',
         Account: broker.address,
@@ -348,6 +456,24 @@ export class XRPLNFTService {
         }
       }
 
+      // 2. DATABASE OPERATIONS
+      // Update both offer statuses
+      await XRPLNFTDatabaseService.updateOfferStatus(projectId, sellOfferIndex, 'accepted');
+      await XRPLNFTDatabaseService.updateOfferStatus(projectId, buyOfferIndex, 'accepted');
+
+      // Create transfer record
+      const transferRecord: NFTTransferRecord = {
+        project_id: projectId,
+        nft_id: nftId,
+        from_address: '', // Would extract from sell offer
+        to_address: '', // Would extract from buy offer
+        broker_address: broker.address,
+        broker_fee: brokerFee,
+        transaction_hash: response.result.hash
+      };
+
+      await XRPLNFTDatabaseService.createTransfer(transferRecord);
+
       return {
         transactionHash: response.result.hash
       };
@@ -360,14 +486,18 @@ export class XRPLNFTService {
 
   /**
    * Cancel NFT offer
+   * 1. Cancels offer on blockchain
+   * 2. Updates offer status in database
    */
   async cancelOffer(
+    projectId: string,
     wallet: Wallet,
     offerIndexes: string[]
   ): Promise<{ transactionHash: string }> {
     try {
       const client = await this.getClient();
 
+      // 1. BLOCKCHAIN OPERATION
       const tx: NFTokenCancelOffer = {
         TransactionType: 'NFTokenCancelOffer',
         Account: wallet.address,
@@ -385,6 +515,12 @@ export class XRPLNFTService {
         }
       }
 
+      // 2. DATABASE OPERATION
+      // Update all offer statuses
+      for (const offerIndex of offerIndexes) {
+        await XRPLNFTDatabaseService.updateOfferStatus(projectId, offerIndex, 'canceled');
+      }
+
       return {
         transactionHash: response.result.hash
       };
@@ -397,6 +533,7 @@ export class XRPLNFTService {
 
   /**
    * Burn NFT
+   * Note: Does not create database record - NFT status should be updated via separate method
    */
   async burnNFT(
     owner: Wallet,
@@ -433,7 +570,7 @@ export class XRPLNFTService {
   }
 
   /**
-   * Get NFTs owned by account
+   * Get NFTs owned by account (blockchain only)
    */
   async getAccountNFTs(address: string): Promise<NFTDetails[]> {
     try {
@@ -465,7 +602,7 @@ export class XRPLNFTService {
   }
 
   /**
-   * Get sell offers for NFT
+   * Get sell offers for NFT (blockchain only)
    */
   async getNFTSellOffers(nftId: string): Promise<NFTOffer[]> {
     try {
@@ -499,7 +636,7 @@ export class XRPLNFTService {
   }
 
   /**
-   * Get buy offers for NFT
+   * Get buy offers for NFT (blockchain only)
    */
   async getNFTBuyOffers(nftId: string): Promise<NFTOffer[]> {
     try {

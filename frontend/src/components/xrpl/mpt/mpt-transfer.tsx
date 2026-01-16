@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast'
 import { Loader2, Send, CheckCircle2 } from 'lucide-react'
 import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 import {
   Select,
@@ -38,6 +39,7 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
   network = 'TESTNET'
 }) => {
   const { toast } = useToast()
+  const { primaryProject } = usePrimaryProject()
   const [balances, setBalances] = useState<MPTBalance[]>([])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
@@ -105,9 +107,19 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
 
     setSending(true)
     try {
+      if (!primaryProject?.id) {
+        toast({
+          title: 'Error',
+          description: 'No active project selected',
+          variant: 'destructive'
+        })
+        return
+      }
+
       const mptService = new XRPLMPTService(network)
 
       const result = await mptService.transferMPT({
+        projectId: primaryProject.id,
         senderWallet: wallet,
         destination: transferData.destination,
         mptIssuanceId: transferData.issuanceId,
