@@ -116,7 +116,6 @@ export type SupportedMultiSigChain = typeof SUPPORTED_MULTISIG_BLOCKCHAINS[numbe
 // Primary types from domain layer
 export type {
   MultiSigWallet,
-  ProjectWallet,
   WalletDeploymentResult,
   MultiSigProposal,
   ProposalSignature,

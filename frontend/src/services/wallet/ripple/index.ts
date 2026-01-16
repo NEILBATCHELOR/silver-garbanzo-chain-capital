@@ -7,6 +7,17 @@
 export { xrplClientManager } from './core'
 export * from './config'
 
+// XRPL Wallet Service - wallet retrieval and management
+export { 
+  XRPLWalletService, 
+  xrplWalletService 
+} from './XRPLWalletService'
+export type { 
+  ProjectWallet,
+  UserAddress,
+  KeyVaultKey 
+} from './XRPLWalletService'
+
 // XRPL Crypto Services - Key Management, Signing, Encryption
 export * from './crypto'
 
@@ -110,3 +121,9 @@ export * from './oracle'
 
 // XRPL Credentials & Identity - Phase 7
 export * from './credentials'
+
+// XRPL DeFi - Phase 13 (AMM)
+export * from './defi'
+
+// XRPL Security - Phase 13 (Multi-Signature)
+export * from './security'

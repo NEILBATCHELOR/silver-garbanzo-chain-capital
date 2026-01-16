@@ -16,6 +16,7 @@ import {
   ArrowLeftRight,
   Shield,
   TrendingUp,
+  Droplets,
   ChevronRight
 } from 'lucide-react'
 
@@ -69,6 +70,22 @@ export function XRPLNavigation({ className, walletConnected = false }: XRPLNavig
       href: '/xrpl/advanced',
       icon: ArrowLeftRight,
       description: 'Channels, Escrow, Checks',
+      requiresWallet: true
+    },
+    {
+      title: 'Multi-Sig',
+      href: '/xrpl/multisig',
+      icon: Shield,
+      description: 'Multi-signature account management',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
+      title: 'AMM Pools',
+      href: '/xrpl/amm',
+      icon: Droplets,
+      description: 'Automated Market Maker liquidity pools',
+      badge: 'New',
       requiresWallet: true
     },
     {

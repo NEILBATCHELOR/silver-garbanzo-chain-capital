@@ -22,3 +22,6 @@ export * from './shared'
 
 // Pages
 export * from './pages'
+
+// Multi-Signature Components
+export * from './multisig'

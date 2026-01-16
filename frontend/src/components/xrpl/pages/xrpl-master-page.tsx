@@ -33,6 +33,8 @@ import { EscrowManager } from '../payments/escrow-manager'
 import { CheckManager } from '../payments/check-manager'
 import { TransactionHistory } from '../transactions/transaction-history'
 import { TransactionMonitor } from '../transactions/transaction-monitor'
+import { XRPLMultiSigPage } from './xrpl-multisig-page'
+import { XRPLAMMPage } from './xrpl-amm-page'
 import { useToast } from '@/components/ui/use-toast'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -379,6 +381,70 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
                       ) : (
                         <div className="text-center p-8">
                           <p className="text-muted-foreground mb-4">Connect your wallet to view transactions</p>
+                          <WalletConnect 
+                            onWalletConnected={handleWalletConnected}
+                            network={network}
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                } 
+              />
+
+              {/* Multi-Sig Account Management */}
+              <Route 
+                path="/multisig" 
+                element={
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Multi-Signature Accounts</CardTitle>
+                      <CardDescription>
+                        Configure and manage multi-signature accounts for enhanced security
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {wallet ? (
+                        <XRPLMultiSigPage 
+                          wallet={wallet} 
+                          network={network}
+                          projectId={projectId}
+                        />
+                      ) : (
+                        <div className="text-center p-8">
+                          <p className="text-muted-foreground mb-4">Connect your wallet to manage multi-sig accounts</p>
+                          <WalletConnect 
+                            onWalletConnected={handleWalletConnected}
+                            network={network}
+                          />
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                } 
+              />
+
+              {/* AMM (Automated Market Maker) */}
+              <Route 
+                path="/amm" 
+                element={
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Automated Market Maker (AMM)</CardTitle>
+                      <CardDescription>
+                        Create liquidity pools and earn trading fees
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      {wallet ? (
+                        <XRPLAMMPage 
+                          wallet={wallet} 
+                          network={network}
+                          projectId={projectId}
+                        />
+                      ) : (
+                        <div className="text-center p-8">
+                          <p className="text-muted-foreground mb-4">Connect your wallet to manage AMM pools</p>
                           <WalletConnect 
                             onWalletConnected={handleWalletConnected}
                             network={network}

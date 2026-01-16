@@ -28887,6 +28887,142 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: xrpl_amm_fees_collected; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_amm_fees_collected (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    pool_id uuid,
+    asset1_fees numeric(30,6) NOT NULL,
+    asset2_fees numeric(30,6) NOT NULL,
+    collection_date date NOT NULL,
+    ledger_index integer,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_amm_fees_collected; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_amm_fees_collected IS 'Daily fee collection aggregates';
+
+
+--
+-- Name: xrpl_amm_liquidity_positions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_amm_liquidity_positions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    pool_id uuid,
+    user_address character varying(64) NOT NULL,
+    lp_token_balance numeric(30,6) NOT NULL,
+    share_percentage numeric(10,6) NOT NULL,
+    asset1_value numeric(30,6),
+    asset2_value numeric(30,6),
+    total_value_usd numeric(30,2),
+    fees_earned_asset1 numeric(30,6) DEFAULT 0,
+    fees_earned_asset2 numeric(30,6) DEFAULT 0,
+    impermanent_loss numeric(30,6),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_amm_liquidity_positions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_amm_liquidity_positions IS 'User liquidity positions in AMM pools';
+
+
+--
+-- Name: xrpl_amm_pools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_amm_pools (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    amm_id character varying(64) NOT NULL,
+    lp_token_currency character varying(40) NOT NULL,
+    asset1_currency character varying(40) NOT NULL,
+    asset1_issuer character varying(64),
+    asset1_balance numeric(30,6) NOT NULL,
+    asset2_currency character varying(40) NOT NULL,
+    asset2_issuer character varying(64),
+    asset2_balance numeric(30,6) NOT NULL,
+    lp_token_supply numeric(30,6) NOT NULL,
+    trading_fee integer NOT NULL,
+    auction_slot_holder character varying(64),
+    auction_slot_price character varying(32),
+    auction_slot_expiration timestamp with time zone,
+    status character varying(20) DEFAULT 'active'::character varying,
+    creation_transaction_hash character varying(64) NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_amm_pools_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying])::text[]))),
+    CONSTRAINT xrpl_amm_pools_trading_fee_check CHECK (((trading_fee >= 0) AND (trading_fee <= 1000)))
+);
+
+
+--
+-- Name: TABLE xrpl_amm_pools; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_amm_pools IS 'XRPL Automated Market Maker pools';
+
+
+--
+-- Name: xrpl_amm_price_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_amm_price_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    pool_id uuid,
+    price numeric(30,10) NOT NULL,
+    inverse_price numeric(30,10) NOT NULL,
+    asset1_balance numeric(30,6) NOT NULL,
+    asset2_balance numeric(30,6) NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    ledger_index integer
+);
+
+
+--
+-- Name: TABLE xrpl_amm_price_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_amm_price_history IS 'Historical price data for AMM pools';
+
+
+--
+-- Name: xrpl_amm_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_amm_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    pool_id uuid,
+    transaction_type character varying(20) NOT NULL,
+    user_address character varying(64) NOT NULL,
+    asset1_amount numeric(30,6),
+    asset2_amount numeric(30,6),
+    lp_token_amount numeric(30,6),
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index integer,
+    "timestamp" timestamp with time zone DEFAULT now(),
+    metadata jsonb,
+    CONSTRAINT xrpl_amm_transactions_transaction_type_check CHECK (((transaction_type)::text = ANY ((ARRAY['create'::character varying, 'deposit'::character varying, 'withdraw'::character varying, 'vote'::character varying, 'bid'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_amm_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_amm_transactions IS 'AMM transaction history';
+
+
+--
 -- Name: xrpl_checks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29035,6 +29171,100 @@ CREATE TABLE public.xrpl_escrows (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: xrpl_multisig_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_multisig_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    signer_quorum integer NOT NULL,
+    setup_transaction_hash character varying(64),
+    status character varying(20) DEFAULT 'active'::character varying,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_multisig_accounts_signer_quorum_check CHECK ((signer_quorum > 0)),
+    CONSTRAINT xrpl_multisig_accounts_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_multisig_accounts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_multisig_accounts IS 'Multi-signature XRPL accounts with project scoping';
+
+
+--
+-- Name: xrpl_multisig_pending_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_multisig_pending_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    multisig_account_id uuid,
+    transaction_blob text NOT NULL,
+    transaction_type character varying(50) NOT NULL,
+    required_weight integer NOT NULL,
+    current_weight integer DEFAULT 0,
+    status character varying(20) DEFAULT 'pending'::character varying,
+    transaction_hash character varying(64),
+    expires_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    submitted_at timestamp with time zone,
+    CONSTRAINT xrpl_multisig_pending_transactions_status_check CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'ready'::character varying, 'submitted'::character varying, 'completed'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_multisig_pending_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_multisig_pending_transactions IS 'Pending multi-signature transactions awaiting signatures';
+
+
+--
+-- Name: xrpl_multisig_signatures; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_multisig_signatures (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    pending_transaction_id uuid,
+    signer_address character varying(64) NOT NULL,
+    signature text NOT NULL,
+    public_key text NOT NULL,
+    signed_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_multisig_signatures; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_multisig_signatures IS 'Signatures collected for pending transactions';
+
+
+--
+-- Name: xrpl_multisig_signers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_multisig_signers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    multisig_account_id uuid,
+    signer_address character varying(64) NOT NULL,
+    signer_weight integer NOT NULL,
+    added_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_multisig_signers_signer_weight_check CHECK ((signer_weight > 0))
+);
+
+
+--
+-- Name: TABLE xrpl_multisig_signers; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_multisig_signers IS 'Signers authorized for multi-sig accounts';
 
 
 --
@@ -35442,6 +35672,14 @@ ALTER TABLE ONLY public.transfer_operations
 
 
 --
+-- Name: xrpl_multisig_signers unique_account_signer; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_signers
+    ADD CONSTRAINT unique_account_signer UNIQUE (multisig_account_id, signer_address);
+
+
+--
 -- Name: asset_nav_data unique_asset_date; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35546,6 +35784,22 @@ ALTER TABLE ONLY public.commodity_pool_config
 
 
 --
+-- Name: xrpl_amm_fees_collected unique_pool_date; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_fees_collected
+    ADD CONSTRAINT unique_pool_date UNIQUE (pool_id, collection_date);
+
+
+--
+-- Name: xrpl_amm_liquidity_positions unique_pool_user; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_liquidity_positions
+    ADD CONSTRAINT unique_pool_user UNIQUE (pool_id, user_address);
+
+
+--
 -- Name: commodity_positions unique_position_per_wallet; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35647,6 +35901,14 @@ ALTER TABLE ONLY public.token_erc721_attributes
 
 ALTER TABLE ONLY public.token_erc1155_types
     ADD CONSTRAINT unique_token_type UNIQUE (token_id, token_type_id);
+
+
+--
+-- Name: xrpl_multisig_signatures unique_transaction_signer; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_signatures
+    ADD CONSTRAINT unique_transaction_signer UNIQUE (pending_transaction_id, signer_address);
 
 
 --
@@ -36090,6 +36352,62 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: xrpl_amm_fees_collected xrpl_amm_fees_collected_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_fees_collected
+    ADD CONSTRAINT xrpl_amm_fees_collected_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_amm_liquidity_positions xrpl_amm_liquidity_positions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_liquidity_positions
+    ADD CONSTRAINT xrpl_amm_liquidity_positions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_amm_pools xrpl_amm_pools_amm_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_pools
+    ADD CONSTRAINT xrpl_amm_pools_amm_id_key UNIQUE (amm_id);
+
+
+--
+-- Name: xrpl_amm_pools xrpl_amm_pools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_pools
+    ADD CONSTRAINT xrpl_amm_pools_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_amm_price_history xrpl_amm_price_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_price_history
+    ADD CONSTRAINT xrpl_amm_price_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_amm_transactions xrpl_amm_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_transactions
+    ADD CONSTRAINT xrpl_amm_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_amm_transactions xrpl_amm_transactions_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_transactions
+    ADD CONSTRAINT xrpl_amm_transactions_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
 -- Name: xrpl_checks xrpl_checks_check_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36151,6 +36469,46 @@ ALTER TABLE ONLY public.xrpl_escrows
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT xrpl_escrows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_multisig_accounts xrpl_multisig_accounts_account_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_accounts
+    ADD CONSTRAINT xrpl_multisig_accounts_account_address_key UNIQUE (account_address);
+
+
+--
+-- Name: xrpl_multisig_accounts xrpl_multisig_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_accounts
+    ADD CONSTRAINT xrpl_multisig_accounts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_multisig_pending_transactions xrpl_multisig_pending_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_pending_transactions
+    ADD CONSTRAINT xrpl_multisig_pending_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_multisig_signatures xrpl_multisig_signatures_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_signatures
+    ADD CONSTRAINT xrpl_multisig_signatures_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_multisig_signers xrpl_multisig_signers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_signers
+    ADD CONSTRAINT xrpl_multisig_signers_pkey PRIMARY KEY (id);
 
 
 --
@@ -36554,6 +36912,83 @@ CREATE INDEX idx_aml_user_id ON public.aml_screenings USING btree (user_id);
 --
 
 CREATE INDEX idx_aml_wallet ON public.aml_screenings USING btree (wallet_address);
+
+
+--
+-- Name: idx_amm_fees_pool_date; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_fees_pool_date ON public.xrpl_amm_fees_collected USING btree (pool_id, collection_date);
+
+
+--
+-- Name: idx_amm_pools_assets; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_pools_assets ON public.xrpl_amm_pools USING btree (asset1_currency, asset2_currency);
+
+
+--
+-- Name: idx_amm_pools_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_pools_project ON public.xrpl_amm_pools USING btree (project_id);
+
+
+--
+-- Name: idx_amm_pools_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_pools_status ON public.xrpl_amm_pools USING btree (status);
+
+
+--
+-- Name: idx_amm_positions_pool; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_positions_pool ON public.xrpl_amm_liquidity_positions USING btree (pool_id);
+
+
+--
+-- Name: idx_amm_positions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_positions_user ON public.xrpl_amm_liquidity_positions USING btree (user_address);
+
+
+--
+-- Name: idx_amm_price_history_pool_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_price_history_pool_time ON public.xrpl_amm_price_history USING btree (pool_id, "timestamp" DESC);
+
+
+--
+-- Name: idx_amm_transactions_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_transactions_hash ON public.xrpl_amm_transactions USING btree (transaction_hash);
+
+
+--
+-- Name: idx_amm_transactions_pool; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_transactions_pool ON public.xrpl_amm_transactions USING btree (pool_id);
+
+
+--
+-- Name: idx_amm_transactions_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_transactions_type ON public.xrpl_amm_transactions USING btree (transaction_type);
+
+
+--
+-- Name: idx_amm_transactions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_amm_transactions_user ON public.xrpl_amm_transactions USING btree (user_address);
 
 
 --
@@ -42073,6 +42508,27 @@ CREATE INDEX idx_multi_sig_wallets_project ON public.multi_sig_wallets USING btr
 
 
 --
+-- Name: idx_multisig_accounts_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_accounts_address ON public.xrpl_multisig_accounts USING btree (account_address);
+
+
+--
+-- Name: idx_multisig_accounts_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_accounts_project ON public.xrpl_multisig_accounts USING btree (project_id);
+
+
+--
+-- Name: idx_multisig_accounts_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_accounts_status ON public.xrpl_multisig_accounts USING btree (status);
+
+
+--
 -- Name: idx_multisig_owners_user_address; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42084,6 +42540,55 @@ CREATE INDEX idx_multisig_owners_user_address ON public.multi_sig_wallet_owners 
 --
 
 CREATE INDEX idx_multisig_owners_user_wallet ON public.multi_sig_wallet_owners USING btree (wallet_id, user_id);
+
+
+--
+-- Name: idx_multisig_pending_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_pending_account ON public.xrpl_multisig_pending_transactions USING btree (multisig_account_id);
+
+
+--
+-- Name: idx_multisig_pending_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_pending_hash ON public.xrpl_multisig_pending_transactions USING btree (transaction_hash);
+
+
+--
+-- Name: idx_multisig_pending_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_pending_status ON public.xrpl_multisig_pending_transactions USING btree (status);
+
+
+--
+-- Name: idx_multisig_signatures_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_signatures_pending ON public.xrpl_multisig_signatures USING btree (pending_transaction_id);
+
+
+--
+-- Name: idx_multisig_signatures_signer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_signatures_signer ON public.xrpl_multisig_signatures USING btree (signer_address);
+
+
+--
+-- Name: idx_multisig_signers_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_signers_account ON public.xrpl_multisig_signers USING btree (multisig_account_id);
+
+
+--
+-- Name: idx_multisig_signers_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_multisig_signers_address ON public.xrpl_multisig_signers USING btree (signer_address);
 
 
 --
@@ -53363,6 +53868,46 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: xrpl_amm_fees_collected xrpl_amm_fees_collected_pool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_fees_collected
+    ADD CONSTRAINT xrpl_amm_fees_collected_pool_id_fkey FOREIGN KEY (pool_id) REFERENCES public.xrpl_amm_pools(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_amm_liquidity_positions xrpl_amm_liquidity_positions_pool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_liquidity_positions
+    ADD CONSTRAINT xrpl_amm_liquidity_positions_pool_id_fkey FOREIGN KEY (pool_id) REFERENCES public.xrpl_amm_pools(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_amm_pools xrpl_amm_pools_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_pools
+    ADD CONSTRAINT xrpl_amm_pools_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_amm_price_history xrpl_amm_price_history_pool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_price_history
+    ADD CONSTRAINT xrpl_amm_price_history_pool_id_fkey FOREIGN KEY (pool_id) REFERENCES public.xrpl_amm_pools(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_amm_transactions xrpl_amm_transactions_pool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_amm_transactions
+    ADD CONSTRAINT xrpl_amm_transactions_pool_id_fkey FOREIGN KEY (pool_id) REFERENCES public.xrpl_amm_pools(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_checks xrpl_checks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -53392,6 +53937,38 @@ ALTER TABLE ONLY public.xrpl_credentials
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT xrpl_escrows_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_multisig_accounts xrpl_multisig_accounts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_accounts
+    ADD CONSTRAINT xrpl_multisig_accounts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_multisig_pending_transactions xrpl_multisig_pending_transactions_multisig_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_pending_transactions
+    ADD CONSTRAINT xrpl_multisig_pending_transactions_multisig_account_id_fkey FOREIGN KEY (multisig_account_id) REFERENCES public.xrpl_multisig_accounts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_multisig_signatures xrpl_multisig_signatures_pending_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_signatures
+    ADD CONSTRAINT xrpl_multisig_signatures_pending_transaction_id_fkey FOREIGN KEY (pending_transaction_id) REFERENCES public.xrpl_multisig_pending_transactions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_multisig_signers xrpl_multisig_signers_multisig_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_multisig_signers
+    ADD CONSTRAINT xrpl_multisig_signers_multisig_account_id_fkey FOREIGN KEY (multisig_account_id) REFERENCES public.xrpl_multisig_accounts(id) ON DELETE CASCADE;
 
 
 --
@@ -61993,6 +62570,56 @@ GRANT ALL ON TABLE public.workflow_stages TO prisma;
 
 
 --
+-- Name: TABLE xrpl_amm_fees_collected; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_amm_fees_collected TO anon;
+GRANT ALL ON TABLE public.xrpl_amm_fees_collected TO authenticated;
+GRANT ALL ON TABLE public.xrpl_amm_fees_collected TO service_role;
+GRANT ALL ON TABLE public.xrpl_amm_fees_collected TO prisma;
+
+
+--
+-- Name: TABLE xrpl_amm_liquidity_positions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_amm_liquidity_positions TO anon;
+GRANT ALL ON TABLE public.xrpl_amm_liquidity_positions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_amm_liquidity_positions TO service_role;
+GRANT ALL ON TABLE public.xrpl_amm_liquidity_positions TO prisma;
+
+
+--
+-- Name: TABLE xrpl_amm_pools; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_amm_pools TO anon;
+GRANT ALL ON TABLE public.xrpl_amm_pools TO authenticated;
+GRANT ALL ON TABLE public.xrpl_amm_pools TO service_role;
+GRANT ALL ON TABLE public.xrpl_amm_pools TO prisma;
+
+
+--
+-- Name: TABLE xrpl_amm_price_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_amm_price_history TO anon;
+GRANT ALL ON TABLE public.xrpl_amm_price_history TO authenticated;
+GRANT ALL ON TABLE public.xrpl_amm_price_history TO service_role;
+GRANT ALL ON TABLE public.xrpl_amm_price_history TO prisma;
+
+
+--
+-- Name: TABLE xrpl_amm_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_amm_transactions TO anon;
+GRANT ALL ON TABLE public.xrpl_amm_transactions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_amm_transactions TO service_role;
+GRANT ALL ON TABLE public.xrpl_amm_transactions TO prisma;
+
+
+--
 -- Name: TABLE xrpl_checks; Type: ACL; Schema: public; Owner: -
 --
 
@@ -62040,6 +62667,46 @@ GRANT ALL ON TABLE public.xrpl_escrows TO anon;
 GRANT ALL ON TABLE public.xrpl_escrows TO authenticated;
 GRANT ALL ON TABLE public.xrpl_escrows TO service_role;
 GRANT ALL ON TABLE public.xrpl_escrows TO prisma;
+
+
+--
+-- Name: TABLE xrpl_multisig_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_multisig_accounts TO anon;
+GRANT ALL ON TABLE public.xrpl_multisig_accounts TO authenticated;
+GRANT ALL ON TABLE public.xrpl_multisig_accounts TO service_role;
+GRANT ALL ON TABLE public.xrpl_multisig_accounts TO prisma;
+
+
+--
+-- Name: TABLE xrpl_multisig_pending_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_multisig_pending_transactions TO anon;
+GRANT ALL ON TABLE public.xrpl_multisig_pending_transactions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_multisig_pending_transactions TO service_role;
+GRANT ALL ON TABLE public.xrpl_multisig_pending_transactions TO prisma;
+
+
+--
+-- Name: TABLE xrpl_multisig_signatures; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_multisig_signatures TO anon;
+GRANT ALL ON TABLE public.xrpl_multisig_signatures TO authenticated;
+GRANT ALL ON TABLE public.xrpl_multisig_signatures TO service_role;
+GRANT ALL ON TABLE public.xrpl_multisig_signatures TO prisma;
+
+
+--
+-- Name: TABLE xrpl_multisig_signers; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_multisig_signers TO anon;
+GRANT ALL ON TABLE public.xrpl_multisig_signers TO authenticated;
+GRANT ALL ON TABLE public.xrpl_multisig_signers TO service_role;
+GRANT ALL ON TABLE public.xrpl_multisig_signers TO prisma;
 
 
 --

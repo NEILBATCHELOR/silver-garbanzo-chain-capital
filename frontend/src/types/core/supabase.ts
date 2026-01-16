@@ -38049,6 +38049,265 @@ export type Database = {
         }
         Relationships: []
       }
+      xrpl_amm_fees_collected: {
+        Row: {
+          asset1_fees: number
+          asset2_fees: number
+          collection_date: string
+          created_at: string | null
+          id: string
+          ledger_index: number | null
+          pool_id: string | null
+        }
+        Insert: {
+          asset1_fees: number
+          asset2_fees: number
+          collection_date: string
+          created_at?: string | null
+          id?: string
+          ledger_index?: number | null
+          pool_id?: string | null
+        }
+        Update: {
+          asset1_fees?: number
+          asset2_fees?: number
+          collection_date?: string
+          created_at?: string | null
+          id?: string
+          ledger_index?: number | null
+          pool_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_amm_fees_collected_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_amm_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_amm_liquidity_positions: {
+        Row: {
+          asset1_value: number | null
+          asset2_value: number | null
+          created_at: string | null
+          fees_earned_asset1: number | null
+          fees_earned_asset2: number | null
+          id: string
+          impermanent_loss: number | null
+          lp_token_balance: number
+          pool_id: string | null
+          share_percentage: number
+          total_value_usd: number | null
+          updated_at: string | null
+          user_address: string
+        }
+        Insert: {
+          asset1_value?: number | null
+          asset2_value?: number | null
+          created_at?: string | null
+          fees_earned_asset1?: number | null
+          fees_earned_asset2?: number | null
+          id?: string
+          impermanent_loss?: number | null
+          lp_token_balance: number
+          pool_id?: string | null
+          share_percentage: number
+          total_value_usd?: number | null
+          updated_at?: string | null
+          user_address: string
+        }
+        Update: {
+          asset1_value?: number | null
+          asset2_value?: number | null
+          created_at?: string | null
+          fees_earned_asset1?: number | null
+          fees_earned_asset2?: number | null
+          id?: string
+          impermanent_loss?: number | null
+          lp_token_balance?: number
+          pool_id?: string | null
+          share_percentage?: number
+          total_value_usd?: number | null
+          updated_at?: string | null
+          user_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_amm_liquidity_positions_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_amm_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_amm_pools: {
+        Row: {
+          amm_id: string
+          asset1_balance: number
+          asset1_currency: string
+          asset1_issuer: string | null
+          asset2_balance: number
+          asset2_currency: string
+          asset2_issuer: string | null
+          auction_slot_expiration: string | null
+          auction_slot_holder: string | null
+          auction_slot_price: string | null
+          created_at: string | null
+          creation_transaction_hash: string
+          id: string
+          lp_token_currency: string
+          lp_token_supply: number
+          project_id: string | null
+          status: string | null
+          trading_fee: number
+          updated_at: string | null
+        }
+        Insert: {
+          amm_id: string
+          asset1_balance: number
+          asset1_currency: string
+          asset1_issuer?: string | null
+          asset2_balance: number
+          asset2_currency: string
+          asset2_issuer?: string | null
+          auction_slot_expiration?: string | null
+          auction_slot_holder?: string | null
+          auction_slot_price?: string | null
+          created_at?: string | null
+          creation_transaction_hash: string
+          id?: string
+          lp_token_currency: string
+          lp_token_supply: number
+          project_id?: string | null
+          status?: string | null
+          trading_fee: number
+          updated_at?: string | null
+        }
+        Update: {
+          amm_id?: string
+          asset1_balance?: number
+          asset1_currency?: string
+          asset1_issuer?: string | null
+          asset2_balance?: number
+          asset2_currency?: string
+          asset2_issuer?: string | null
+          auction_slot_expiration?: string | null
+          auction_slot_holder?: string | null
+          auction_slot_price?: string | null
+          created_at?: string | null
+          creation_transaction_hash?: string
+          id?: string
+          lp_token_currency?: string
+          lp_token_supply?: number
+          project_id?: string | null
+          status?: string | null
+          trading_fee?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_amm_pools_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_amm_price_history: {
+        Row: {
+          asset1_balance: number
+          asset2_balance: number
+          id: string
+          inverse_price: number
+          ledger_index: number | null
+          pool_id: string | null
+          price: number
+          timestamp: string | null
+        }
+        Insert: {
+          asset1_balance: number
+          asset2_balance: number
+          id?: string
+          inverse_price: number
+          ledger_index?: number | null
+          pool_id?: string | null
+          price: number
+          timestamp?: string | null
+        }
+        Update: {
+          asset1_balance?: number
+          asset2_balance?: number
+          id?: string
+          inverse_price?: number
+          ledger_index?: number | null
+          pool_id?: string | null
+          price?: number
+          timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_amm_price_history_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_amm_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_amm_transactions: {
+        Row: {
+          asset1_amount: number | null
+          asset2_amount: number | null
+          id: string
+          ledger_index: number | null
+          lp_token_amount: number | null
+          metadata: Json | null
+          pool_id: string | null
+          timestamp: string | null
+          transaction_hash: string
+          transaction_type: string
+          user_address: string
+        }
+        Insert: {
+          asset1_amount?: number | null
+          asset2_amount?: number | null
+          id?: string
+          ledger_index?: number | null
+          lp_token_amount?: number | null
+          metadata?: Json | null
+          pool_id?: string | null
+          timestamp?: string | null
+          transaction_hash: string
+          transaction_type: string
+          user_address: string
+        }
+        Update: {
+          asset1_amount?: number | null
+          asset2_amount?: number | null
+          id?: string
+          ledger_index?: number | null
+          lp_token_amount?: number | null
+          metadata?: Json | null
+          pool_id?: string | null
+          timestamp?: string | null
+          transaction_hash?: string
+          transaction_type?: string
+          user_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_amm_transactions_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_amm_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_checks: {
         Row: {
           cancel_transaction_hash: string | null
@@ -38364,6 +38623,164 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_multisig_accounts: {
+        Row: {
+          account_address: string
+          created_at: string | null
+          id: string
+          project_id: string | null
+          setup_transaction_hash: string | null
+          signer_quorum: number
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          created_at?: string | null
+          id?: string
+          project_id?: string | null
+          setup_transaction_hash?: string | null
+          signer_quorum: number
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          created_at?: string | null
+          id?: string
+          project_id?: string | null
+          setup_transaction_hash?: string | null
+          signer_quorum?: number
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_multisig_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_multisig_pending_transactions: {
+        Row: {
+          created_at: string | null
+          current_weight: number | null
+          expires_at: string | null
+          id: string
+          multisig_account_id: string | null
+          required_weight: number
+          status: string | null
+          submitted_at: string | null
+          transaction_blob: string
+          transaction_hash: string | null
+          transaction_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_weight?: number | null
+          expires_at?: string | null
+          id?: string
+          multisig_account_id?: string | null
+          required_weight: number
+          status?: string | null
+          submitted_at?: string | null
+          transaction_blob: string
+          transaction_hash?: string | null
+          transaction_type: string
+        }
+        Update: {
+          created_at?: string | null
+          current_weight?: number | null
+          expires_at?: string | null
+          id?: string
+          multisig_account_id?: string | null
+          required_weight?: number
+          status?: string | null
+          submitted_at?: string | null
+          transaction_blob?: string
+          transaction_hash?: string | null
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_multisig_pending_transactions_multisig_account_id_fkey"
+            columns: ["multisig_account_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_multisig_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_multisig_signatures: {
+        Row: {
+          id: string
+          pending_transaction_id: string | null
+          public_key: string
+          signature: string
+          signed_at: string | null
+          signer_address: string
+        }
+        Insert: {
+          id?: string
+          pending_transaction_id?: string | null
+          public_key: string
+          signature: string
+          signed_at?: string | null
+          signer_address: string
+        }
+        Update: {
+          id?: string
+          pending_transaction_id?: string | null
+          public_key?: string
+          signature?: string
+          signed_at?: string | null
+          signer_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_multisig_signatures_pending_transaction_id_fkey"
+            columns: ["pending_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_multisig_pending_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_multisig_signers: {
+        Row: {
+          added_at: string | null
+          id: string
+          multisig_account_id: string | null
+          signer_address: string
+          signer_weight: number
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          multisig_account_id?: string | null
+          signer_address: string
+          signer_weight: number
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          multisig_account_id?: string | null
+          signer_address?: string
+          signer_weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_multisig_signers_multisig_account_id_fkey"
+            columns: ["multisig_account_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_multisig_accounts"
             referencedColumns: ["id"]
           },
         ]
