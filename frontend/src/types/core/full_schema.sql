@@ -28904,6 +28904,33 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: xrpl_account_freeze_status; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_account_freeze_status (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    global_freeze_enabled boolean DEFAULT false,
+    no_freeze_enabled boolean DEFAULT false,
+    global_freeze_set_at timestamp with time zone,
+    global_freeze_set_hash character varying(64),
+    global_freeze_cleared_at timestamp with time zone,
+    global_freeze_cleared_hash character varying(64),
+    no_freeze_set_at timestamp with time zone,
+    no_freeze_set_hash character varying(64),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_account_freeze_status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_account_freeze_status IS 'Global freeze status for accounts';
+
+
+--
 -- Name: xrpl_account_key_config; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29188,6 +29215,80 @@ CREATE VIEW public.xrpl_credentials_with_expiry AS
 
 
 --
+-- Name: xrpl_deposit_auth_requirements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_deposit_auth_requirements (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    deposit_auth_enabled boolean DEFAULT false,
+    require_authorization boolean DEFAULT false,
+    require_destination_tag boolean DEFAULT false,
+    enabled_at timestamp with time zone,
+    enabled_transaction_hash character varying(64),
+    disabled_at timestamp with time zone,
+    disabled_transaction_hash character varying(64),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_deposit_auth_requirements; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_deposit_auth_requirements IS 'Deposit authorization requirements per account';
+
+
+--
+-- Name: xrpl_deposit_authorization_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_deposit_authorization_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    authorization_id uuid,
+    action character varying(20) NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    performed_at timestamp with time zone DEFAULT now(),
+    performed_by character varying(255),
+    notes text,
+    CONSTRAINT xrpl_deposit_authorization_history_action_check CHECK (((action)::text = ANY ((ARRAY['authorize'::character varying, 'revoke'::character varying, 'modify'::character varying])::text[])))
+);
+
+
+--
+-- Name: xrpl_deposit_authorizations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_deposit_authorizations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    authorized_address character varying(64) NOT NULL,
+    authorization_type character varying(20) DEFAULT 'address'::character varying,
+    credential_issuer character varying(64),
+    credential_type character varying(100),
+    is_active boolean DEFAULT true,
+    authorized_at timestamp with time zone DEFAULT now(),
+    authorization_transaction_hash character varying(64) NOT NULL,
+    revoked_at timestamp with time zone,
+    revocation_transaction_hash character varying(64),
+    authorized_by character varying(255),
+    revoked_by character varying(255),
+    notes text,
+    metadata jsonb,
+    CONSTRAINT xrpl_deposit_authorizations_authorization_type_check CHECK (((authorization_type)::text = ANY ((ARRAY['address'::character varying, 'credential'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_deposit_authorizations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_deposit_authorizations IS 'Pre-authorized depositors for accounts';
+
+
+--
 -- Name: xrpl_dex_orderbook_snapshots; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29279,6 +29380,67 @@ COMMENT ON TABLE public.xrpl_dex_trades IS 'Executed trades on XRPL DEX';
 
 
 --
+-- Name: xrpl_did_update_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_did_update_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    did_id uuid,
+    update_type character varying(20) NOT NULL,
+    old_document jsonb,
+    new_document jsonb,
+    transaction_hash character varying(64) NOT NULL,
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_did_update_history_update_type_check CHECK (((update_type)::text = ANY ((ARRAY['create'::character varying, 'update'::character varying, 'delete'::character varying])::text[])))
+);
+
+
+--
+-- Name: xrpl_did_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_did_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    did_id uuid,
+    verifier_address character varying(64) NOT NULL,
+    verification_type character varying(50) NOT NULL,
+    is_valid boolean NOT NULL,
+    verification_data jsonb,
+    verified_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_dids; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_dids (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    did character varying(255) NOT NULL,
+    account_address character varying(64) NOT NULL,
+    did_document jsonb NOT NULL,
+    uri text,
+    data text,
+    status character varying(20) DEFAULT 'active'::character varying,
+    creation_transaction_hash character varying(64) NOT NULL,
+    deletion_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    deleted_at timestamp with time zone,
+    metadata jsonb,
+    CONSTRAINT xrpl_dids_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'deleted'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_dids; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_dids IS 'Decentralized Identifiers (DID) following W3C standard and XLS-40';
+
+
+--
 -- Name: xrpl_escrows; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29303,6 +29465,63 @@ CREATE TABLE public.xrpl_escrows (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: xrpl_freeze_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_freeze_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    issuer_address character varying(64) NOT NULL,
+    freeze_type character varying(20) NOT NULL,
+    holder_address character varying(64),
+    currency character varying(40),
+    action character varying(10) NOT NULL,
+    reason text,
+    notes text,
+    transaction_hash character varying(64) NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    metadata jsonb,
+    CONSTRAINT xrpl_freeze_events_action_check CHECK (((action)::text = ANY ((ARRAY['enable'::character varying, 'disable'::character varying, 'set'::character varying])::text[]))),
+    CONSTRAINT xrpl_freeze_events_freeze_type_check CHECK (((freeze_type)::text = ANY ((ARRAY['global'::character varying, 'individual'::character varying, 'no_freeze'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_freeze_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_freeze_events IS 'History of all freeze/unfreeze actions';
+
+
+--
+-- Name: xrpl_frozen_trust_lines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_frozen_trust_lines (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    issuer_address character varying(64) NOT NULL,
+    holder_address character varying(64) NOT NULL,
+    currency character varying(40) NOT NULL,
+    is_frozen boolean DEFAULT true NOT NULL,
+    freeze_reason text,
+    frozen_at timestamp with time zone DEFAULT now(),
+    frozen_transaction_hash character varying(64) NOT NULL,
+    unfrozen_at timestamp with time zone,
+    unfrozen_transaction_hash character varying(64),
+    frozen_by character varying(255),
+    unfrozen_by character varying(255)
+);
+
+
+--
+-- Name: TABLE xrpl_frozen_trust_lines; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_frozen_trust_lines IS 'Currently frozen trust lines';
 
 
 --
@@ -35921,6 +36140,14 @@ ALTER TABLE ONLY public.sidebar_configurations
 
 
 --
+-- Name: xrpl_deposit_authorizations unique_deposit_authorization; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_authorizations
+    ADD CONSTRAINT unique_deposit_authorization UNIQUE (account_address, authorized_address);
+
+
+--
 -- Name: energy_assets unique_energy_asset_combination; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35934,6 +36161,14 @@ ALTER TABLE ONLY public.energy_assets
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT unique_escrow_sequence UNIQUE (owner_address, sequence);
+
+
+--
+-- Name: xrpl_frozen_trust_lines unique_frozen_trust_line; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_frozen_trust_lines
+    ADD CONSTRAINT unique_frozen_trust_line UNIQUE (issuer_address, holder_address, currency);
 
 
 --
@@ -36561,6 +36796,22 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: xrpl_account_freeze_status xrpl_account_freeze_status_account_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_freeze_status
+    ADD CONSTRAINT xrpl_account_freeze_status_account_address_key UNIQUE (account_address);
+
+
+--
+-- Name: xrpl_account_freeze_status xrpl_account_freeze_status_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_freeze_status
+    ADD CONSTRAINT xrpl_account_freeze_status_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_account_key_config xrpl_account_key_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36673,6 +36924,38 @@ ALTER TABLE ONLY public.xrpl_credentials
 
 
 --
+-- Name: xrpl_deposit_auth_requirements xrpl_deposit_auth_requirements_account_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_auth_requirements
+    ADD CONSTRAINT xrpl_deposit_auth_requirements_account_address_key UNIQUE (account_address);
+
+
+--
+-- Name: xrpl_deposit_auth_requirements xrpl_deposit_auth_requirements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_auth_requirements
+    ADD CONSTRAINT xrpl_deposit_auth_requirements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_deposit_authorization_history xrpl_deposit_authorization_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_authorization_history
+    ADD CONSTRAINT xrpl_deposit_authorization_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_deposit_authorizations xrpl_deposit_authorizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_authorizations
+    ADD CONSTRAINT xrpl_deposit_authorizations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_dex_orderbook_snapshots xrpl_dex_orderbook_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36705,6 +36988,46 @@ ALTER TABLE ONLY public.xrpl_dex_trades
 
 
 --
+-- Name: xrpl_did_update_history xrpl_did_update_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_did_update_history
+    ADD CONSTRAINT xrpl_did_update_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_did_verifications xrpl_did_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_did_verifications
+    ADD CONSTRAINT xrpl_did_verifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_dids xrpl_dids_account_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dids
+    ADD CONSTRAINT xrpl_dids_account_address_key UNIQUE (account_address);
+
+
+--
+-- Name: xrpl_dids xrpl_dids_did_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dids
+    ADD CONSTRAINT xrpl_dids_did_key UNIQUE (did);
+
+
+--
+-- Name: xrpl_dids xrpl_dids_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dids
+    ADD CONSTRAINT xrpl_dids_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_escrows xrpl_escrows_creation_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36718,6 +37041,22 @@ ALTER TABLE ONLY public.xrpl_escrows
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT xrpl_escrows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_freeze_events xrpl_freeze_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_freeze_events
+    ADD CONSTRAINT xrpl_freeze_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_frozen_trust_lines xrpl_frozen_trust_lines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_frozen_trust_lines
+    ADD CONSTRAINT xrpl_frozen_trust_lines_pkey PRIMARY KEY (id);
 
 
 --
@@ -47792,6 +48131,20 @@ CREATE INDEX idx_whitelist_sync_status ON public.whitelist_blockchain_sync USING
 
 
 --
+-- Name: idx_xrpl_account_freeze_status_global; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_freeze_status_global ON public.xrpl_account_freeze_status USING btree (global_freeze_enabled);
+
+
+--
+-- Name: idx_xrpl_account_freeze_status_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_freeze_status_project ON public.xrpl_account_freeze_status USING btree (project_id);
+
+
+--
 -- Name: idx_xrpl_account_key_config_account; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -47897,6 +48250,48 @@ CREATE INDEX idx_xrpl_credentials_type ON public.xrpl_credentials USING btree (c
 
 
 --
+-- Name: idx_xrpl_deposit_auth_requirements_enabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_deposit_auth_requirements_enabled ON public.xrpl_deposit_auth_requirements USING btree (deposit_auth_enabled);
+
+
+--
+-- Name: idx_xrpl_deposit_auth_requirements_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_deposit_auth_requirements_project ON public.xrpl_deposit_auth_requirements USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_deposit_authorizations_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_deposit_authorizations_account ON public.xrpl_deposit_authorizations USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_deposit_authorizations_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_deposit_authorizations_active ON public.xrpl_deposit_authorizations USING btree (is_active);
+
+
+--
+-- Name: idx_xrpl_deposit_authorizations_authorized; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_deposit_authorizations_authorized ON public.xrpl_deposit_authorizations USING btree (authorized_address);
+
+
+--
+-- Name: idx_xrpl_deposit_authorizations_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_deposit_authorizations_project ON public.xrpl_deposit_authorizations USING btree (project_id);
+
+
+--
 -- Name: idx_xrpl_dex_orders_account; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -47978,6 +48373,90 @@ CREATE INDEX idx_xrpl_dex_trades_taker ON public.xrpl_dex_trades USING btree (ta
 --
 
 CREATE INDEX idx_xrpl_dex_trades_time ON public.xrpl_dex_trades USING btree (executed_at DESC);
+
+
+--
+-- Name: idx_xrpl_did_verifications_did; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_did_verifications_did ON public.xrpl_did_verifications USING btree (did_id);
+
+
+--
+-- Name: idx_xrpl_dids_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dids_account ON public.xrpl_dids USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_dids_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dids_project ON public.xrpl_dids USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_dids_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dids_status ON public.xrpl_dids USING btree (status);
+
+
+--
+-- Name: idx_xrpl_freeze_events_holder; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_freeze_events_holder ON public.xrpl_freeze_events USING btree (holder_address);
+
+
+--
+-- Name: idx_xrpl_freeze_events_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_freeze_events_issuer ON public.xrpl_freeze_events USING btree (issuer_address);
+
+
+--
+-- Name: idx_xrpl_freeze_events_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_freeze_events_project ON public.xrpl_freeze_events USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_freeze_events_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_freeze_events_type ON public.xrpl_freeze_events USING btree (freeze_type);
+
+
+--
+-- Name: idx_xrpl_frozen_trust_lines_frozen; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_frozen_trust_lines_frozen ON public.xrpl_frozen_trust_lines USING btree (is_frozen);
+
+
+--
+-- Name: idx_xrpl_frozen_trust_lines_holder; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_frozen_trust_lines_holder ON public.xrpl_frozen_trust_lines USING btree (holder_address);
+
+
+--
+-- Name: idx_xrpl_frozen_trust_lines_issuer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_frozen_trust_lines_issuer ON public.xrpl_frozen_trust_lines USING btree (issuer_address);
+
+
+--
+-- Name: idx_xrpl_frozen_trust_lines_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_frozen_trust_lines_project ON public.xrpl_frozen_trust_lines USING btree (project_id);
 
 
 --
@@ -54287,6 +54766,14 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: xrpl_account_freeze_status xrpl_account_freeze_status_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_freeze_status
+    ADD CONSTRAINT xrpl_account_freeze_status_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_account_key_config xrpl_account_key_config_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -54359,6 +54846,30 @@ ALTER TABLE ONLY public.xrpl_credentials
 
 
 --
+-- Name: xrpl_deposit_auth_requirements xrpl_deposit_auth_requirements_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_auth_requirements
+    ADD CONSTRAINT xrpl_deposit_auth_requirements_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_deposit_authorization_history xrpl_deposit_authorization_history_authorization_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_authorization_history
+    ADD CONSTRAINT xrpl_deposit_authorization_history_authorization_id_fkey FOREIGN KEY (authorization_id) REFERENCES public.xrpl_deposit_authorizations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_deposit_authorizations xrpl_deposit_authorizations_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_deposit_authorizations
+    ADD CONSTRAINT xrpl_deposit_authorizations_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_dex_orderbook_snapshots xrpl_dex_orderbook_snapshots_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -54383,11 +54894,51 @@ ALTER TABLE ONLY public.xrpl_dex_trades
 
 
 --
+-- Name: xrpl_did_update_history xrpl_did_update_history_did_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_did_update_history
+    ADD CONSTRAINT xrpl_did_update_history_did_id_fkey FOREIGN KEY (did_id) REFERENCES public.xrpl_dids(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_did_verifications xrpl_did_verifications_did_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_did_verifications
+    ADD CONSTRAINT xrpl_did_verifications_did_id_fkey FOREIGN KEY (did_id) REFERENCES public.xrpl_dids(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_dids xrpl_dids_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dids
+    ADD CONSTRAINT xrpl_dids_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_escrows xrpl_escrows_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT xrpl_escrows_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_freeze_events xrpl_freeze_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_freeze_events
+    ADD CONSTRAINT xrpl_freeze_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_frozen_trust_lines xrpl_frozen_trust_lines_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_frozen_trust_lines
+    ADD CONSTRAINT xrpl_frozen_trust_lines_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -63047,6 +63598,16 @@ GRANT ALL ON TABLE public.workflow_stages TO prisma;
 
 
 --
+-- Name: TABLE xrpl_account_freeze_status; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_account_freeze_status TO anon;
+GRANT ALL ON TABLE public.xrpl_account_freeze_status TO authenticated;
+GRANT ALL ON TABLE public.xrpl_account_freeze_status TO service_role;
+GRANT ALL ON TABLE public.xrpl_account_freeze_status TO prisma;
+
+
+--
 -- Name: TABLE xrpl_account_key_config; Type: ACL; Schema: public; Owner: -
 --
 
@@ -63147,6 +63708,36 @@ GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO prisma;
 
 
 --
+-- Name: TABLE xrpl_deposit_auth_requirements; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_deposit_auth_requirements TO anon;
+GRANT ALL ON TABLE public.xrpl_deposit_auth_requirements TO authenticated;
+GRANT ALL ON TABLE public.xrpl_deposit_auth_requirements TO service_role;
+GRANT ALL ON TABLE public.xrpl_deposit_auth_requirements TO prisma;
+
+
+--
+-- Name: TABLE xrpl_deposit_authorization_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_deposit_authorization_history TO anon;
+GRANT ALL ON TABLE public.xrpl_deposit_authorization_history TO authenticated;
+GRANT ALL ON TABLE public.xrpl_deposit_authorization_history TO service_role;
+GRANT ALL ON TABLE public.xrpl_deposit_authorization_history TO prisma;
+
+
+--
+-- Name: TABLE xrpl_deposit_authorizations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_deposit_authorizations TO anon;
+GRANT ALL ON TABLE public.xrpl_deposit_authorizations TO authenticated;
+GRANT ALL ON TABLE public.xrpl_deposit_authorizations TO service_role;
+GRANT ALL ON TABLE public.xrpl_deposit_authorizations TO prisma;
+
+
+--
 -- Name: TABLE xrpl_dex_orderbook_snapshots; Type: ACL; Schema: public; Owner: -
 --
 
@@ -63177,6 +63768,36 @@ GRANT ALL ON TABLE public.xrpl_dex_trades TO prisma;
 
 
 --
+-- Name: TABLE xrpl_did_update_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_did_update_history TO anon;
+GRANT ALL ON TABLE public.xrpl_did_update_history TO authenticated;
+GRANT ALL ON TABLE public.xrpl_did_update_history TO service_role;
+GRANT ALL ON TABLE public.xrpl_did_update_history TO prisma;
+
+
+--
+-- Name: TABLE xrpl_did_verifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_did_verifications TO anon;
+GRANT ALL ON TABLE public.xrpl_did_verifications TO authenticated;
+GRANT ALL ON TABLE public.xrpl_did_verifications TO service_role;
+GRANT ALL ON TABLE public.xrpl_did_verifications TO prisma;
+
+
+--
+-- Name: TABLE xrpl_dids; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_dids TO anon;
+GRANT ALL ON TABLE public.xrpl_dids TO authenticated;
+GRANT ALL ON TABLE public.xrpl_dids TO service_role;
+GRANT ALL ON TABLE public.xrpl_dids TO prisma;
+
+
+--
 -- Name: TABLE xrpl_escrows; Type: ACL; Schema: public; Owner: -
 --
 
@@ -63184,6 +63805,26 @@ GRANT ALL ON TABLE public.xrpl_escrows TO anon;
 GRANT ALL ON TABLE public.xrpl_escrows TO authenticated;
 GRANT ALL ON TABLE public.xrpl_escrows TO service_role;
 GRANT ALL ON TABLE public.xrpl_escrows TO prisma;
+
+
+--
+-- Name: TABLE xrpl_freeze_events; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_freeze_events TO anon;
+GRANT ALL ON TABLE public.xrpl_freeze_events TO authenticated;
+GRANT ALL ON TABLE public.xrpl_freeze_events TO service_role;
+GRANT ALL ON TABLE public.xrpl_freeze_events TO prisma;
+
+
+--
+-- Name: TABLE xrpl_frozen_trust_lines; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_frozen_trust_lines TO anon;
+GRANT ALL ON TABLE public.xrpl_frozen_trust_lines TO authenticated;
+GRANT ALL ON TABLE public.xrpl_frozen_trust_lines TO service_role;
+GRANT ALL ON TABLE public.xrpl_frozen_trust_lines TO prisma;
 
 
 --

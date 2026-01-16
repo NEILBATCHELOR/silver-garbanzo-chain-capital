@@ -115,15 +115,20 @@ export * from './channels'
 export * from './escrow'
 export * from './checks'
 
-
 // XRPL Oracle & Price Feeds - Phase 6
 export * from './oracle'
 
 // XRPL Credentials & Identity - Phase 7
 export * from './credentials'
 
-// XRPL DeFi - Phase 13 (AMM)
+// XRPL DeFi - Phase 13 (AMM & DEX)
 export * from './defi'
 
-// XRPL Security - Phase 13 (Multi-Signature)
+// XRPL Security - Phase 13 (Multi-Signature & Key Rotation)
 export * from './security'
+
+// XRPL Identity - Phase 15 (DID & Credential Verification)
+export * from './identity'
+
+// XRPL Compliance - Phase 15 (Freeze & Deposit Authorization)
+export * from './compliance'

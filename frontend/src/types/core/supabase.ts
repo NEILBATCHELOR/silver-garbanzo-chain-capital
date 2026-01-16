@@ -38049,6 +38049,59 @@ export type Database = {
         }
         Relationships: []
       }
+      xrpl_account_freeze_status: {
+        Row: {
+          account_address: string
+          global_freeze_cleared_at: string | null
+          global_freeze_cleared_hash: string | null
+          global_freeze_enabled: boolean | null
+          global_freeze_set_at: string | null
+          global_freeze_set_hash: string | null
+          id: string
+          no_freeze_enabled: boolean | null
+          no_freeze_set_at: string | null
+          no_freeze_set_hash: string | null
+          project_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          global_freeze_cleared_at?: string | null
+          global_freeze_cleared_hash?: string | null
+          global_freeze_enabled?: boolean | null
+          global_freeze_set_at?: string | null
+          global_freeze_set_hash?: string | null
+          id?: string
+          no_freeze_enabled?: boolean | null
+          no_freeze_set_at?: string | null
+          no_freeze_set_hash?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          global_freeze_cleared_at?: string | null
+          global_freeze_cleared_hash?: string | null
+          global_freeze_enabled?: boolean | null
+          global_freeze_set_at?: string | null
+          global_freeze_set_hash?: string | null
+          id?: string
+          no_freeze_enabled?: boolean | null
+          no_freeze_set_at?: string | null
+          no_freeze_set_hash?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_account_freeze_status_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_account_key_config: {
         Row: {
           account_address: string
@@ -38590,6 +38643,159 @@ export type Database = {
           },
         ]
       }
+      xrpl_deposit_auth_requirements: {
+        Row: {
+          account_address: string
+          deposit_auth_enabled: boolean | null
+          disabled_at: string | null
+          disabled_transaction_hash: string | null
+          enabled_at: string | null
+          enabled_transaction_hash: string | null
+          id: string
+          project_id: string | null
+          require_authorization: boolean | null
+          require_destination_tag: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          deposit_auth_enabled?: boolean | null
+          disabled_at?: string | null
+          disabled_transaction_hash?: string | null
+          enabled_at?: string | null
+          enabled_transaction_hash?: string | null
+          id?: string
+          project_id?: string | null
+          require_authorization?: boolean | null
+          require_destination_tag?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          deposit_auth_enabled?: boolean | null
+          disabled_at?: string | null
+          disabled_transaction_hash?: string | null
+          enabled_at?: string | null
+          enabled_transaction_hash?: string | null
+          id?: string
+          project_id?: string | null
+          require_authorization?: boolean | null
+          require_destination_tag?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_deposit_auth_requirements_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_deposit_authorization_history: {
+        Row: {
+          action: string
+          authorization_id: string | null
+          id: string
+          notes: string | null
+          performed_at: string | null
+          performed_by: string | null
+          transaction_hash: string
+        }
+        Insert: {
+          action: string
+          authorization_id?: string | null
+          id?: string
+          notes?: string | null
+          performed_at?: string | null
+          performed_by?: string | null
+          transaction_hash: string
+        }
+        Update: {
+          action?: string
+          authorization_id?: string | null
+          id?: string
+          notes?: string | null
+          performed_at?: string | null
+          performed_by?: string | null
+          transaction_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_deposit_authorization_history_authorization_id_fkey"
+            columns: ["authorization_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_deposit_authorizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_deposit_authorizations: {
+        Row: {
+          account_address: string
+          authorization_transaction_hash: string
+          authorization_type: string | null
+          authorized_address: string
+          authorized_at: string | null
+          authorized_by: string | null
+          credential_issuer: string | null
+          credential_type: string | null
+          id: string
+          is_active: boolean | null
+          metadata: Json | null
+          notes: string | null
+          project_id: string | null
+          revocation_transaction_hash: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          account_address: string
+          authorization_transaction_hash: string
+          authorization_type?: string | null
+          authorized_address: string
+          authorized_at?: string | null
+          authorized_by?: string | null
+          credential_issuer?: string | null
+          credential_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          notes?: string | null
+          project_id?: string | null
+          revocation_transaction_hash?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          account_address?: string
+          authorization_transaction_hash?: string
+          authorization_type?: string | null
+          authorized_address?: string
+          authorized_at?: string | null
+          authorized_by?: string | null
+          credential_issuer?: string | null
+          credential_type?: string | null
+          id?: string
+          is_active?: boolean | null
+          metadata?: Json | null
+          notes?: string | null
+          project_id?: string | null
+          revocation_transaction_hash?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_deposit_authorizations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_dex_orderbook_snapshots: {
         Row: {
           asks: Json
@@ -38776,6 +38982,141 @@ export type Database = {
           },
         ]
       }
+      xrpl_did_update_history: {
+        Row: {
+          did_id: string | null
+          id: string
+          new_document: Json | null
+          old_document: Json | null
+          transaction_hash: string
+          update_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          did_id?: string | null
+          id?: string
+          new_document?: Json | null
+          old_document?: Json | null
+          transaction_hash: string
+          update_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          did_id?: string | null
+          id?: string
+          new_document?: Json | null
+          old_document?: Json | null
+          transaction_hash?: string
+          update_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_did_update_history_did_id_fkey"
+            columns: ["did_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_dids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_did_verifications: {
+        Row: {
+          did_id: string | null
+          id: string
+          is_valid: boolean
+          verification_data: Json | null
+          verification_type: string
+          verified_at: string | null
+          verifier_address: string
+        }
+        Insert: {
+          did_id?: string | null
+          id?: string
+          is_valid: boolean
+          verification_data?: Json | null
+          verification_type: string
+          verified_at?: string | null
+          verifier_address: string
+        }
+        Update: {
+          did_id?: string | null
+          id?: string
+          is_valid?: boolean
+          verification_data?: Json | null
+          verification_type?: string
+          verified_at?: string | null
+          verifier_address?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_did_verifications_did_id_fkey"
+            columns: ["did_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_dids"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_dids: {
+        Row: {
+          account_address: string
+          created_at: string | null
+          creation_transaction_hash: string
+          data: string | null
+          deleted_at: string | null
+          deletion_transaction_hash: string | null
+          did: string
+          did_document: Json
+          id: string
+          metadata: Json | null
+          project_id: string | null
+          status: string | null
+          updated_at: string | null
+          uri: string | null
+        }
+        Insert: {
+          account_address: string
+          created_at?: string | null
+          creation_transaction_hash: string
+          data?: string | null
+          deleted_at?: string | null
+          deletion_transaction_hash?: string | null
+          did: string
+          did_document: Json
+          id?: string
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          uri?: string | null
+        }
+        Update: {
+          account_address?: string
+          created_at?: string | null
+          creation_transaction_hash?: string
+          data?: string | null
+          deleted_at?: string | null
+          deletion_transaction_hash?: string | null
+          did?: string
+          did_document?: Json
+          id?: string
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          uri?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_dids_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_escrows: {
         Row: {
           amount: string
@@ -38850,6 +39191,115 @@ export type Database = {
           },
           {
             foreignKeyName: "xrpl_escrows_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_freeze_events: {
+        Row: {
+          action: string
+          created_at: string | null
+          currency: string | null
+          freeze_type: string
+          holder_address: string | null
+          id: string
+          issuer_address: string
+          metadata: Json | null
+          notes: string | null
+          project_id: string | null
+          reason: string | null
+          transaction_hash: string
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          currency?: string | null
+          freeze_type: string
+          holder_address?: string | null
+          id?: string
+          issuer_address: string
+          metadata?: Json | null
+          notes?: string | null
+          project_id?: string | null
+          reason?: string | null
+          transaction_hash: string
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          currency?: string | null
+          freeze_type?: string
+          holder_address?: string | null
+          id?: string
+          issuer_address?: string
+          metadata?: Json | null
+          notes?: string | null
+          project_id?: string | null
+          reason?: string | null
+          transaction_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_freeze_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_frozen_trust_lines: {
+        Row: {
+          currency: string
+          freeze_reason: string | null
+          frozen_at: string | null
+          frozen_by: string | null
+          frozen_transaction_hash: string
+          holder_address: string
+          id: string
+          is_frozen: boolean
+          issuer_address: string
+          project_id: string | null
+          unfrozen_at: string | null
+          unfrozen_by: string | null
+          unfrozen_transaction_hash: string | null
+        }
+        Insert: {
+          currency: string
+          freeze_reason?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_transaction_hash: string
+          holder_address: string
+          id?: string
+          is_frozen?: boolean
+          issuer_address: string
+          project_id?: string | null
+          unfrozen_at?: string | null
+          unfrozen_by?: string | null
+          unfrozen_transaction_hash?: string | null
+        }
+        Update: {
+          currency?: string
+          freeze_reason?: string | null
+          frozen_at?: string | null
+          frozen_by?: string | null
+          frozen_transaction_hash?: string
+          holder_address?: string
+          id?: string
+          is_frozen?: boolean
+          issuer_address?: string
+          project_id?: string | null
+          unfrozen_at?: string | null
+          unfrozen_by?: string | null
+          unfrozen_transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_frozen_trust_lines_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
