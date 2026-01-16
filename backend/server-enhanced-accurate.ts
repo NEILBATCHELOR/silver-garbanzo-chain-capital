@@ -36,6 +36,15 @@ import nonceRoutes from './src/routes/nonce'
 import { bondDataInputRoutes, bondCalculationRoutes, mmfDataInputRoutes, mmfCalculationRoutes, mmfEnhancementRoutes, mmfSubscriptionRoutes, etfDataInputRoutes, etfCalculationRoutes } from './src/routes/nav/index'
 import { etfTokenLinksRoutes } from './src/routes/etf-token-links.routes'
 
+// XRPL Routes (Phase 9 - XRPL Backend Integration)
+import { 
+  mptRoutes, 
+  nftRoutes, 
+  paymentsRoutes, 
+  transactionsRoutes,
+  walletsRoutes 
+} from './src/routes/xrpl'
+
 // PSP (Payment Service Provider) Routes (10 services)
 import authPspRoutes from './src/routes/psp/auth.routes'
 import balancesPspRoutes from './src/routes/psp/balances.routes'
@@ -644,6 +653,86 @@ const SERVICE_CATALOG = {
     total_endpoints: 50,
     total_services: 10
   },
+  xrpl_blockchain: {
+    category: 'XRPL Blockchain Operations',
+    services: [
+      {
+        name: 'MPT (Multi-Purpose Tokens)',
+        endpoints: 5,
+        routes: [
+          'POST /xrpl/mpt/create (create-issuance)',
+          'POST /xrpl/mpt/authorize (authorize-holder)',
+          'POST /xrpl/mpt/transfer (transfer-tokens)',
+          'GET /xrpl/mpt/:issuanceId (get-issuance)',
+          'GET /xrpl/mpt/:issuanceId/holders (list-holders)'
+        ],
+        operations: ['Token Issuance', 'Authorization', 'Transfers', 'Holder Management', 'Metadata'],
+        prefix: '/api/v1/xrpl/mpt',
+        description: 'Multi-Purpose Token (MPT) operations for next-gen tokenization on XRPL'
+      },
+      {
+        name: 'NFTs (Non-Fungible Tokens)',
+        endpoints: 6,
+        routes: [
+          'POST /xrpl/nft/mint (mint-nft)',
+          'POST /xrpl/nft/offer (create-offer)',
+          'POST /xrpl/nft/accept-offer (accept-offer)',
+          'GET /xrpl/nft/:nftId (get-nft)',
+          'GET /xrpl/nft/account/:address (list-account-nfts)',
+          'GET /xrpl/nft/:nftId/offers (list-offers)'
+        ],
+        operations: ['Minting', 'Offers', 'Trading', 'Marketplace', 'Collections'],
+        prefix: '/api/v1/xrpl/nft',
+        description: 'NFT minting, trading, and marketplace operations'
+      },
+      {
+        name: 'Payment Systems',
+        endpoints: 9,
+        routes: [
+          'POST /xrpl/payments/channel/create (create-channel)',
+          'POST /xrpl/payments/channel/claim (claim-channel)',
+          'GET /xrpl/payments/channel/:channelId (get-channel)',
+          'POST /xrpl/payments/escrow/create (create-escrow)',
+          'POST /xrpl/payments/escrow/finish (finish-escrow)',
+          'GET /xrpl/payments/escrow/:owner/:sequence (get-escrow)',
+          'POST /xrpl/payments/check/create (create-check)',
+          'POST /xrpl/payments/check/cash (cash-check)',
+          'GET /xrpl/payments/check/:checkId (get-check)'
+        ],
+        operations: ['Payment Channels', 'Escrow', 'Checks', 'Time-locked Payments'],
+        prefix: '/api/v1/xrpl/payments',
+        description: 'Advanced payment systems: channels, escrow, and checks'
+      },
+      {
+        name: 'Transactions',
+        endpoints: 4,
+        routes: [
+          'GET /xrpl/transactions/:hash (get-transaction)',
+          'GET /xrpl/transactions/account/:address (list-account-txns)',
+          'GET /xrpl/transactions/stats/:address (get-stats)',
+          'POST /xrpl/transactions/verify (verify-transaction)'
+        ],
+        operations: ['Query', 'History', 'Statistics', 'Verification'],
+        prefix: '/api/v1/xrpl/transactions',
+        description: 'Transaction queries, history, and statistics'
+      },
+      {
+        name: 'Wallets',
+        endpoints: 4,
+        routes: [
+          'GET /xrpl/wallets/:address/balance (get-balance)',
+          'GET /xrpl/wallets/:address/assets (list-assets)',
+          'GET /xrpl/wallets/:address/info (get-info)',
+          'GET /xrpl/wallets/:address/activity (list-activity)'
+        ],
+        operations: ['Balance Queries', 'Asset Management', 'Activity Tracking'],
+        prefix: '/api/v1/xrpl/wallets',
+        description: 'XRPL wallet operations and balance tracking'
+      }
+    ],
+    total_endpoints: 28,
+    total_services: 5
+  },
   admin_deployment: {
     category: 'Admin & Deployment',
     services: [
@@ -1104,6 +1193,22 @@ Comprehensive platform supporting:
     // })
     // ============================================================================
 
+    // ============================================================================
+    // XRPL (XRP Ledger) BLOCKCHAIN ROUTES - Phase 9
+    // ============================================================================
+    // Comprehensive XRPL blockchain operations including:
+    // - Multi-Purpose Tokens (MPT) - Next-gen tokenization standard
+    // - NFTs - Non-fungible token minting and trading
+    // - Payment Systems - Channels, Escrow, Checks
+    // - Transactions - Query, history, and verification
+    // - Wallets - Balance tracking and asset management
+    // ============================================================================
+    await app.register(mptRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/mpt` })          // /api/v1/xrpl/mpt/*
+    await app.register(nftRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/nft` })          // /api/v1/xrpl/nft/*
+    await app.register(paymentsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/payments` }) // /api/v1/xrpl/payments/*
+    await app.register(transactionsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/transactions` }) // /api/v1/xrpl/transactions/*
+    await app.register(walletsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/wallets` })  // /api/v1/xrpl/wallets/*
+
   } catch (error) {
     logger.error({ error }, 'Route registration failed')
     throw error
@@ -1233,12 +1338,14 @@ async function start() {
     console.log('   ⚖️  Compliance (4): Compliance, Organizations, Policies, Rules')
     console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
     console.log('   💳 PSP Services (10): Auth, Balances, External Accounts, Identity, Payments, Settings, Trades, Transactions, Virtual Accounts, Webhooks')
+    console.log('   🔗 XRPL Blockchain (5): MPT, NFT, Payment Systems, Transactions, Wallets')
     console.log('')
     console.log('🔗 QUICK ACCESS:')
     console.log(`   📚 API Docs: http://${HOST}:${PORT}/docs`)
     console.log(`   🏥 Health: http://${HOST}:${PORT}/health`)
     console.log(`   📊 Status: http://${HOST}:${PORT}/api/v1/status`)
     console.log(`   💳 PSP API: http://${HOST}:${PORT}/api/psp/*`)
+    console.log(`   🔗 XRPL API: http://${HOST}:${PORT}/api/v1/xrpl/*`)
     console.log(`   🐛 Debug Services: http://${HOST}:${PORT}/debug/services`)
     console.log(`   📋 Service Catalog: http://${HOST}:${PORT}/debug/catalog`)
     console.log('')
