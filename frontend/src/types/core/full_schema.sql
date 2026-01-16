@@ -7085,6 +7085,23 @@ $$;
 
 
 --
+-- Name: update_next_rotation_due(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_next_rotation_due() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.last_rotation IS NOT NULL AND NEW.rotation_interval_days IS NOT NULL THEN
+    NEW.next_rotation_due := NEW.last_rotation + (NEW.rotation_interval_days || ' days')::INTERVAL;
+  END IF;
+  NEW.updated_at := NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_oracle_prices(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -28887,6 +28904,30 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: xrpl_account_key_config; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_account_key_config (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    has_regular_key boolean DEFAULT false,
+    current_regular_key character varying(64),
+    master_key_disabled boolean DEFAULT false,
+    last_verified timestamp with time zone DEFAULT now(),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_account_key_config; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_account_key_config IS 'Current key configuration state for XRPL accounts';
+
+
+--
 -- Name: xrpl_amm_fees_collected; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29147,6 +29188,97 @@ CREATE VIEW public.xrpl_credentials_with_expiry AS
 
 
 --
+-- Name: xrpl_dex_orderbook_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_dex_orderbook_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    base_currency character varying(40) NOT NULL,
+    base_issuer character varying(64),
+    quote_currency character varying(40) NOT NULL,
+    quote_issuer character varying(64),
+    bids jsonb NOT NULL,
+    asks jsonb NOT NULL,
+    snapshot_at timestamp with time zone DEFAULT now(),
+    ledger_index integer
+);
+
+
+--
+-- Name: TABLE xrpl_dex_orderbook_snapshots; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_dex_orderbook_snapshots IS 'Historical order book snapshots for analytics';
+
+
+--
+-- Name: xrpl_dex_orders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_dex_orders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    order_sequence integer NOT NULL,
+    order_type character varying(10) NOT NULL,
+    base_currency character varying(40) NOT NULL,
+    base_issuer character varying(64),
+    quote_currency character varying(40) NOT NULL,
+    quote_issuer character varying(64),
+    taker_gets_amount numeric(30,6) NOT NULL,
+    taker_pays_amount numeric(30,6) NOT NULL,
+    price numeric(30,10) NOT NULL,
+    status character varying(20) DEFAULT 'active'::character varying,
+    filled_amount numeric(30,6) DEFAULT 0,
+    remaining_amount numeric(30,6),
+    expiration timestamp with time zone,
+    creation_transaction_hash character varying(64) NOT NULL,
+    cancellation_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    cancelled_at timestamp with time zone,
+    CONSTRAINT xrpl_dex_orders_order_type_check CHECK (((order_type)::text = ANY ((ARRAY['buy'::character varying, 'sell'::character varying])::text[])))
+);
+
+
+--
+-- Name: TABLE xrpl_dex_orders; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_dex_orders IS 'XRPL DEX limit orders placed by users';
+
+
+--
+-- Name: xrpl_dex_trades; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_dex_trades (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    maker_address character varying(64) NOT NULL,
+    taker_address character varying(64) NOT NULL,
+    base_currency character varying(40) NOT NULL,
+    base_issuer character varying(64),
+    quote_currency character varying(40) NOT NULL,
+    quote_issuer character varying(64),
+    base_amount numeric(30,6) NOT NULL,
+    quote_amount numeric(30,6) NOT NULL,
+    price numeric(30,10) NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index integer,
+    executed_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_dex_trades; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_dex_trades IS 'Executed trades on XRPL DEX';
+
+
+--
 -- Name: xrpl_escrows; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29171,6 +29303,59 @@ CREATE TABLE public.xrpl_escrows (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: xrpl_key_rotation_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_key_rotation_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    rotation_type character varying(20) NOT NULL,
+    old_regular_key character varying(64),
+    new_regular_key character varying(64),
+    master_key_disabled boolean DEFAULT false,
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index integer,
+    rotated_at timestamp with time zone DEFAULT now(),
+    notes text,
+    rotation_reason character varying(100)
+);
+
+
+--
+-- Name: TABLE xrpl_key_rotation_history; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_key_rotation_history IS 'Historical record of all key rotations for XRPL accounts';
+
+
+--
+-- Name: xrpl_key_rotation_policies; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_key_rotation_policies (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    rotation_interval_days integer DEFAULT 90 NOT NULL,
+    last_rotation timestamp with time zone,
+    next_rotation_due timestamp with time zone,
+    auto_rotation_enabled boolean DEFAULT false,
+    notification_days_before integer DEFAULT 7,
+    notification_sent boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_key_rotation_policies; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_key_rotation_policies IS 'Key rotation policies and schedules for XRPL accounts';
 
 
 --
@@ -35672,6 +35857,14 @@ ALTER TABLE ONLY public.transfer_operations
 
 
 --
+-- Name: xrpl_account_key_config unique_account_config; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_key_config
+    ADD CONSTRAINT unique_account_config UNIQUE (project_id, account_address);
+
+
+--
 -- Name: xrpl_multisig_signers unique_account_signer; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35773,6 +35966,22 @@ ALTER TABLE ONLY public.sidebar_items
 
 ALTER TABLE ONLY public.xrpl_price_oracles
     ADD CONSTRAINT unique_oracle_document UNIQUE (oracle_address, oracle_document_id);
+
+
+--
+-- Name: xrpl_dex_orders unique_order; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_orders
+    ADD CONSTRAINT unique_order UNIQUE (account_address, order_sequence);
+
+
+--
+-- Name: xrpl_key_rotation_policies unique_policy_per_account; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_key_rotation_policies
+    ADD CONSTRAINT unique_policy_per_account UNIQUE (project_id, account_address);
 
 
 --
@@ -36352,6 +36561,14 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: xrpl_account_key_config xrpl_account_key_config_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_key_config
+    ADD CONSTRAINT xrpl_account_key_config_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_amm_fees_collected xrpl_amm_fees_collected_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36456,6 +36673,38 @@ ALTER TABLE ONLY public.xrpl_credentials
 
 
 --
+-- Name: xrpl_dex_orderbook_snapshots xrpl_dex_orderbook_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_orderbook_snapshots
+    ADD CONSTRAINT xrpl_dex_orderbook_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_dex_orders xrpl_dex_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_orders
+    ADD CONSTRAINT xrpl_dex_orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_dex_trades xrpl_dex_trades_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_trades
+    ADD CONSTRAINT xrpl_dex_trades_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_dex_trades xrpl_dex_trades_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_trades
+    ADD CONSTRAINT xrpl_dex_trades_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
 -- Name: xrpl_escrows xrpl_escrows_creation_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36469,6 +36718,22 @@ ALTER TABLE ONLY public.xrpl_escrows
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT xrpl_escrows_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_key_rotation_history xrpl_key_rotation_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_key_rotation_history
+    ADD CONSTRAINT xrpl_key_rotation_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_key_rotation_policies xrpl_key_rotation_policies_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_key_rotation_policies
+    ADD CONSTRAINT xrpl_key_rotation_policies_pkey PRIMARY KEY (id);
 
 
 --
@@ -47527,6 +47792,20 @@ CREATE INDEX idx_whitelist_sync_status ON public.whitelist_blockchain_sync USING
 
 
 --
+-- Name: idx_xrpl_account_key_config_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_key_config_account ON public.xrpl_account_key_config USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_account_key_config_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_key_config_project ON public.xrpl_account_key_config USING btree (project_id);
+
+
+--
 -- Name: idx_xrpl_credential_verifications_credential; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -47615,6 +47894,139 @@ CREATE INDEX idx_xrpl_credentials_subject ON public.xrpl_credentials USING btree
 --
 
 CREATE INDEX idx_xrpl_credentials_type ON public.xrpl_credentials USING btree (credential_type);
+
+
+--
+-- Name: idx_xrpl_dex_orders_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_orders_account ON public.xrpl_dex_orders USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_dex_orders_pair; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_orders_pair ON public.xrpl_dex_orders USING btree (base_currency, quote_currency);
+
+
+--
+-- Name: idx_xrpl_dex_orders_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_orders_project ON public.xrpl_dex_orders USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_dex_orders_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_orders_status ON public.xrpl_dex_orders USING btree (status);
+
+
+--
+-- Name: idx_xrpl_dex_snapshots_pair; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_snapshots_pair ON public.xrpl_dex_orderbook_snapshots USING btree (base_currency, quote_currency);
+
+
+--
+-- Name: idx_xrpl_dex_snapshots_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_snapshots_project ON public.xrpl_dex_orderbook_snapshots USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_dex_snapshots_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_snapshots_time ON public.xrpl_dex_orderbook_snapshots USING btree (snapshot_at DESC);
+
+
+--
+-- Name: idx_xrpl_dex_trades_maker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_trades_maker ON public.xrpl_dex_trades USING btree (maker_address);
+
+
+--
+-- Name: idx_xrpl_dex_trades_pair; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_trades_pair ON public.xrpl_dex_trades USING btree (base_currency, quote_currency);
+
+
+--
+-- Name: idx_xrpl_dex_trades_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_trades_project ON public.xrpl_dex_trades USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_dex_trades_taker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_trades_taker ON public.xrpl_dex_trades USING btree (taker_address);
+
+
+--
+-- Name: idx_xrpl_dex_trades_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_trades_time ON public.xrpl_dex_trades USING btree (executed_at DESC);
+
+
+--
+-- Name: idx_xrpl_key_rotation_history_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_history_account ON public.xrpl_key_rotation_history USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_key_rotation_history_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_history_project ON public.xrpl_key_rotation_history USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_key_rotation_history_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_history_time ON public.xrpl_key_rotation_history USING btree (rotated_at DESC);
+
+
+--
+-- Name: idx_xrpl_key_rotation_history_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_history_type ON public.xrpl_key_rotation_history USING btree (rotation_type);
+
+
+--
+-- Name: idx_xrpl_key_rotation_policies_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_policies_account ON public.xrpl_key_rotation_policies USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_key_rotation_policies_due; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_policies_due ON public.xrpl_key_rotation_policies USING btree (next_rotation_due) WHERE (auto_rotation_enabled = true);
+
+
+--
+-- Name: idx_xrpl_key_rotation_policies_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_key_rotation_policies_project ON public.xrpl_key_rotation_policies USING btree (project_id);
 
 
 --
@@ -48871,6 +49283,13 @@ CREATE TRIGGER trigger_update_group_member_count_insert AFTER INSERT ON public.i
 --
 
 CREATE TRIGGER trigger_update_group_member_count_insert_new AFTER INSERT ON public.investor_groups_investors FOR EACH ROW EXECUTE FUNCTION public.update_group_member_count();
+
+
+--
+-- Name: xrpl_key_rotation_policies trigger_update_next_rotation_due; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_next_rotation_due BEFORE INSERT OR UPDATE ON public.xrpl_key_rotation_policies FOR EACH ROW EXECUTE FUNCTION public.update_next_rotation_due();
 
 
 --
@@ -53868,6 +54287,14 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: xrpl_account_key_config xrpl_account_key_config_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_key_config
+    ADD CONSTRAINT xrpl_account_key_config_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_amm_fees_collected xrpl_amm_fees_collected_pool_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -53932,11 +54359,51 @@ ALTER TABLE ONLY public.xrpl_credentials
 
 
 --
+-- Name: xrpl_dex_orderbook_snapshots xrpl_dex_orderbook_snapshots_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_orderbook_snapshots
+    ADD CONSTRAINT xrpl_dex_orderbook_snapshots_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_dex_orders xrpl_dex_orders_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_orders
+    ADD CONSTRAINT xrpl_dex_orders_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_dex_trades xrpl_dex_trades_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_dex_trades
+    ADD CONSTRAINT xrpl_dex_trades_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_escrows xrpl_escrows_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xrpl_escrows
     ADD CONSTRAINT xrpl_escrows_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_key_rotation_history xrpl_key_rotation_history_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_key_rotation_history
+    ADD CONSTRAINT xrpl_key_rotation_history_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_key_rotation_policies xrpl_key_rotation_policies_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_key_rotation_policies
+    ADD CONSTRAINT xrpl_key_rotation_policies_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -55866,6 +56333,16 @@ GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_next_rotation_due(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_next_rotation_due() TO anon;
+GRANT ALL ON FUNCTION public.update_next_rotation_due() TO authenticated;
+GRANT ALL ON FUNCTION public.update_next_rotation_due() TO service_role;
+GRANT ALL ON FUNCTION public.update_next_rotation_due() TO prisma;
 
 
 --
@@ -62570,6 +63047,16 @@ GRANT ALL ON TABLE public.workflow_stages TO prisma;
 
 
 --
+-- Name: TABLE xrpl_account_key_config; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_account_key_config TO anon;
+GRANT ALL ON TABLE public.xrpl_account_key_config TO authenticated;
+GRANT ALL ON TABLE public.xrpl_account_key_config TO service_role;
+GRANT ALL ON TABLE public.xrpl_account_key_config TO prisma;
+
+
+--
 -- Name: TABLE xrpl_amm_fees_collected; Type: ACL; Schema: public; Owner: -
 --
 
@@ -62660,6 +63147,36 @@ GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO prisma;
 
 
 --
+-- Name: TABLE xrpl_dex_orderbook_snapshots; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_dex_orderbook_snapshots TO anon;
+GRANT ALL ON TABLE public.xrpl_dex_orderbook_snapshots TO authenticated;
+GRANT ALL ON TABLE public.xrpl_dex_orderbook_snapshots TO service_role;
+GRANT ALL ON TABLE public.xrpl_dex_orderbook_snapshots TO prisma;
+
+
+--
+-- Name: TABLE xrpl_dex_orders; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_dex_orders TO anon;
+GRANT ALL ON TABLE public.xrpl_dex_orders TO authenticated;
+GRANT ALL ON TABLE public.xrpl_dex_orders TO service_role;
+GRANT ALL ON TABLE public.xrpl_dex_orders TO prisma;
+
+
+--
+-- Name: TABLE xrpl_dex_trades; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_dex_trades TO anon;
+GRANT ALL ON TABLE public.xrpl_dex_trades TO authenticated;
+GRANT ALL ON TABLE public.xrpl_dex_trades TO service_role;
+GRANT ALL ON TABLE public.xrpl_dex_trades TO prisma;
+
+
+--
 -- Name: TABLE xrpl_escrows; Type: ACL; Schema: public; Owner: -
 --
 
@@ -62667,6 +63184,26 @@ GRANT ALL ON TABLE public.xrpl_escrows TO anon;
 GRANT ALL ON TABLE public.xrpl_escrows TO authenticated;
 GRANT ALL ON TABLE public.xrpl_escrows TO service_role;
 GRANT ALL ON TABLE public.xrpl_escrows TO prisma;
+
+
+--
+-- Name: TABLE xrpl_key_rotation_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_key_rotation_history TO anon;
+GRANT ALL ON TABLE public.xrpl_key_rotation_history TO authenticated;
+GRANT ALL ON TABLE public.xrpl_key_rotation_history TO service_role;
+GRANT ALL ON TABLE public.xrpl_key_rotation_history TO prisma;
+
+
+--
+-- Name: TABLE xrpl_key_rotation_policies; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_key_rotation_policies TO anon;
+GRANT ALL ON TABLE public.xrpl_key_rotation_policies TO authenticated;
+GRANT ALL ON TABLE public.xrpl_key_rotation_policies TO service_role;
+GRANT ALL ON TABLE public.xrpl_key_rotation_policies TO prisma;
 
 
 --

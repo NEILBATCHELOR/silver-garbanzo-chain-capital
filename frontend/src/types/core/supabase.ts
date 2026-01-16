@@ -38049,6 +38049,50 @@ export type Database = {
         }
         Relationships: []
       }
+      xrpl_account_key_config: {
+        Row: {
+          account_address: string
+          created_at: string | null
+          current_regular_key: string | null
+          has_regular_key: boolean | null
+          id: string
+          last_verified: string | null
+          master_key_disabled: boolean | null
+          project_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          created_at?: string | null
+          current_regular_key?: string | null
+          has_regular_key?: boolean | null
+          id?: string
+          last_verified?: string | null
+          master_key_disabled?: boolean | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          created_at?: string | null
+          current_regular_key?: string | null
+          has_regular_key?: boolean | null
+          id?: string
+          last_verified?: string | null
+          master_key_disabled?: boolean | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_account_key_config_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_amm_fees_collected: {
         Row: {
           asset1_fees: number
@@ -38546,6 +38590,192 @@ export type Database = {
           },
         ]
       }
+      xrpl_dex_orderbook_snapshots: {
+        Row: {
+          asks: Json
+          base_currency: string
+          base_issuer: string | null
+          bids: Json
+          id: string
+          ledger_index: number | null
+          project_id: string | null
+          quote_currency: string
+          quote_issuer: string | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          asks: Json
+          base_currency: string
+          base_issuer?: string | null
+          bids: Json
+          id?: string
+          ledger_index?: number | null
+          project_id?: string | null
+          quote_currency: string
+          quote_issuer?: string | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          asks?: Json
+          base_currency?: string
+          base_issuer?: string | null
+          bids?: Json
+          id?: string
+          ledger_index?: number | null
+          project_id?: string | null
+          quote_currency?: string
+          quote_issuer?: string | null
+          snapshot_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_dex_orderbook_snapshots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_dex_orders: {
+        Row: {
+          account_address: string
+          base_currency: string
+          base_issuer: string | null
+          cancellation_transaction_hash: string | null
+          cancelled_at: string | null
+          created_at: string | null
+          creation_transaction_hash: string
+          expiration: string | null
+          filled_amount: number | null
+          id: string
+          order_sequence: number
+          order_type: string
+          price: number
+          project_id: string | null
+          quote_currency: string
+          quote_issuer: string | null
+          remaining_amount: number | null
+          status: string | null
+          taker_gets_amount: number
+          taker_pays_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          base_currency: string
+          base_issuer?: string | null
+          cancellation_transaction_hash?: string | null
+          cancelled_at?: string | null
+          created_at?: string | null
+          creation_transaction_hash: string
+          expiration?: string | null
+          filled_amount?: number | null
+          id?: string
+          order_sequence: number
+          order_type: string
+          price: number
+          project_id?: string | null
+          quote_currency: string
+          quote_issuer?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          taker_gets_amount: number
+          taker_pays_amount: number
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          base_currency?: string
+          base_issuer?: string | null
+          cancellation_transaction_hash?: string | null
+          cancelled_at?: string | null
+          created_at?: string | null
+          creation_transaction_hash?: string
+          expiration?: string | null
+          filled_amount?: number | null
+          id?: string
+          order_sequence?: number
+          order_type?: string
+          price?: number
+          project_id?: string | null
+          quote_currency?: string
+          quote_issuer?: string | null
+          remaining_amount?: number | null
+          status?: string | null
+          taker_gets_amount?: number
+          taker_pays_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_dex_orders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_dex_trades: {
+        Row: {
+          base_amount: number
+          base_currency: string
+          base_issuer: string | null
+          executed_at: string | null
+          id: string
+          ledger_index: number | null
+          maker_address: string
+          price: number
+          project_id: string | null
+          quote_amount: number
+          quote_currency: string
+          quote_issuer: string | null
+          taker_address: string
+          transaction_hash: string
+        }
+        Insert: {
+          base_amount: number
+          base_currency: string
+          base_issuer?: string | null
+          executed_at?: string | null
+          id?: string
+          ledger_index?: number | null
+          maker_address: string
+          price: number
+          project_id?: string | null
+          quote_amount: number
+          quote_currency: string
+          quote_issuer?: string | null
+          taker_address: string
+          transaction_hash: string
+        }
+        Update: {
+          base_amount?: number
+          base_currency?: string
+          base_issuer?: string | null
+          executed_at?: string | null
+          id?: string
+          ledger_index?: number | null
+          maker_address?: string
+          price?: number
+          project_id?: string | null
+          quote_amount?: number
+          quote_currency?: string
+          quote_issuer?: string | null
+          taker_address?: string
+          transaction_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_dex_trades_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_escrows: {
         Row: {
           amount: string
@@ -38620,6 +38850,109 @@ export type Database = {
           },
           {
             foreignKeyName: "xrpl_escrows_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_key_rotation_history: {
+        Row: {
+          account_address: string
+          id: string
+          ledger_index: number | null
+          master_key_disabled: boolean | null
+          new_regular_key: string | null
+          notes: string | null
+          old_regular_key: string | null
+          project_id: string | null
+          rotated_at: string | null
+          rotation_reason: string | null
+          rotation_type: string
+          transaction_hash: string
+        }
+        Insert: {
+          account_address: string
+          id?: string
+          ledger_index?: number | null
+          master_key_disabled?: boolean | null
+          new_regular_key?: string | null
+          notes?: string | null
+          old_regular_key?: string | null
+          project_id?: string | null
+          rotated_at?: string | null
+          rotation_reason?: string | null
+          rotation_type: string
+          transaction_hash: string
+        }
+        Update: {
+          account_address?: string
+          id?: string
+          ledger_index?: number | null
+          master_key_disabled?: boolean | null
+          new_regular_key?: string | null
+          notes?: string | null
+          old_regular_key?: string | null
+          project_id?: string | null
+          rotated_at?: string | null
+          rotation_reason?: string | null
+          rotation_type?: string
+          transaction_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_key_rotation_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_key_rotation_policies: {
+        Row: {
+          account_address: string
+          auto_rotation_enabled: boolean | null
+          created_at: string | null
+          id: string
+          last_rotation: string | null
+          next_rotation_due: string | null
+          notification_days_before: number | null
+          notification_sent: boolean | null
+          project_id: string | null
+          rotation_interval_days: number
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          auto_rotation_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          last_rotation?: string | null
+          next_rotation_due?: string | null
+          notification_days_before?: number | null
+          notification_sent?: boolean | null
+          project_id?: string | null
+          rotation_interval_days?: number
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          auto_rotation_enabled?: boolean | null
+          created_at?: string | null
+          id?: string
+          last_rotation?: string | null
+          next_rotation_due?: string | null
+          notification_days_before?: number | null
+          notification_sent?: boolean | null
+          project_id?: string | null
+          rotation_interval_days?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_key_rotation_policies_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
