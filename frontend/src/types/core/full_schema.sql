@@ -28904,6 +28904,62 @@ CREATE TABLE public.workflow_stages (
 
 
 --
+-- Name: xrpl_account_config_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_account_config_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    account_config_id uuid,
+    change_type character varying(50) NOT NULL,
+    field_changed character varying(50) NOT NULL,
+    old_value text,
+    new_value text,
+    transaction_hash character varying(64) NOT NULL,
+    ledger_index integer,
+    changed_by character varying(64),
+    changed_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_account_configurations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_account_configurations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    require_destination_tag boolean DEFAULT false,
+    require_authorization boolean DEFAULT false,
+    disallow_incoming_xrp boolean DEFAULT false,
+    disable_master_key boolean DEFAULT false,
+    account_txn_id boolean DEFAULT false,
+    no_freeze boolean DEFAULT false,
+    global_freeze boolean DEFAULT false,
+    default_ripple boolean DEFAULT false,
+    deposit_auth boolean DEFAULT false,
+    authorized_nftoken_minter boolean DEFAULT false,
+    disallow_incoming_nftoken_offer boolean DEFAULT false,
+    disallow_incoming_check boolean DEFAULT false,
+    disallow_incoming_pay_chan boolean DEFAULT false,
+    disallow_incoming_trustline boolean DEFAULT false,
+    allow_trustline_clawback boolean DEFAULT false,
+    domain character varying(255),
+    email_hash character varying(32),
+    message_key character varying(66),
+    tick_size integer,
+    transfer_rate bigint,
+    signer_quorum integer DEFAULT 0,
+    signer_list jsonb DEFAULT '[]'::jsonb,
+    last_updated_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_account_configurations_tick_size_check CHECK (((tick_size >= 3) AND (tick_size <= 15))),
+    CONSTRAINT xrpl_account_configurations_transfer_rate_check CHECK (((transfer_rate >= 1000000000) AND (transfer_rate <= 2000000000)))
+);
+
+
+--
 -- Name: xrpl_account_freeze_status; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29091,6 +29147,24 @@ COMMENT ON TABLE public.xrpl_amm_transactions IS 'AMM transaction history';
 
 
 --
+-- Name: xrpl_blackholed_accounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_blackholed_accounts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    blackhole_address character varying(64) DEFAULT 'rrrrrrrrrrrrrrrrrrrrBZbvji'::character varying NOT NULL,
+    set_regular_key_hash character varying(64) NOT NULL,
+    disable_master_key_hash character varying(64) NOT NULL,
+    is_blackholed boolean DEFAULT true,
+    verification_ledger_index integer,
+    reason text,
+    blackholed_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: xrpl_checks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29212,6 +29286,42 @@ CREATE VIEW public.xrpl_credentials_with_expiry AS
             ELSE false
         END AS is_expired
    FROM public.xrpl_credentials;
+
+
+--
+-- Name: xrpl_delegate_permissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_delegate_permissions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    delegator_address character varying(64) NOT NULL,
+    delegate_address character varying(64) NOT NULL,
+    permissions jsonb DEFAULT '[]'::jsonb NOT NULL,
+    status character varying(20) DEFAULT 'active'::character varying,
+    setup_transaction_hash character varying(64) NOT NULL,
+    revocation_transaction_hash character varying(64),
+    created_at timestamp with time zone DEFAULT now(),
+    revoked_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_delegate_usage_history; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_delegate_usage_history (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    delegate_permission_id uuid,
+    transaction_type character varying(50) NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    permission_used character varying(50) NOT NULL,
+    result character varying(20) NOT NULL,
+    error_message text,
+    ledger_index integer,
+    "timestamp" timestamp with time zone DEFAULT now()
+);
 
 
 --
@@ -29921,6 +30031,88 @@ CREATE TABLE public.xrpl_price_oracles (
 --
 
 COMMENT ON TABLE public.xrpl_price_oracles IS 'XRPL on-chain price oracle configurations';
+
+
+--
+-- Name: xrpl_transaction_retry_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_transaction_retry_attempts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    submission_id uuid,
+    attempt_number integer NOT NULL,
+    attempted_at timestamp with time zone DEFAULT now(),
+    result character varying(20),
+    error_code character varying(20),
+    error_message text,
+    ledger_sequence integer,
+    notes text
+);
+
+
+--
+-- Name: xrpl_transaction_submissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_transaction_submissions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    transaction_hash character varying(64) NOT NULL,
+    transaction_type character varying(50) NOT NULL,
+    account_address character varying(64) NOT NULL,
+    sequence_number integer,
+    ticket_sequence integer,
+    last_ledger_sequence integer,
+    status character varying(30) DEFAULT 'pending'::character varying,
+    result character varying(20),
+    submission_attempts integer DEFAULT 1,
+    first_submitted_at timestamp with time zone DEFAULT now(),
+    last_submitted_at timestamp with time zone DEFAULT now(),
+    validated_at timestamp with time zone,
+    included_in_ledger integer,
+    ledger_sequence integer,
+    transaction_json jsonb NOT NULL,
+    signed_transaction_blob text,
+    error_code character varying(20),
+    error_message text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_transaction_tickets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_transaction_tickets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    ticket_sequence integer NOT NULL,
+    status character varying(20) DEFAULT 'available'::character varying,
+    used_in_transaction_hash character varying(64),
+    used_at timestamp with time zone,
+    creation_transaction_hash character varying(64) NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: xrpl_transaction_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_transaction_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    submission_id uuid,
+    verified_at timestamp with time zone DEFAULT now(),
+    verification_method character varying(30) NOT NULL,
+    is_validated boolean NOT NULL,
+    is_successful boolean,
+    transaction_result character varying(20),
+    ledger_index integer,
+    ledger_hash character varying(64),
+    metadata jsonb
+);
 
 
 --
@@ -36084,6 +36276,14 @@ ALTER TABLE ONLY public.xrpl_account_key_config
 
 
 --
+-- Name: xrpl_account_configurations unique_account_config_phase16; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_configurations
+    ADD CONSTRAINT unique_account_config_phase16 UNIQUE (project_id, account_address);
+
+
+--
 -- Name: xrpl_multisig_signers unique_account_signer; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36097,6 +36297,14 @@ ALTER TABLE ONLY public.xrpl_multisig_signers
 
 ALTER TABLE ONLY public.asset_nav_data
     ADD CONSTRAINT unique_asset_date UNIQUE (asset_id, date);
+
+
+--
+-- Name: xrpl_blackholed_accounts unique_blackholed_account_phase16; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_blackholed_accounts
+    ADD CONSTRAINT unique_blackholed_account_phase16 UNIQUE (project_id, account_address);
 
 
 --
@@ -36137,6 +36345,14 @@ ALTER TABLE ONLY public.xrpl_trust_line_tokens
 
 ALTER TABLE ONLY public.sidebar_configurations
     ADD CONSTRAINT unique_default_per_new_target UNIQUE (target_role_ids, target_profile_type_enums, is_default, organization_id) DEFERRABLE;
+
+
+--
+-- Name: xrpl_delegate_permissions unique_delegation_phase16; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_delegate_permissions
+    ADD CONSTRAINT unique_delegation_phase16 UNIQUE (project_id, delegator_address, delegate_address);
 
 
 --
@@ -36276,6 +36492,14 @@ ALTER TABLE ONLY public.sidebar_sections
 
 
 --
+-- Name: xrpl_transaction_tickets unique_ticket_phase16; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_tickets
+    ADD CONSTRAINT unique_ticket_phase16 UNIQUE (project_id, account_address, ticket_sequence);
+
+
+--
 -- Name: token_erc3525_allocations unique_token_allocation; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36353,6 +36577,14 @@ ALTER TABLE ONLY public.token_erc1155_types
 
 ALTER TABLE ONLY public.xrpl_multisig_signatures
     ADD CONSTRAINT unique_transaction_signer UNIQUE (pending_transaction_id, signer_address);
+
+
+--
+-- Name: xrpl_transaction_submissions unique_transaction_submission_phase16; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_submissions
+    ADD CONSTRAINT unique_transaction_submission_phase16 UNIQUE (project_id, transaction_hash);
 
 
 --
@@ -36796,6 +37028,22 @@ ALTER TABLE ONLY public.workflow_stages
 
 
 --
+-- Name: xrpl_account_config_history xrpl_account_config_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_config_history
+    ADD CONSTRAINT xrpl_account_config_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_account_configurations xrpl_account_configurations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_configurations
+    ADD CONSTRAINT xrpl_account_configurations_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_account_freeze_status xrpl_account_freeze_status_account_address_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36876,6 +37124,14 @@ ALTER TABLE ONLY public.xrpl_amm_transactions
 
 
 --
+-- Name: xrpl_blackholed_accounts xrpl_blackholed_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_blackholed_accounts
+    ADD CONSTRAINT xrpl_blackholed_accounts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: xrpl_checks xrpl_checks_check_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -36921,6 +37177,30 @@ ALTER TABLE ONLY public.xrpl_credentials
 
 ALTER TABLE ONLY public.xrpl_credentials
     ADD CONSTRAINT xrpl_credentials_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_delegate_permissions xrpl_delegate_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_delegate_permissions
+    ADD CONSTRAINT xrpl_delegate_permissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_delegate_usage_history xrpl_delegate_usage_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_delegate_usage_history
+    ADD CONSTRAINT xrpl_delegate_usage_history_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_delegate_usage_history xrpl_delegate_usage_history_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_delegate_usage_history
+    ADD CONSTRAINT xrpl_delegate_usage_history_transaction_hash_key UNIQUE (transaction_hash);
 
 
 --
@@ -37225,6 +37505,38 @@ ALTER TABLE ONLY public.xrpl_payment_channels
 
 ALTER TABLE ONLY public.xrpl_price_oracles
     ADD CONSTRAINT xrpl_price_oracles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_transaction_retry_attempts xrpl_transaction_retry_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_retry_attempts
+    ADD CONSTRAINT xrpl_transaction_retry_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_transaction_submissions xrpl_transaction_submissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_submissions
+    ADD CONSTRAINT xrpl_transaction_submissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_transaction_tickets xrpl_transaction_tickets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_tickets
+    ADD CONSTRAINT xrpl_transaction_tickets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_transaction_verifications xrpl_transaction_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_verifications
+    ADD CONSTRAINT xrpl_transaction_verifications_pkey PRIMARY KEY (id);
 
 
 --
@@ -48131,6 +48443,41 @@ CREATE INDEX idx_whitelist_sync_status ON public.whitelist_blockchain_sync USING
 
 
 --
+-- Name: idx_xrpl_account_config_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_config_account ON public.xrpl_account_configurations USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_account_config_history_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_config_history_account ON public.xrpl_account_config_history USING btree (account_config_id);
+
+
+--
+-- Name: idx_xrpl_account_config_history_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_config_history_timestamp ON public.xrpl_account_config_history USING btree (changed_at DESC);
+
+
+--
+-- Name: idx_xrpl_account_config_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_config_project ON public.xrpl_account_configurations USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_account_config_updated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_account_config_updated ON public.xrpl_account_configurations USING btree (updated_at DESC);
+
+
+--
 -- Name: idx_xrpl_account_freeze_status_global; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -48156,6 +48503,20 @@ CREATE INDEX idx_xrpl_account_key_config_account ON public.xrpl_account_key_conf
 --
 
 CREATE INDEX idx_xrpl_account_key_config_project ON public.xrpl_account_key_config USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_blackholed_accounts_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_blackholed_accounts_account ON public.xrpl_blackholed_accounts USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_blackholed_accounts_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_blackholed_accounts_project ON public.xrpl_blackholed_accounts USING btree (project_id);
 
 
 --
@@ -48247,6 +48608,48 @@ CREATE INDEX idx_xrpl_credentials_subject ON public.xrpl_credentials USING btree
 --
 
 CREATE INDEX idx_xrpl_credentials_type ON public.xrpl_credentials USING btree (credential_type);
+
+
+--
+-- Name: idx_xrpl_delegate_permissions_delegate; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_delegate_permissions_delegate ON public.xrpl_delegate_permissions USING btree (delegate_address);
+
+
+--
+-- Name: idx_xrpl_delegate_permissions_delegator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_delegate_permissions_delegator ON public.xrpl_delegate_permissions USING btree (delegator_address);
+
+
+--
+-- Name: idx_xrpl_delegate_permissions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_delegate_permissions_project ON public.xrpl_delegate_permissions USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_delegate_permissions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_delegate_permissions_status ON public.xrpl_delegate_permissions USING btree (status);
+
+
+--
+-- Name: idx_xrpl_delegate_usage_permission; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_delegate_usage_permission ON public.xrpl_delegate_usage_history USING btree (delegate_permission_id);
+
+
+--
+-- Name: idx_xrpl_delegate_usage_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_delegate_usage_timestamp ON public.xrpl_delegate_usage_history USING btree ("timestamp" DESC);
 
 
 --
@@ -48691,6 +49094,41 @@ CREATE INDEX idx_xrpl_payment_channel_claims_project_id ON public.xrpl_payment_c
 
 
 --
+-- Name: idx_xrpl_retry_attempts_submission; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_retry_attempts_submission ON public.xrpl_transaction_retry_attempts USING btree (submission_id);
+
+
+--
+-- Name: idx_xrpl_retry_attempts_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_retry_attempts_timestamp ON public.xrpl_transaction_retry_attempts USING btree (attempted_at DESC);
+
+
+--
+-- Name: idx_xrpl_tickets_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tickets_account ON public.xrpl_transaction_tickets USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_tickets_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tickets_project ON public.xrpl_transaction_tickets USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_tickets_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tickets_status ON public.xrpl_transaction_tickets USING btree (status);
+
+
+--
 -- Name: idx_xrpl_trust_line_holders_project_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -48702,6 +49140,48 @@ CREATE INDEX idx_xrpl_trust_line_holders_project_id ON public.xrpl_trust_line_ho
 --
 
 CREATE INDEX idx_xrpl_trust_line_transactions_project_id ON public.xrpl_trust_line_transactions USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_tx_submissions_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tx_submissions_account ON public.xrpl_transaction_submissions USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_tx_submissions_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tx_submissions_hash ON public.xrpl_transaction_submissions USING btree (transaction_hash);
+
+
+--
+-- Name: idx_xrpl_tx_submissions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tx_submissions_project ON public.xrpl_transaction_submissions USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_tx_submissions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_tx_submissions_status ON public.xrpl_transaction_submissions USING btree (status);
+
+
+--
+-- Name: idx_xrpl_verifications_submission; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_verifications_submission ON public.xrpl_transaction_verifications USING btree (submission_id);
+
+
+--
+-- Name: idx_xrpl_verifications_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_verifications_timestamp ON public.xrpl_transaction_verifications USING btree (verified_at DESC);
 
 
 --
@@ -54766,6 +55246,22 @@ ALTER TABLE ONLY public.whitelist_signatories
 
 
 --
+-- Name: xrpl_account_config_history xrpl_account_config_history_account_config_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_config_history
+    ADD CONSTRAINT xrpl_account_config_history_account_config_id_fkey FOREIGN KEY (account_config_id) REFERENCES public.xrpl_account_configurations(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_account_configurations xrpl_account_configurations_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_account_configurations
+    ADD CONSTRAINT xrpl_account_configurations_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_account_freeze_status xrpl_account_freeze_status_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -54822,6 +55318,14 @@ ALTER TABLE ONLY public.xrpl_amm_transactions
 
 
 --
+-- Name: xrpl_blackholed_accounts xrpl_blackholed_accounts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_blackholed_accounts
+    ADD CONSTRAINT xrpl_blackholed_accounts_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_checks xrpl_checks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -54843,6 +55347,22 @@ ALTER TABLE ONLY public.xrpl_credential_verifications
 
 ALTER TABLE ONLY public.xrpl_credentials
     ADD CONSTRAINT xrpl_credentials_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_delegate_permissions xrpl_delegate_permissions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_delegate_permissions
+    ADD CONSTRAINT xrpl_delegate_permissions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_delegate_usage_history xrpl_delegate_usage_history_delegate_permission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_delegate_usage_history
+    ADD CONSTRAINT xrpl_delegate_usage_history_delegate_permission_id_fkey FOREIGN KEY (delegate_permission_id) REFERENCES public.xrpl_delegate_permissions(id) ON DELETE CASCADE;
 
 
 --
@@ -55083,6 +55603,38 @@ ALTER TABLE ONLY public.xrpl_price_oracles
 
 ALTER TABLE ONLY public.xrpl_price_oracles
     ADD CONSTRAINT xrpl_price_oracles_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
+
+
+--
+-- Name: xrpl_transaction_retry_attempts xrpl_transaction_retry_attempts_submission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_retry_attempts
+    ADD CONSTRAINT xrpl_transaction_retry_attempts_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES public.xrpl_transaction_submissions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_transaction_submissions xrpl_transaction_submissions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_submissions
+    ADD CONSTRAINT xrpl_transaction_submissions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_transaction_tickets xrpl_transaction_tickets_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_tickets
+    ADD CONSTRAINT xrpl_transaction_tickets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: xrpl_transaction_verifications xrpl_transaction_verifications_submission_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_transaction_verifications
+    ADD CONSTRAINT xrpl_transaction_verifications_submission_id_fkey FOREIGN KEY (submission_id) REFERENCES public.xrpl_transaction_submissions(id) ON DELETE CASCADE;
 
 
 --
@@ -63598,6 +64150,26 @@ GRANT ALL ON TABLE public.workflow_stages TO prisma;
 
 
 --
+-- Name: TABLE xrpl_account_config_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_account_config_history TO anon;
+GRANT ALL ON TABLE public.xrpl_account_config_history TO authenticated;
+GRANT ALL ON TABLE public.xrpl_account_config_history TO service_role;
+GRANT ALL ON TABLE public.xrpl_account_config_history TO prisma;
+
+
+--
+-- Name: TABLE xrpl_account_configurations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_account_configurations TO anon;
+GRANT ALL ON TABLE public.xrpl_account_configurations TO authenticated;
+GRANT ALL ON TABLE public.xrpl_account_configurations TO service_role;
+GRANT ALL ON TABLE public.xrpl_account_configurations TO prisma;
+
+
+--
 -- Name: TABLE xrpl_account_freeze_status; Type: ACL; Schema: public; Owner: -
 --
 
@@ -63668,6 +64240,16 @@ GRANT ALL ON TABLE public.xrpl_amm_transactions TO prisma;
 
 
 --
+-- Name: TABLE xrpl_blackholed_accounts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_blackholed_accounts TO anon;
+GRANT ALL ON TABLE public.xrpl_blackholed_accounts TO authenticated;
+GRANT ALL ON TABLE public.xrpl_blackholed_accounts TO service_role;
+GRANT ALL ON TABLE public.xrpl_blackholed_accounts TO prisma;
+
+
+--
 -- Name: TABLE xrpl_checks; Type: ACL; Schema: public; Owner: -
 --
 
@@ -63705,6 +64287,26 @@ GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO anon;
 GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO authenticated;
 GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO service_role;
 GRANT ALL ON TABLE public.xrpl_credentials_with_expiry TO prisma;
+
+
+--
+-- Name: TABLE xrpl_delegate_permissions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_delegate_permissions TO anon;
+GRANT ALL ON TABLE public.xrpl_delegate_permissions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_delegate_permissions TO service_role;
+GRANT ALL ON TABLE public.xrpl_delegate_permissions TO prisma;
+
+
+--
+-- Name: TABLE xrpl_delegate_usage_history; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_delegate_usage_history TO anon;
+GRANT ALL ON TABLE public.xrpl_delegate_usage_history TO authenticated;
+GRANT ALL ON TABLE public.xrpl_delegate_usage_history TO service_role;
+GRANT ALL ON TABLE public.xrpl_delegate_usage_history TO prisma;
 
 
 --
@@ -63965,6 +64567,46 @@ GRANT ALL ON TABLE public.xrpl_price_oracles TO anon;
 GRANT ALL ON TABLE public.xrpl_price_oracles TO authenticated;
 GRANT ALL ON TABLE public.xrpl_price_oracles TO service_role;
 GRANT ALL ON TABLE public.xrpl_price_oracles TO prisma;
+
+
+--
+-- Name: TABLE xrpl_transaction_retry_attempts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_transaction_retry_attempts TO anon;
+GRANT ALL ON TABLE public.xrpl_transaction_retry_attempts TO authenticated;
+GRANT ALL ON TABLE public.xrpl_transaction_retry_attempts TO service_role;
+GRANT ALL ON TABLE public.xrpl_transaction_retry_attempts TO prisma;
+
+
+--
+-- Name: TABLE xrpl_transaction_submissions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_transaction_submissions TO anon;
+GRANT ALL ON TABLE public.xrpl_transaction_submissions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_transaction_submissions TO service_role;
+GRANT ALL ON TABLE public.xrpl_transaction_submissions TO prisma;
+
+
+--
+-- Name: TABLE xrpl_transaction_tickets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_transaction_tickets TO anon;
+GRANT ALL ON TABLE public.xrpl_transaction_tickets TO authenticated;
+GRANT ALL ON TABLE public.xrpl_transaction_tickets TO service_role;
+GRANT ALL ON TABLE public.xrpl_transaction_tickets TO prisma;
+
+
+--
+-- Name: TABLE xrpl_transaction_verifications; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_transaction_verifications TO anon;
+GRANT ALL ON TABLE public.xrpl_transaction_verifications TO authenticated;
+GRANT ALL ON TABLE public.xrpl_transaction_verifications TO service_role;
+GRANT ALL ON TABLE public.xrpl_transaction_verifications TO prisma;
 
 
 --

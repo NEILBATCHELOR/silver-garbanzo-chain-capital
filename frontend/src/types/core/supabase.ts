@@ -38049,6 +38049,154 @@ export type Database = {
         }
         Relationships: []
       }
+      xrpl_account_config_history: {
+        Row: {
+          account_config_id: string | null
+          change_type: string
+          changed_at: string | null
+          changed_by: string | null
+          field_changed: string
+          id: string
+          ledger_index: number | null
+          new_value: string | null
+          old_value: string | null
+          transaction_hash: string
+        }
+        Insert: {
+          account_config_id?: string | null
+          change_type: string
+          changed_at?: string | null
+          changed_by?: string | null
+          field_changed: string
+          id?: string
+          ledger_index?: number | null
+          new_value?: string | null
+          old_value?: string | null
+          transaction_hash: string
+        }
+        Update: {
+          account_config_id?: string | null
+          change_type?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          field_changed?: string
+          id?: string
+          ledger_index?: number | null
+          new_value?: string | null
+          old_value?: string | null
+          transaction_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_account_config_history_account_config_id_fkey"
+            columns: ["account_config_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_account_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_account_configurations: {
+        Row: {
+          account_address: string
+          account_txn_id: boolean | null
+          allow_trustline_clawback: boolean | null
+          authorized_nftoken_minter: boolean | null
+          created_at: string | null
+          default_ripple: boolean | null
+          deposit_auth: boolean | null
+          disable_master_key: boolean | null
+          disallow_incoming_check: boolean | null
+          disallow_incoming_nftoken_offer: boolean | null
+          disallow_incoming_pay_chan: boolean | null
+          disallow_incoming_trustline: boolean | null
+          disallow_incoming_xrp: boolean | null
+          domain: string | null
+          email_hash: string | null
+          global_freeze: boolean | null
+          id: string
+          last_updated_transaction_hash: string | null
+          message_key: string | null
+          no_freeze: boolean | null
+          project_id: string | null
+          require_authorization: boolean | null
+          require_destination_tag: boolean | null
+          signer_list: Json | null
+          signer_quorum: number | null
+          tick_size: number | null
+          transfer_rate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          account_txn_id?: boolean | null
+          allow_trustline_clawback?: boolean | null
+          authorized_nftoken_minter?: boolean | null
+          created_at?: string | null
+          default_ripple?: boolean | null
+          deposit_auth?: boolean | null
+          disable_master_key?: boolean | null
+          disallow_incoming_check?: boolean | null
+          disallow_incoming_nftoken_offer?: boolean | null
+          disallow_incoming_pay_chan?: boolean | null
+          disallow_incoming_trustline?: boolean | null
+          disallow_incoming_xrp?: boolean | null
+          domain?: string | null
+          email_hash?: string | null
+          global_freeze?: boolean | null
+          id?: string
+          last_updated_transaction_hash?: string | null
+          message_key?: string | null
+          no_freeze?: boolean | null
+          project_id?: string | null
+          require_authorization?: boolean | null
+          require_destination_tag?: boolean | null
+          signer_list?: Json | null
+          signer_quorum?: number | null
+          tick_size?: number | null
+          transfer_rate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          account_txn_id?: boolean | null
+          allow_trustline_clawback?: boolean | null
+          authorized_nftoken_minter?: boolean | null
+          created_at?: string | null
+          default_ripple?: boolean | null
+          deposit_auth?: boolean | null
+          disable_master_key?: boolean | null
+          disallow_incoming_check?: boolean | null
+          disallow_incoming_nftoken_offer?: boolean | null
+          disallow_incoming_pay_chan?: boolean | null
+          disallow_incoming_trustline?: boolean | null
+          disallow_incoming_xrp?: boolean | null
+          domain?: string | null
+          email_hash?: string | null
+          global_freeze?: boolean | null
+          id?: string
+          last_updated_transaction_hash?: string | null
+          message_key?: string | null
+          no_freeze?: boolean | null
+          project_id?: string | null
+          require_authorization?: boolean | null
+          require_destination_tag?: boolean | null
+          signer_list?: Json | null
+          signer_quorum?: number | null
+          tick_size?: number | null
+          transfer_rate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_account_configurations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_account_freeze_status: {
         Row: {
           account_address: string
@@ -38405,6 +38553,53 @@ export type Database = {
           },
         ]
       }
+      xrpl_blackholed_accounts: {
+        Row: {
+          account_address: string
+          blackhole_address: string
+          blackholed_at: string | null
+          disable_master_key_hash: string
+          id: string
+          is_blackholed: boolean | null
+          project_id: string | null
+          reason: string | null
+          set_regular_key_hash: string
+          verification_ledger_index: number | null
+        }
+        Insert: {
+          account_address: string
+          blackhole_address?: string
+          blackholed_at?: string | null
+          disable_master_key_hash: string
+          id?: string
+          is_blackholed?: boolean | null
+          project_id?: string | null
+          reason?: string | null
+          set_regular_key_hash: string
+          verification_ledger_index?: number | null
+        }
+        Update: {
+          account_address?: string
+          blackhole_address?: string
+          blackholed_at?: string | null
+          disable_master_key_hash?: string
+          id?: string
+          is_blackholed?: boolean | null
+          project_id?: string | null
+          reason?: string | null
+          set_regular_key_hash?: string
+          verification_ledger_index?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_blackholed_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_checks: {
         Row: {
           cancel_transaction_hash: string | null
@@ -38639,6 +38834,100 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_delegate_permissions: {
+        Row: {
+          created_at: string | null
+          delegate_address: string
+          delegator_address: string
+          id: string
+          permissions: Json
+          project_id: string | null
+          revocation_transaction_hash: string | null
+          revoked_at: string | null
+          setup_transaction_hash: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          delegate_address: string
+          delegator_address: string
+          id?: string
+          permissions?: Json
+          project_id?: string | null
+          revocation_transaction_hash?: string | null
+          revoked_at?: string | null
+          setup_transaction_hash: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          delegate_address?: string
+          delegator_address?: string
+          id?: string
+          permissions?: Json
+          project_id?: string | null
+          revocation_transaction_hash?: string | null
+          revoked_at?: string | null
+          setup_transaction_hash?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_delegate_permissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_delegate_usage_history: {
+        Row: {
+          delegate_permission_id: string | null
+          error_message: string | null
+          id: string
+          ledger_index: number | null
+          permission_used: string
+          result: string
+          timestamp: string | null
+          transaction_hash: string
+          transaction_type: string
+        }
+        Insert: {
+          delegate_permission_id?: string | null
+          error_message?: string | null
+          id?: string
+          ledger_index?: number | null
+          permission_used: string
+          result: string
+          timestamp?: string | null
+          transaction_hash: string
+          transaction_type: string
+        }
+        Update: {
+          delegate_permission_id?: string | null
+          error_message?: string | null
+          id?: string
+          ledger_index?: number | null
+          permission_used?: string
+          result?: string
+          timestamp?: string | null
+          transaction_hash?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_delegate_usage_history_delegate_permission_id_fkey"
+            columns: ["delegate_permission_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_delegate_permissions"
             referencedColumns: ["id"]
           },
         ]
@@ -40073,6 +40362,224 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_transaction_retry_attempts: {
+        Row: {
+          attempt_number: number
+          attempted_at: string | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          ledger_sequence: number | null
+          notes: string | null
+          result: string | null
+          submission_id: string | null
+        }
+        Insert: {
+          attempt_number: number
+          attempted_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          ledger_sequence?: number | null
+          notes?: string | null
+          result?: string | null
+          submission_id?: string | null
+        }
+        Update: {
+          attempt_number?: number
+          attempted_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          ledger_sequence?: number | null
+          notes?: string | null
+          result?: string | null
+          submission_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_transaction_retry_attempts_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_transaction_submissions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_transaction_submissions: {
+        Row: {
+          account_address: string
+          created_at: string | null
+          error_code: string | null
+          error_message: string | null
+          first_submitted_at: string | null
+          id: string
+          included_in_ledger: number | null
+          last_ledger_sequence: number | null
+          last_submitted_at: string | null
+          ledger_sequence: number | null
+          project_id: string | null
+          result: string | null
+          sequence_number: number | null
+          signed_transaction_blob: string | null
+          status: string | null
+          submission_attempts: number | null
+          ticket_sequence: number | null
+          transaction_hash: string
+          transaction_json: Json
+          transaction_type: string
+          updated_at: string | null
+          validated_at: string | null
+        }
+        Insert: {
+          account_address: string
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          first_submitted_at?: string | null
+          id?: string
+          included_in_ledger?: number | null
+          last_ledger_sequence?: number | null
+          last_submitted_at?: string | null
+          ledger_sequence?: number | null
+          project_id?: string | null
+          result?: string | null
+          sequence_number?: number | null
+          signed_transaction_blob?: string | null
+          status?: string | null
+          submission_attempts?: number | null
+          ticket_sequence?: number | null
+          transaction_hash: string
+          transaction_json: Json
+          transaction_type: string
+          updated_at?: string | null
+          validated_at?: string | null
+        }
+        Update: {
+          account_address?: string
+          created_at?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          first_submitted_at?: string | null
+          id?: string
+          included_in_ledger?: number | null
+          last_ledger_sequence?: number | null
+          last_submitted_at?: string | null
+          ledger_sequence?: number | null
+          project_id?: string | null
+          result?: string | null
+          sequence_number?: number | null
+          signed_transaction_blob?: string | null
+          status?: string | null
+          submission_attempts?: number | null
+          ticket_sequence?: number | null
+          transaction_hash?: string
+          transaction_json?: Json
+          transaction_type?: string
+          updated_at?: string | null
+          validated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_transaction_submissions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_transaction_tickets: {
+        Row: {
+          account_address: string
+          created_at: string | null
+          creation_transaction_hash: string
+          id: string
+          project_id: string | null
+          status: string | null
+          ticket_sequence: number
+          used_at: string | null
+          used_in_transaction_hash: string | null
+        }
+        Insert: {
+          account_address: string
+          created_at?: string | null
+          creation_transaction_hash: string
+          id?: string
+          project_id?: string | null
+          status?: string | null
+          ticket_sequence: number
+          used_at?: string | null
+          used_in_transaction_hash?: string | null
+        }
+        Update: {
+          account_address?: string
+          created_at?: string | null
+          creation_transaction_hash?: string
+          id?: string
+          project_id?: string | null
+          status?: string | null
+          ticket_sequence?: number
+          used_at?: string | null
+          used_in_transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_transaction_tickets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_transaction_verifications: {
+        Row: {
+          id: string
+          is_successful: boolean | null
+          is_validated: boolean
+          ledger_hash: string | null
+          ledger_index: number | null
+          metadata: Json | null
+          submission_id: string | null
+          transaction_result: string | null
+          verification_method: string
+          verified_at: string | null
+        }
+        Insert: {
+          id?: string
+          is_successful?: boolean | null
+          is_validated: boolean
+          ledger_hash?: string | null
+          ledger_index?: number | null
+          metadata?: Json | null
+          submission_id?: string | null
+          transaction_result?: string | null
+          verification_method: string
+          verified_at?: string | null
+        }
+        Update: {
+          id?: string
+          is_successful?: boolean | null
+          is_validated?: boolean
+          ledger_hash?: string | null
+          ledger_index?: number | null
+          metadata?: Json | null
+          submission_id?: string | null
+          transaction_result?: string | null
+          verification_method?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_transaction_verifications_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "xrpl_transaction_submissions"
             referencedColumns: ["id"]
           },
         ]
