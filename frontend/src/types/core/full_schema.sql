@@ -48673,6 +48673,27 @@ CREATE INDEX idx_xrpl_account_key_config_project ON public.xrpl_account_key_conf
 
 
 --
+-- Name: idx_xrpl_amm_liquidity_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_amm_liquidity_user ON public.xrpl_amm_liquidity_positions USING btree (user_address, pool_id);
+
+
+--
+-- Name: idx_xrpl_amm_pools_assets; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_amm_pools_assets ON public.xrpl_amm_pools USING btree (asset1_currency, asset2_currency);
+
+
+--
+-- Name: idx_xrpl_amm_pools_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_amm_pools_status ON public.xrpl_amm_pools USING btree (status, created_at DESC) WHERE ((status)::text = 'active'::text);
+
+
+--
 -- Name: idx_xrpl_batch_tx_all_succeeded; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -48988,6 +49009,13 @@ CREATE INDEX idx_xrpl_dex_trades_time ON public.xrpl_dex_trades USING btree (exe
 
 
 --
+-- Name: idx_xrpl_dex_trades_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_dex_trades_timestamp ON public.xrpl_dex_trades USING btree (executed_at DESC);
+
+
+--
 -- Name: idx_xrpl_did_verifications_did; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -49167,6 +49195,20 @@ CREATE INDEX idx_xrpl_monitored_tx_type ON public.xrpl_monitored_transactions US
 --
 
 CREATE INDEX idx_xrpl_monitored_tx_validated ON public.xrpl_monitored_transactions USING btree (validated);
+
+
+--
+-- Name: idx_xrpl_multisig_pending_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_multisig_pending_status ON public.xrpl_multisig_pending_transactions USING btree (status, created_at DESC);
+
+
+--
+-- Name: idx_xrpl_multisig_signatures_tx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_multisig_signatures_tx ON public.xrpl_multisig_signatures USING btree (pending_transaction_id);
 
 
 --
