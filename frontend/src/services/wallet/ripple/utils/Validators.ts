@@ -394,14 +394,15 @@ export class RippleValidator {
    */
   static validateObject<T extends Record<string, any>>(
     obj: T,
-    schema: ValidationSchema<T>
+    schema: XRPLValidationSchema<T>
   ): ValidationResult {
     const errors: ValidationError[] = [];
 
     for (const [fieldName, validators] of Object.entries(schema)) {
       const value = obj[fieldName];
+      const validatorArray = validators as unknown as FieldValidator[];
       
-      for (const validator of validators) {
+      for (const validator of validatorArray) {
         const error = validator(value, fieldName);
         if (error) {
           errors.push(error);
@@ -419,7 +420,7 @@ export class RippleValidator {
 
 // Type for validation schema
 export type FieldValidator = (value: any, fieldName: string) => ValidationError | null;
-export type ValidationSchema<T> = {
+export type XRPLValidationSchema<T> = {
   [K in keyof T]?: FieldValidator[];
 };
 

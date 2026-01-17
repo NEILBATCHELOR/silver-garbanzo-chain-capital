@@ -39,7 +39,8 @@ export function AMMPoolList({ wallet, network, projectId, onSelectPool }: AMMPoo
       
       // Convert DBAMMPool to AMMPoolData
       const poolData: AMMPoolData[] = dbPools.map((dbPool: DBAMMPool) => ({
-        poolId: dbPool.id,
+        id: dbPool.id, // Database record ID
+        poolId: dbPool.id, // Pool identifier (same as ID for now)
         ammId: dbPool.amm_id,
         lpTokenCurrency: dbPool.lp_token_currency,
         asset1Currency: dbPool.asset1_currency,
@@ -138,7 +139,7 @@ export function AMMPoolList({ wallet, network, projectId, onSelectPool }: AMMPoo
           </TableHeader>
           <TableBody>
             {pools.map((pool) => (
-              <TableRow key={pool.poolId}>
+              <TableRow key={pool.id}>
                 <TableCell className="font-medium">
                   <div className="space-y-1">
                     <div className="font-mono text-xs">{pool.ammId.slice(0, 8)}...</div>

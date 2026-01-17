@@ -1,31 +1,21 @@
 /**
- * XRPL DEX Service
+ * XRPL DEX (Decentralized Exchange) Service
+ * Handles DEX trading operations including order placement, execution, and order book queries
  * Phase 14.1: DEX Trading Infrastructure
- * Handles order creation, cancellation, swaps, and order book queries
  */
 
-import {
-  Client,
-  Wallet,
-  OfferCreate,
-  OfferCancel,
-  Payment,
-  Amount,
-  validate,
-  xrpToDrops,
-  dropsToXrp
-} from 'xrpl'
-import {
+import { Client, Wallet, OfferCreate, OfferCancel, Payment, dropsToXrp, type Amount } from 'xrpl'
+import type {
   OfferParams,
   SwapParams,
   SwapResult,
-  CreateOrderResult,
-  CancelOrderResult,
   OrderBook,
   OrderBookEntry,
   AccountOffer,
+  TradingPair,
   CurrencyAsset,
-  TradingPair
+  CreateOrderResult,
+  CancelOrderResult
 } from './dex-types'
 
 export class XRPLDEXService {
@@ -43,7 +33,7 @@ export class XRPLDEXService {
       Account: wallet.address,
       TakerGets: params.takerGets,
       TakerPays: params.takerPays,
-      Expiration: params.expiration
+      ...(params.expiration && { Expiration: params.expiration })
     }
 
     const prepared = await this.client.autofill(tx)
@@ -56,13 +46,15 @@ export class XRPLDEXService {
           `Offer creation failed: ${response.result.meta.TransactionResult}`
         )
       }
+
+      return {
+        orderSequence: (prepared as any).Sequence || 0,
+        transactionHash: response.result.hash,
+        status: response.result.meta.TransactionResult
+      }
     }
 
-    return {
-      orderSequence: (response.result as any).Sequence || 0,
-      transactionHash: response.result.hash,
-      status: 'success'
-    }
+    throw new Error('Offer creation failed: Invalid response')
   }
 
   /**
@@ -88,52 +80,45 @@ export class XRPLDEXService {
           `Offer cancellation failed: ${response.result.meta.TransactionResult}`
         )
       }
+
+      return {
+        transactionHash: response.result.hash,
+        status: response.result.meta.TransactionResult
+      }
     }
 
-    return {
-      transactionHash: response.result.hash,
-      status: 'success'
-    }
+    throw new Error('Offer cancellation failed: Invalid response')
   }
 
   /**
-   * Execute market swap using path finding
+   * Execute market swap using cross-currency payment
    */
   async executeSwap(
     wallet: Wallet,
     params: SwapParams
   ): Promise<SwapResult> {
-    // Construct destination amount
-    const destAmount: Amount = params.toIssuer
-      ? {
-          currency: params.toCurrency,
-          issuer: params.toIssuer,
-          value: params.amount
-        }
-      : params.amount // XRP amount in drops
+    // Prepare destination amount (what we want to receive)
+    const destAmount =
+      params.toCurrency === 'XRP'
+        ? String(parseFloat(params.amount) * 1_000_000) // Convert to drops
+        : {
+            currency: params.toCurrency,
+            issuer: params.toIssuer || '',
+            value: params.amount
+          }
 
-    // Find best path if not provided
-    let paths = params.paths
-    if (!paths) {
-      const pathFindResponse = await this.client.request({
-        command: 'ripple_path_find',
-        source_account: wallet.address,
-        destination_account: wallet.address, // Swap to self
-        destination_amount: destAmount,
-        ledger_index: 'validated'
-      })
+    // Prepare send max (maximum we're willing to send)
+    const sendMax =
+      params.fromCurrency === 'XRP'
+        ? String(parseFloat(params.amount) * 1_000_000 * (1 + (params.maxSlippage || 0) / 100))
+        : {
+            currency: params.fromCurrency,
+            issuer: params.fromIssuer || '',
+            value: String(parseFloat(params.amount) * (1 + (params.maxSlippage || 0) / 100))
+          }
 
-      paths = pathFindResponse.result.alternatives[0]?.paths_computed || []
-    }
-
-    // Construct SendMax
-    const sendMax: Amount = params.fromIssuer
-      ? {
-          currency: params.fromCurrency,
-          issuer: params.fromIssuer,
-          value: params.amount
-        }
-      : params.amount
+    // Get paths if not provided
+    const paths = params.paths || (await this.findBestPath(wallet.address, params))
 
     const tx: Payment = {
       TransactionType: 'Payment',
@@ -155,11 +140,13 @@ export class XRPLDEXService {
         )
       }
 
+      // Safely handle delivered_amount which can be undefined
       const delivered = response.result.meta.delivered_amount
-      const amountReceived =
-        typeof delivered === 'string'
+      const amountReceived = delivered
+        ? (typeof delivered === 'string'
           ? dropsToXrp(delivered)
-          : delivered?.value || '0'
+          : delivered?.value || '0')
+        : '0'
 
       const amountSent =
         typeof sendMax === 'string' ? dropsToXrp(sendMax) : sendMax.value || '0'
@@ -193,7 +180,9 @@ export class XRPLDEXService {
       ledger_index: 'validated'
     })
 
-    const bids: OrderBookEntry[] = response.result.offers.map((offer: any) => ({
+    // Safely handle offers array which can be undefined
+    const offers = response.result.offers || []
+    const bids: OrderBookEntry[] = offers.map((offer: any) => ({
       price: this.calculateOfferPrice(offer.TakerGets, offer.TakerPays),
       amount:
         typeof offer.TakerGets === 'string'
@@ -211,7 +200,8 @@ export class XRPLDEXService {
       ledger_index: 'validated'
     })
 
-    const asks: OrderBookEntry[] = reverseResponse.result.offers.map(
+    const reverseOffers = reverseResponse.result.offers || []
+    const asks: OrderBookEntry[] = reverseOffers.map(
       (offer: any) => ({
         price: this.calculateOfferPrice(offer.TakerPays, offer.TakerGets),
         amount:
@@ -243,7 +233,8 @@ export class XRPLDEXService {
       ledger_index: 'validated'
     })
 
-    return response.result.offers.map((offer: any) => ({
+    const offers = response.result.offers || []
+    return offers.map((offer: any) => ({
       sequence: offer.seq,
       takerGets: offer.taker_gets,
       takerPays: offer.taker_pays,
@@ -251,6 +242,42 @@ export class XRPLDEXService {
       expiration: offer.expiration,
       quality: offer.quality
     }))
+  }
+
+  /**
+   * Find best trading path
+   */
+  private async findBestPath(
+    sourceAccount: string,
+    params: SwapParams
+  ): Promise<any[]> {
+    // Build destination amount
+    const destAmount =
+      params.toCurrency === 'XRP'
+        ? String(parseFloat(params.amount) * 1_000_000)
+        : {
+            currency: params.toCurrency,
+            issuer: params.toIssuer || '',
+            value: params.amount
+          }
+
+    try {
+      const response = await this.client.request({
+        command: 'ripple_path_find',
+        source_account: sourceAccount,
+        destination_account: sourceAccount,
+        destination_amount: destAmount,
+        ledger_index: 'validated'
+      })
+
+      // Access alternatives from the response
+      // The type system doesn't know about ripple_path_find response structure
+      const pathResult = response.result as any
+      return pathResult.alternatives?.[0]?.paths_computed || []
+    } catch (error) {
+      console.warn('Path finding failed, proceeding without paths:', error)
+      return []
+    }
   }
 
   /**
@@ -289,3 +316,6 @@ export class XRPLDEXService {
     return { bidPrice, askPrice, spread }
   }
 }
+
+// Export singleton instance factory
+export const createDEXService = (client: Client) => new XRPLDEXService(client)

@@ -38553,6 +38553,62 @@ export type Database = {
           },
         ]
       }
+      xrpl_batch_transactions: {
+        Row: {
+          all_or_nothing: boolean
+          all_succeeded: boolean
+          batch_hash: string
+          created_at: string | null
+          failed_count: number
+          id: string
+          inner_transaction_count: number
+          inner_transaction_hashes: string[]
+          ledger_index: number | null
+          project_id: string | null
+          status: string
+          submitted_at: string
+          submitter_account: string
+        }
+        Insert: {
+          all_or_nothing?: boolean
+          all_succeeded: boolean
+          batch_hash: string
+          created_at?: string | null
+          failed_count?: number
+          id?: string
+          inner_transaction_count: number
+          inner_transaction_hashes: string[]
+          ledger_index?: number | null
+          project_id?: string | null
+          status: string
+          submitted_at: string
+          submitter_account: string
+        }
+        Update: {
+          all_or_nothing?: boolean
+          all_succeeded?: boolean
+          batch_hash?: string
+          created_at?: string | null
+          failed_count?: number
+          id?: string
+          inner_transaction_count?: number
+          inner_transaction_hashes?: string[]
+          ledger_index?: number | null
+          project_id?: string | null
+          status?: string
+          submitted_at?: string
+          submitter_account?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_batch_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_blackholed_accounts: {
         Row: {
           account_address: string
@@ -39699,6 +39755,68 @@ export type Database = {
           },
         ]
       }
+      xrpl_monitored_transactions: {
+        Row: {
+          account_address: string
+          amount: string | null
+          created_at: string | null
+          currency: string | null
+          destination_address: string | null
+          detected_at: string
+          id: string
+          ledger_index: number | null
+          metadata: Json | null
+          project_id: string | null
+          status: string
+          transaction_data: Json | null
+          transaction_hash: string
+          transaction_type: string
+          validated: boolean
+        }
+        Insert: {
+          account_address: string
+          amount?: string | null
+          created_at?: string | null
+          currency?: string | null
+          destination_address?: string | null
+          detected_at: string
+          id?: string
+          ledger_index?: number | null
+          metadata?: Json | null
+          project_id?: string | null
+          status: string
+          transaction_data?: Json | null
+          transaction_hash: string
+          transaction_type: string
+          validated?: boolean
+        }
+        Update: {
+          account_address?: string
+          amount?: string | null
+          created_at?: string | null
+          currency?: string | null
+          destination_address?: string | null
+          detected_at?: string
+          id?: string
+          ledger_index?: number | null
+          metadata?: Json | null
+          project_id?: string | null
+          status?: string
+          transaction_data?: Json | null
+          transaction_hash?: string
+          transaction_type?: string
+          validated?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_monitored_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       xrpl_multisig_accounts: {
         Row: {
           account_address: string
@@ -40173,6 +40291,74 @@ export type Database = {
           },
           {
             foreignKeyName: "xrpl_oracle_updates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      xrpl_path_searches: {
+        Row: {
+          best_path: Json
+          created_at: string | null
+          destination_account: string
+          destination_amount: number
+          destination_currency: string
+          destination_issuer: string | null
+          effective_rate: number
+          id: string
+          intermediary_count: number
+          path_length: number
+          project_id: string | null
+          quality_score: number
+          searched_at: string
+          source_account: string
+          source_currency: string
+          source_issuer: string | null
+          total_cost: string
+        }
+        Insert: {
+          best_path: Json
+          created_at?: string | null
+          destination_account: string
+          destination_amount: number
+          destination_currency: string
+          destination_issuer?: string | null
+          effective_rate: number
+          id?: string
+          intermediary_count: number
+          path_length: number
+          project_id?: string | null
+          quality_score: number
+          searched_at: string
+          source_account: string
+          source_currency: string
+          source_issuer?: string | null
+          total_cost: string
+        }
+        Update: {
+          best_path?: Json
+          created_at?: string | null
+          destination_account?: string
+          destination_amount?: number
+          destination_currency?: string
+          destination_issuer?: string | null
+          effective_rate?: number
+          id?: string
+          intermediary_count?: number
+          path_length?: number
+          project_id?: string | null
+          quality_score?: number
+          searched_at?: string
+          source_account?: string
+          source_currency?: string
+          source_issuer?: string | null
+          total_cost?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "xrpl_path_searches_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"

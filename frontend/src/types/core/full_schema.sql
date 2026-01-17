@@ -29147,6 +29147,49 @@ COMMENT ON TABLE public.xrpl_amm_transactions IS 'AMM transaction history';
 
 
 --
+-- Name: xrpl_batch_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_batch_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    submitter_account character varying(64) NOT NULL,
+    batch_hash character varying(64) NOT NULL,
+    inner_transaction_count integer NOT NULL,
+    all_or_nothing boolean DEFAULT true NOT NULL,
+    status character varying(20) NOT NULL,
+    all_succeeded boolean NOT NULL,
+    failed_count integer DEFAULT 0 NOT NULL,
+    inner_transaction_hashes text[] NOT NULL,
+    ledger_index integer,
+    submitted_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_batch_transactions_inner_transaction_count_check CHECK (((inner_transaction_count >= 2) AND (inner_transaction_count <= 8)))
+);
+
+
+--
+-- Name: TABLE xrpl_batch_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_batch_transactions IS 'XRPL batch transaction execution records (XLS-56)';
+
+
+--
+-- Name: COLUMN xrpl_batch_transactions.all_or_nothing; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_batch_transactions.all_or_nothing IS 'Whether batch used tfAllOrNothing flag';
+
+
+--
+-- Name: COLUMN xrpl_batch_transactions.inner_transaction_hashes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_batch_transactions.inner_transaction_hashes IS 'Array of inner transaction hashes';
+
+
+--
 -- Name: xrpl_blackholed_accounts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29688,6 +29731,43 @@ COMMENT ON TABLE public.xrpl_key_rotation_policies IS 'Key rotation policies and
 
 
 --
+-- Name: xrpl_monitored_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_monitored_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    account_address character varying(64) NOT NULL,
+    transaction_hash character varying(64) NOT NULL,
+    transaction_type character varying(50) NOT NULL,
+    destination_address character varying(64),
+    amount character varying(32),
+    currency character varying(40),
+    status character varying(20) NOT NULL,
+    validated boolean DEFAULT false NOT NULL,
+    ledger_index integer,
+    transaction_data jsonb,
+    metadata jsonb,
+    detected_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE xrpl_monitored_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_monitored_transactions IS 'Real-time transaction monitoring via WebSocket';
+
+
+--
+-- Name: COLUMN xrpl_monitored_transactions.transaction_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_monitored_transactions.transaction_data IS 'Full XRPL transaction object';
+
+
+--
 -- Name: xrpl_multisig_accounts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -29962,6 +30042,53 @@ CREATE TABLE public.xrpl_oracle_updates (
 --
 
 COMMENT ON TABLE public.xrpl_oracle_updates IS 'Transaction history of oracle updates';
+
+
+--
+-- Name: xrpl_path_searches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.xrpl_path_searches (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    source_account character varying(64) NOT NULL,
+    destination_account character varying(64) NOT NULL,
+    source_currency character varying(40) NOT NULL,
+    source_issuer character varying(64),
+    destination_currency character varying(40) NOT NULL,
+    destination_issuer character varying(64),
+    destination_amount numeric(30,6) NOT NULL,
+    best_path jsonb NOT NULL,
+    effective_rate numeric(20,10) NOT NULL,
+    total_cost character varying(32) NOT NULL,
+    path_length integer NOT NULL,
+    intermediary_count integer NOT NULL,
+    quality_score numeric(5,2) NOT NULL,
+    searched_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT xrpl_path_searches_check_currency CHECK ((((source_currency)::text <> (destination_currency)::text) OR ((source_issuer)::text <> (destination_issuer)::text)))
+);
+
+
+--
+-- Name: TABLE xrpl_path_searches; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.xrpl_path_searches IS 'XRPL payment path finding search history and analytics';
+
+
+--
+-- Name: COLUMN xrpl_path_searches.best_path; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_path_searches.best_path IS 'JSONB array of path steps';
+
+
+--
+-- Name: COLUMN xrpl_path_searches.quality_score; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.xrpl_path_searches.quality_score IS 'Path quality score 0-100, higher is better';
 
 
 --
@@ -37124,6 +37251,22 @@ ALTER TABLE ONLY public.xrpl_amm_transactions
 
 
 --
+-- Name: xrpl_batch_transactions xrpl_batch_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_batch_transactions
+    ADD CONSTRAINT xrpl_batch_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_batch_transactions xrpl_batch_tx_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_batch_transactions
+    ADD CONSTRAINT xrpl_batch_tx_unique UNIQUE (project_id, batch_hash);
+
+
+--
 -- Name: xrpl_blackholed_accounts xrpl_blackholed_accounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -37356,6 +37499,22 @@ ALTER TABLE ONLY public.xrpl_key_rotation_policies
 
 
 --
+-- Name: xrpl_monitored_transactions xrpl_monitored_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_monitored_transactions
+    ADD CONSTRAINT xrpl_monitored_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: xrpl_monitored_transactions xrpl_monitored_tx_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_monitored_transactions
+    ADD CONSTRAINT xrpl_monitored_tx_unique UNIQUE (project_id, transaction_hash);
+
+
+--
 -- Name: xrpl_multisig_accounts xrpl_multisig_accounts_account_address_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -37465,6 +37624,14 @@ ALTER TABLE ONLY public.xrpl_oracle_updates
 
 ALTER TABLE ONLY public.xrpl_oracle_updates
     ADD CONSTRAINT xrpl_oracle_updates_transaction_hash_key UNIQUE (transaction_hash);
+
+
+--
+-- Name: xrpl_path_searches xrpl_path_searches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_path_searches
+    ADD CONSTRAINT xrpl_path_searches_pkey PRIMARY KEY (id);
 
 
 --
@@ -48506,6 +48673,48 @@ CREATE INDEX idx_xrpl_account_key_config_project ON public.xrpl_account_key_conf
 
 
 --
+-- Name: idx_xrpl_batch_tx_all_succeeded; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_batch_tx_all_succeeded ON public.xrpl_batch_transactions USING btree (all_succeeded);
+
+
+--
+-- Name: idx_xrpl_batch_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_batch_tx_hash ON public.xrpl_batch_transactions USING btree (batch_hash);
+
+
+--
+-- Name: idx_xrpl_batch_tx_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_batch_tx_project ON public.xrpl_batch_transactions USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_batch_tx_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_batch_tx_status ON public.xrpl_batch_transactions USING btree (status);
+
+
+--
+-- Name: idx_xrpl_batch_tx_submitted_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_batch_tx_submitted_at ON public.xrpl_batch_transactions USING btree (submitted_at DESC);
+
+
+--
+-- Name: idx_xrpl_batch_tx_submitter; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_batch_tx_submitter ON public.xrpl_batch_transactions USING btree (submitter_account);
+
+
+--
 -- Name: idx_xrpl_blackholed_accounts_account; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -48912,6 +49121,55 @@ CREATE INDEX idx_xrpl_key_rotation_policies_project ON public.xrpl_key_rotation_
 
 
 --
+-- Name: idx_xrpl_monitored_tx_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_account ON public.xrpl_monitored_transactions USING btree (account_address);
+
+
+--
+-- Name: idx_xrpl_monitored_tx_detected_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_detected_at ON public.xrpl_monitored_transactions USING btree (detected_at DESC);
+
+
+--
+-- Name: idx_xrpl_monitored_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_hash ON public.xrpl_monitored_transactions USING btree (transaction_hash);
+
+
+--
+-- Name: idx_xrpl_monitored_tx_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_project ON public.xrpl_monitored_transactions USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_monitored_tx_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_status ON public.xrpl_monitored_transactions USING btree (status);
+
+
+--
+-- Name: idx_xrpl_monitored_tx_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_type ON public.xrpl_monitored_transactions USING btree (transaction_type);
+
+
+--
+-- Name: idx_xrpl_monitored_tx_validated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_monitored_tx_validated ON public.xrpl_monitored_transactions USING btree (validated);
+
+
+--
 -- Name: idx_xrpl_nft_offers_nft; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -49084,6 +49342,34 @@ CREATE INDEX idx_xrpl_oracles_project ON public.xrpl_price_oracles USING btree (
 --
 
 CREATE INDEX idx_xrpl_oracles_status ON public.xrpl_price_oracles USING btree (status);
+
+
+--
+-- Name: idx_xrpl_path_searches_accounts; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_path_searches_accounts ON public.xrpl_path_searches USING btree (source_account, destination_account);
+
+
+--
+-- Name: idx_xrpl_path_searches_currencies; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_path_searches_currencies ON public.xrpl_path_searches USING btree (source_currency, destination_currency);
+
+
+--
+-- Name: idx_xrpl_path_searches_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_path_searches_project ON public.xrpl_path_searches USING btree (project_id);
+
+
+--
+-- Name: idx_xrpl_path_searches_searched_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xrpl_path_searches_searched_at ON public.xrpl_path_searches USING btree (searched_at DESC);
 
 
 --
@@ -55318,6 +55604,14 @@ ALTER TABLE ONLY public.xrpl_amm_transactions
 
 
 --
+-- Name: xrpl_batch_transactions xrpl_batch_transactions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_batch_transactions
+    ADD CONSTRAINT xrpl_batch_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_blackholed_accounts xrpl_blackholed_accounts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -55478,6 +55772,14 @@ ALTER TABLE ONLY public.xrpl_key_rotation_policies
 
 
 --
+-- Name: xrpl_monitored_transactions xrpl_monitored_transactions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_monitored_transactions
+    ADD CONSTRAINT xrpl_monitored_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: xrpl_multisig_accounts xrpl_multisig_accounts_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -55571,6 +55873,14 @@ ALTER TABLE ONLY public.xrpl_oracle_updates
 
 ALTER TABLE ONLY public.xrpl_oracle_updates
     ADD CONSTRAINT xrpl_oracle_updates_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id);
+
+
+--
+-- Name: xrpl_path_searches xrpl_path_searches_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xrpl_path_searches
+    ADD CONSTRAINT xrpl_path_searches_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
 
 --
@@ -64240,6 +64550,16 @@ GRANT ALL ON TABLE public.xrpl_amm_transactions TO prisma;
 
 
 --
+-- Name: TABLE xrpl_batch_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_batch_transactions TO anon;
+GRANT ALL ON TABLE public.xrpl_batch_transactions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_batch_transactions TO service_role;
+GRANT ALL ON TABLE public.xrpl_batch_transactions TO prisma;
+
+
+--
 -- Name: TABLE xrpl_blackholed_accounts; Type: ACL; Schema: public; Owner: -
 --
 
@@ -64450,6 +64770,16 @@ GRANT ALL ON TABLE public.xrpl_key_rotation_policies TO prisma;
 
 
 --
+-- Name: TABLE xrpl_monitored_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_monitored_transactions TO anon;
+GRANT ALL ON TABLE public.xrpl_monitored_transactions TO authenticated;
+GRANT ALL ON TABLE public.xrpl_monitored_transactions TO service_role;
+GRANT ALL ON TABLE public.xrpl_monitored_transactions TO prisma;
+
+
+--
 -- Name: TABLE xrpl_multisig_accounts; Type: ACL; Schema: public; Owner: -
 --
 
@@ -64537,6 +64867,16 @@ GRANT ALL ON TABLE public.xrpl_oracle_updates TO anon;
 GRANT ALL ON TABLE public.xrpl_oracle_updates TO authenticated;
 GRANT ALL ON TABLE public.xrpl_oracle_updates TO service_role;
 GRANT ALL ON TABLE public.xrpl_oracle_updates TO prisma;
+
+
+--
+-- Name: TABLE xrpl_path_searches; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.xrpl_path_searches TO anon;
+GRANT ALL ON TABLE public.xrpl_path_searches TO authenticated;
+GRANT ALL ON TABLE public.xrpl_path_searches TO service_role;
+GRANT ALL ON TABLE public.xrpl_path_searches TO prisma;
 
 
 --

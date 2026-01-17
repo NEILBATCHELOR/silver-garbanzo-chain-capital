@@ -132,3 +132,12 @@ export * from './identity'
 
 // XRPL Compliance - Phase 15 (Freeze & Deposit Authorization)
 export * from './compliance'
+
+// XRPL Advanced Features - Phase 16 (Delegation, Account Management, Transaction Reliability)
+export * from './advanced'
+
+// XRPL Utilities & Optimization - Phase 17
+export * from './paths'       // Payment Path Finding
+export * from './monitoring'  // WebSocket Monitoring
+export * from './batch'       // Batch Operations
+export * from './utils'       // Currency Normalization & Utilities

@@ -51,7 +51,7 @@ export interface OfferCreateRequest {
   fillOrKill?: boolean;
 }
 
-export interface PathFindRequest {
+export interface RipplePathFindRequest {
   sourceAccount: string;
   destinationAccount: string;
   destinationAmount: RippleAmount;
@@ -269,7 +269,7 @@ export class RippleTokenTransactionBuilder {
   /**
    * Find payment paths for cross-currency payments
    */
-  async findPaymentPaths(request: PathFindRequest): Promise<any[][]> {
+  async findPaymentPaths(request: RipplePathFindRequest): Promise<any[][]> {
     // This would connect to XRPL to find optimal payment paths
     // For now, return empty paths (direct payment)
     return [];

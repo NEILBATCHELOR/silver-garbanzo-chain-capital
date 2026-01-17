@@ -170,7 +170,8 @@ export * from './database';
 // DFNS Services
 export * from './dfns/dfnsService';
 
-// Integration Services - Import only non-conflicting functions from InvestorServices
+// ============================================
+// INTEGRATION SERVICES - Import only non-conflicting functions from InvestorServices
 export {
   fetchInvestors,
   bulkUpdateInvestors as bulkUpdateInvestorsIntegration,
@@ -178,7 +179,17 @@ export {
   bulkCreateInvestors,
   // Note: InvestorGroup functions (getInvestorGroups, createInvestorGroup, etc.) not yet implemented
 } from './integrations/InvestorServices';
-export * from './integrations/cube3Service';
+
+// Export cube3Service with alias for TransactionVerification to avoid conflict with XRPL
+export {
+  cube3Service,
+  type AddressVerification,
+  type ControlListEntry,
+  type ControlList,
+  type RiskLevel,
+  type TransactionVerification as Cube3TransactionVerification  // Alias to avoid conflict
+} from './integrations/cube3Service';
+
 export * from './integrations/identifyService';
 export * from './integrations/onfidoService';
 export * from './integrations/restrictionService';

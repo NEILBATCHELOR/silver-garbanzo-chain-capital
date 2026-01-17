@@ -44,6 +44,7 @@ export interface AMMAuctionSlotProps {
 }
 
 export interface AMMPoolData {
+  id: string // Database record ID
   poolId: string
   ammId: string
   lpTokenCurrency: string

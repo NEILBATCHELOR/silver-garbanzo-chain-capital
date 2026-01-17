@@ -409,6 +409,8 @@ model auth_users {
   user_sidebar_preferences                                                       user_sidebar_preferences[]
   users_users_auth_idTousers                                                     public_users?                      @relation("users_auth_idTousers")
   users                                                                          public_users?
+  xrpl_oracle_updates                                                            xrpl_oracle_updates[]
+  xrpl_price_oracles                                                             xrpl_price_oracles[]
 
   @@index([instance_id])
   @@index([is_anonymous])
@@ -2995,6 +2997,9 @@ model projects {
   invoice_collection_history                  invoice_collection_history[]
   invoice_receivables                         invoice_receivables[]
   issuer_detail_documents                     issuer_detail_documents[]
+  mpt_holders                                 mpt_holders[]
+  mpt_issuances                               mpt_issuances[]
+  mpt_transactions                            mpt_transactions[]
   multi_sig_wallets                           multi_sig_wallets[]
   nav_calculation_runs                        nav_calculation_runs[]
   notification_settings                       notification_settings[]
@@ -3029,6 +3034,43 @@ model projects {
   token_deployment_history                    token_deployment_history[]
   token_templates                             token_templates[]
   tokens                                      tokens[]
+  xrpl_account_configurations                 xrpl_account_configurations[]
+  xrpl_account_freeze_status                  xrpl_account_freeze_status[]
+  xrpl_account_key_config                     xrpl_account_key_config[]
+  xrpl_amm_pools                              xrpl_amm_pools[]
+  xrpl_batch_transactions                     xrpl_batch_transactions[]
+  xrpl_blackholed_accounts                    xrpl_blackholed_accounts[]
+  xrpl_checks                                 xrpl_checks[]
+  xrpl_credential_verifications               xrpl_credential_verifications[]
+  xrpl_credentials                            xrpl_credentials[]
+  xrpl_delegate_permissions                   xrpl_delegate_permissions[]
+  xrpl_deposit_auth_requirements              xrpl_deposit_auth_requirements[]
+  xrpl_deposit_authorizations                 xrpl_deposit_authorizations[]
+  xrpl_dex_orderbook_snapshots                xrpl_dex_orderbook_snapshots[]
+  xrpl_dex_orders                             xrpl_dex_orders[]
+  xrpl_dex_trades                             xrpl_dex_trades[]
+  xrpl_dids                                   xrpl_dids[]
+  xrpl_escrows                                xrpl_escrows[]
+  xrpl_freeze_events                          xrpl_freeze_events[]
+  xrpl_frozen_trust_lines                     xrpl_frozen_trust_lines[]
+  xrpl_key_rotation_history                   xrpl_key_rotation_history[]
+  xrpl_key_rotation_policies                  xrpl_key_rotation_policies[]
+  xrpl_monitored_transactions                 xrpl_monitored_transactions[]
+  xrpl_multisig_accounts                      xrpl_multisig_accounts[]
+  xrpl_nft_offers                             xrpl_nft_offers[]
+  xrpl_nft_transfers                          xrpl_nft_transfers[]
+  xrpl_nfts                                   xrpl_nfts[]
+  xrpl_oracle_price_data                      xrpl_oracle_price_data[]
+  xrpl_oracle_updates                         xrpl_oracle_updates[]
+  xrpl_path_searches                          xrpl_path_searches[]
+  xrpl_payment_channel_claims                 xrpl_payment_channel_claims[]
+  xrpl_payment_channels                       xrpl_payment_channels[]
+  xrpl_price_oracles                          xrpl_price_oracles[]
+  xrpl_transaction_submissions                xrpl_transaction_submissions[]
+  xrpl_transaction_tickets                    xrpl_transaction_tickets[]
+  xrpl_trust_line_holders                     xrpl_trust_line_holders[]
+  xrpl_trust_line_tokens                      xrpl_trust_line_tokens[]
+  xrpl_trust_line_transactions                xrpl_trust_line_transactions[]
 
   @@index([project_type], map: "idx_projects_project_type")
   @@index([created_at], map: "idx_projects_created_at")
@@ -15062,6 +15104,1326 @@ model whitelist_blockchain_sync {
   @@schema("public")
 }
 
+model mpt_holders {
+  id                             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  issuance_id                    String        @db.VarChar(64)
+  holder_address                 String        @db.VarChar(64)
+  balance                        String?       @default("0") @db.VarChar(32)
+  authorized                     Boolean?      @default(false)
+  authorization_transaction_hash String?       @db.VarChar(64)
+  authorized_at                  DateTime?     @db.Timestamptz(6)
+  created_at                     DateTime?     @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime?     @default(now()) @db.Timestamptz(6)
+  project_id                     String?       @db.Uuid
+  mpt_issuances                  mpt_issuances @relation(fields: [issuance_id], references: [issuance_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_holder_issuance")
+  projects                       projects?     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([issuance_id, holder_address], map: "unique_holder_issuance")
+  @@index([holder_address], map: "idx_mpt_holders_address")
+  @@index([authorized], map: "idx_mpt_holders_authorized")
+  @@index([issuance_id], map: "idx_mpt_holders_issuance")
+  @@index([project_id], map: "idx_mpt_holders_project_id")
+  @@schema("public")
+}
+
+model mpt_issuances {
+  id                        String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?            @db.Uuid
+  issuance_id               String             @unique @db.VarChar(64)
+  issuer_address            String             @db.VarChar(64)
+  asset_scale               Int
+  maximum_amount            String?            @db.VarChar(32)
+  transfer_fee              Int?
+  outstanding_amount        String?            @default("0") @db.VarChar(32)
+  ticker                    String             @db.VarChar(10)
+  name                      String             @db.VarChar(100)
+  description               String?
+  icon_url                  String?
+  asset_class               String?            @db.VarChar(50)
+  asset_subclass            String?            @db.VarChar(50)
+  issuer_name               String?            @db.VarChar(255)
+  metadata_json             Json?
+  can_transfer              Boolean?           @default(true)
+  can_trade                 Boolean?           @default(false)
+  can_lock                  Boolean?           @default(false)
+  can_clawback              Boolean?           @default(false)
+  require_auth              Boolean?           @default(false)
+  flags                     Int?
+  status                    String?            @default("active") @db.VarChar(20)
+  destroyed_at              DateTime?          @db.Timestamptz(6)
+  creation_transaction_hash String             @db.VarChar(64)
+  created_at                DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime?          @default(now()) @db.Timestamptz(6)
+  mpt_holders               mpt_holders[]
+  projects                  projects?          @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  mpt_transactions          mpt_transactions[]
+
+  @@index([created_at(sort: Desc)], map: "idx_mpt_issuances_created")
+  @@index([issuer_address], map: "idx_mpt_issuances_issuer")
+  @@index([project_id], map: "idx_mpt_issuances_project")
+  @@index([status], map: "idx_mpt_issuances_status")
+  @@index([ticker], map: "idx_mpt_issuances_ticker")
+  @@schema("public")
+}
+
+model mpt_transactions {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  issuance_id      String        @db.VarChar(64)
+  transaction_type String        @db.VarChar(20)
+  from_address     String        @db.VarChar(64)
+  to_address       String        @db.VarChar(64)
+  amount           String        @db.VarChar(32)
+  transaction_hash String        @unique @db.VarChar(64)
+  ledger_index     Int?
+  status           String?       @default("confirmed") @db.VarChar(20)
+  created_at       DateTime?     @default(now()) @db.Timestamptz(6)
+  project_id       String?       @db.Uuid
+  mpt_issuances    mpt_issuances @relation(fields: [issuance_id], references: [issuance_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_transaction_issuance")
+  projects         projects?     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_mpt_transactions_created")
+  @@index([from_address], map: "idx_mpt_transactions_from")
+  @@index([issuance_id], map: "idx_mpt_transactions_issuance")
+  @@index([project_id], map: "idx_mpt_transactions_project_id")
+  @@index([to_address], map: "idx_mpt_transactions_to")
+  @@index([transaction_type], map: "idx_mpt_transactions_type")
+  @@schema("public")
+}
+
+model xrpl_account_config_history {
+  id                          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  account_config_id           String?                      @db.Uuid
+  change_type                 String                       @db.VarChar(50)
+  field_changed               String                       @db.VarChar(50)
+  old_value                   String?
+  new_value                   String?
+  transaction_hash            String                       @db.VarChar(64)
+  ledger_index                Int?
+  changed_by                  String?                      @db.VarChar(64)
+  changed_at                  DateTime?                    @default(now()) @db.Timestamptz(6)
+  xrpl_account_configurations xrpl_account_configurations? @relation(fields: [account_config_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([account_config_id], map: "idx_xrpl_account_config_history_account")
+  @@index([changed_at(sort: Desc)], map: "idx_xrpl_account_config_history_timestamp")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model xrpl_account_configurations {
+  id                              String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                      String?                       @db.Uuid
+  account_address                 String                        @db.VarChar(64)
+  require_destination_tag         Boolean?                      @default(false)
+  require_authorization           Boolean?                      @default(false)
+  disallow_incoming_xrp           Boolean?                      @default(false)
+  disable_master_key              Boolean?                      @default(false)
+  account_txn_id                  Boolean?                      @default(false)
+  no_freeze                       Boolean?                      @default(false)
+  global_freeze                   Boolean?                      @default(false)
+  default_ripple                  Boolean?                      @default(false)
+  deposit_auth                    Boolean?                      @default(false)
+  authorized_nftoken_minter       Boolean?                      @default(false)
+  disallow_incoming_nftoken_offer Boolean?                      @default(false)
+  disallow_incoming_check         Boolean?                      @default(false)
+  disallow_incoming_pay_chan      Boolean?                      @default(false)
+  disallow_incoming_trustline     Boolean?                      @default(false)
+  allow_trustline_clawback        Boolean?                      @default(false)
+  domain                          String?                       @db.VarChar(255)
+  email_hash                      String?                       @db.VarChar(32)
+  message_key                     String?                       @db.VarChar(66)
+  tick_size                       Int?
+  transfer_rate                   BigInt?
+  signer_quorum                   Int?                          @default(0)
+  signer_list                     Json?                         @default("[]")
+  last_updated_transaction_hash   String?                       @db.VarChar(64)
+  created_at                      DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime?                     @default(now()) @db.Timestamptz(6)
+  xrpl_account_config_history     xrpl_account_config_history[]
+  projects                        projects?                     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, account_address], map: "unique_account_config_phase16")
+  @@index([account_address], map: "idx_xrpl_account_config_account")
+  @@index([project_id], map: "idx_xrpl_account_config_project")
+  @@index([updated_at(sort: Desc)], map: "idx_xrpl_account_config_updated")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_account_freeze_status {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                 String?   @db.Uuid
+  account_address            String    @unique @db.VarChar(64)
+  global_freeze_enabled      Boolean?  @default(false)
+  no_freeze_enabled          Boolean?  @default(false)
+  global_freeze_set_at       DateTime? @db.Timestamptz(6)
+  global_freeze_set_hash     String?   @db.VarChar(64)
+  global_freeze_cleared_at   DateTime? @db.Timestamptz(6)
+  global_freeze_cleared_hash String?   @db.VarChar(64)
+  no_freeze_set_at           DateTime? @db.Timestamptz(6)
+  no_freeze_set_hash         String?   @db.VarChar(64)
+  updated_at                 DateTime? @default(now()) @db.Timestamptz(6)
+  projects                   projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([global_freeze_enabled], map: "idx_xrpl_account_freeze_status_global")
+  @@index([project_id], map: "idx_xrpl_account_freeze_status_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_account_key_config {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id          String?   @db.Uuid
+  account_address     String    @db.VarChar(64)
+  has_regular_key     Boolean?  @default(false)
+  current_regular_key String?   @db.VarChar(64)
+  master_key_disabled Boolean?  @default(false)
+  last_verified       DateTime? @default(now()) @db.Timestamptz(6)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  projects            projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, account_address], map: "unique_account_config")
+  @@index([account_address], map: "idx_xrpl_account_key_config_account")
+  @@index([project_id], map: "idx_xrpl_account_key_config_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_amm_fees_collected {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pool_id         String?         @db.Uuid
+  asset1_fees     Decimal         @db.Decimal(30, 6)
+  asset2_fees     Decimal         @db.Decimal(30, 6)
+  collection_date DateTime        @db.Date
+  ledger_index    Int?
+  created_at      DateTime?       @default(now()) @db.Timestamptz(6)
+  xrpl_amm_pools  xrpl_amm_pools? @relation(fields: [pool_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([pool_id, collection_date], map: "unique_pool_date")
+  @@index([pool_id, collection_date], map: "idx_amm_fees_pool_date")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_amm_liquidity_positions {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pool_id            String?         @db.Uuid
+  user_address       String          @db.VarChar(64)
+  lp_token_balance   Decimal         @db.Decimal(30, 6)
+  share_percentage   Decimal         @db.Decimal(10, 6)
+  asset1_value       Decimal?        @db.Decimal(30, 6)
+  asset2_value       Decimal?        @db.Decimal(30, 6)
+  total_value_usd    Decimal?        @db.Decimal(30, 2)
+  fees_earned_asset1 Decimal?        @default(0) @db.Decimal(30, 6)
+  fees_earned_asset2 Decimal?        @default(0) @db.Decimal(30, 6)
+  impermanent_loss   Decimal?        @db.Decimal(30, 6)
+  created_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?       @default(now()) @db.Timestamptz(6)
+  xrpl_amm_pools     xrpl_amm_pools? @relation(fields: [pool_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([pool_id, user_address], map: "unique_pool_user")
+  @@index([pool_id], map: "idx_amm_positions_pool")
+  @@index([user_address], map: "idx_amm_positions_user")
+  @@index([user_address, pool_id], map: "idx_xrpl_amm_liquidity_user")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_amm_pools {
+  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                   String?                        @db.Uuid
+  amm_id                       String                         @unique @db.VarChar(64)
+  lp_token_currency            String                         @db.VarChar(40)
+  asset1_currency              String                         @db.VarChar(40)
+  asset1_issuer                String?                        @db.VarChar(64)
+  asset1_balance               Decimal                        @db.Decimal(30, 6)
+  asset2_currency              String                         @db.VarChar(40)
+  asset2_issuer                String?                        @db.VarChar(64)
+  asset2_balance               Decimal                        @db.Decimal(30, 6)
+  lp_token_supply              Decimal                        @db.Decimal(30, 6)
+  trading_fee                  Int
+  auction_slot_holder          String?                        @db.VarChar(64)
+  auction_slot_price           String?                        @db.VarChar(32)
+  auction_slot_expiration      DateTime?                      @db.Timestamptz(6)
+  status                       String?                        @default("active") @db.VarChar(20)
+  creation_transaction_hash    String                         @db.VarChar(64)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  xrpl_amm_fees_collected      xrpl_amm_fees_collected[]
+  xrpl_amm_liquidity_positions xrpl_amm_liquidity_positions[]
+  projects                     projects?                      @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  xrpl_amm_price_history       xrpl_amm_price_history[]
+  xrpl_amm_transactions        xrpl_amm_transactions[]
+
+  @@index([asset1_currency, asset2_currency], map: "idx_amm_pools_assets")
+  @@index([project_id], map: "idx_amm_pools_project")
+  @@index([status], map: "idx_amm_pools_status")
+  @@index([asset1_currency, asset2_currency], map: "idx_xrpl_amm_pools_assets")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_amm_price_history {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pool_id        String?         @db.Uuid
+  price          Decimal         @db.Decimal(30, 10)
+  inverse_price  Decimal         @db.Decimal(30, 10)
+  asset1_balance Decimal         @db.Decimal(30, 6)
+  asset2_balance Decimal         @db.Decimal(30, 6)
+  timestamp      DateTime?       @default(now()) @db.Timestamptz(6)
+  ledger_index   Int?
+  xrpl_amm_pools xrpl_amm_pools? @relation(fields: [pool_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([pool_id, timestamp(sort: Desc)], map: "idx_amm_price_history_pool_time")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_amm_transactions {
+  id               String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pool_id          String?         @db.Uuid
+  transaction_type String          @db.VarChar(20)
+  user_address     String          @db.VarChar(64)
+  asset1_amount    Decimal?        @db.Decimal(30, 6)
+  asset2_amount    Decimal?        @db.Decimal(30, 6)
+  lp_token_amount  Decimal?        @db.Decimal(30, 6)
+  transaction_hash String          @unique @db.VarChar(64)
+  ledger_index     Int?
+  timestamp        DateTime?       @default(now()) @db.Timestamptz(6)
+  metadata         Json?
+  xrpl_amm_pools   xrpl_amm_pools? @relation(fields: [pool_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([transaction_hash], map: "idx_amm_transactions_hash")
+  @@index([pool_id], map: "idx_amm_transactions_pool")
+  @@index([transaction_type], map: "idx_amm_transactions_type")
+  @@index([user_address], map: "idx_amm_transactions_user")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_batch_transactions {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id               String?   @db.Uuid
+  submitter_account        String    @db.VarChar(64)
+  batch_hash               String    @db.VarChar(64)
+  inner_transaction_count  Int
+  all_or_nothing           Boolean   @default(true)
+  status                   String    @db.VarChar(20)
+  all_succeeded            Boolean
+  failed_count             Int       @default(0)
+  inner_transaction_hashes String[]
+  ledger_index             Int?
+  submitted_at             DateTime  @db.Timestamptz(6)
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+  projects                 projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, batch_hash], map: "xrpl_batch_tx_unique")
+  @@index([all_succeeded], map: "idx_xrpl_batch_tx_all_succeeded")
+  @@index([batch_hash], map: "idx_xrpl_batch_tx_hash")
+  @@index([project_id], map: "idx_xrpl_batch_tx_project")
+  @@index([status], map: "idx_xrpl_batch_tx_status")
+  @@index([submitted_at(sort: Desc)], map: "idx_xrpl_batch_tx_submitted_at")
+  @@index([submitter_account], map: "idx_xrpl_batch_tx_submitter")
+  @@schema("public")
+}
+
+model xrpl_blackholed_accounts {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?   @db.Uuid
+  account_address           String    @db.VarChar(64)
+  blackhole_address         String    @default("rrrrrrrrrrrrrrrrrrrrBZbvji") @db.VarChar(64)
+  set_regular_key_hash      String    @db.VarChar(64)
+  disable_master_key_hash   String    @db.VarChar(64)
+  is_blackholed             Boolean?  @default(true)
+  verification_ledger_index Int?
+  reason                    String?
+  blackholed_at             DateTime? @default(now()) @db.Timestamptz(6)
+  projects                  projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, account_address], map: "unique_blackholed_account_phase16")
+  @@index([account_address], map: "idx_xrpl_blackholed_accounts_account")
+  @@index([project_id], map: "idx_xrpl_blackholed_accounts_project")
+  @@schema("public")
+}
+
+model xrpl_checks {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  check_id                  String    @unique @db.VarChar(64)
+  project_id                String?   @db.Uuid
+  sender_address            String    @db.VarChar(64)
+  destination_address       String    @db.VarChar(64)
+  send_max                  String    @db.VarChar(32)
+  currency_code             String?   @db.VarChar(3)
+  issuer_address            String?   @db.VarChar(64)
+  destination_tag           Int?
+  expiration                DateTime? @db.Timestamptz(6)
+  invoice_id                String?   @db.VarChar(64)
+  status                    String?   @default("active") @db.VarChar(20)
+  cashed_at                 DateTime? @db.Timestamptz(6)
+  canceled_at               DateTime? @db.Timestamptz(6)
+  cashed_amount             String?   @db.VarChar(32)
+  creation_transaction_hash String    @unique @db.VarChar(64)
+  cash_transaction_hash     String?   @db.VarChar(64)
+  cancel_transaction_hash   String?   @db.VarChar(64)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+  projects                  projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_check_project")
+
+  @@index([destination_address], map: "idx_checks_destination")
+  @@index([project_id], map: "idx_checks_project")
+  @@index([sender_address], map: "idx_checks_sender")
+  @@index([status], map: "idx_checks_status")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_credential_verifications {
+  id                  String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  credential_id       String           @db.VarChar(64)
+  verifier_address    String           @db.VarChar(64)
+  verification_type   String           @db.VarChar(50)
+  verification_result String           @db.VarChar(20)
+  is_valid            Boolean
+  is_expired          Boolean
+  confidence_score    Decimal?         @db.Decimal(3, 2)
+  verification_method String?          @db.VarChar(100)
+  verification_notes  String?
+  verified_at         DateTime?        @default(now()) @db.Timestamptz(6)
+  metadata            Json?
+  project_id          String?          @db.Uuid
+  xrpl_credentials    xrpl_credentials @relation(fields: [credential_id], references: [credential_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_credential")
+  projects            projects?        @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([credential_id], map: "idx_xrpl_credential_verifications_credential")
+  @@index([project_id], map: "idx_xrpl_credential_verifications_project_id")
+  @@index([verified_at], map: "idx_xrpl_credential_verifications_verified_at")
+  @@index([verifier_address], map: "idx_xrpl_credential_verifications_verifier")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_credentials {
+  id                            String                          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  credential_id                 String                          @unique @db.VarChar(64)
+  project_id                    String?                         @db.Uuid
+  issuer_address                String                          @db.VarChar(64)
+  subject_address               String                          @db.VarChar(64)
+  credential_type               String                          @db.VarChar(255)
+  data_json                     Json
+  data_hash                     String?                         @db.VarChar(64)
+  status                        String?                         @default("active") @db.VarChar(20)
+  is_accepted                   Boolean?                        @default(false)
+  expiration                    DateTime?                       @db.Timestamptz(6)
+  issue_transaction_hash        String                          @db.VarChar(64)
+  accept_transaction_hash       String?                         @db.VarChar(64)
+  delete_transaction_hash       String?                         @db.VarChar(64)
+  issued_at                     DateTime?                       @default(now()) @db.Timestamptz(6)
+  accepted_at                   DateTime?                       @db.Timestamptz(6)
+  deleted_at                    DateTime?                       @db.Timestamptz(6)
+  created_at                    DateTime?                       @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime?                       @default(now()) @db.Timestamptz(6)
+  metadata                      Json?
+  xrpl_credential_verifications xrpl_credential_verifications[]
+  projects                      projects?                       @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_project")
+
+  @@index([data_json], map: "idx_xrpl_credentials_data_json", type: Gin)
+  @@index([expiration], map: "idx_xrpl_credentials_expiration")
+  @@index([issued_at], map: "idx_xrpl_credentials_issued_at")
+  @@index([issuer_address], map: "idx_xrpl_credentials_issuer")
+  @@index([metadata], map: "idx_xrpl_credentials_metadata", type: Gin)
+  @@index([project_id], map: "idx_xrpl_credentials_project")
+  @@index([status], map: "idx_xrpl_credentials_status")
+  @@index([subject_address], map: "idx_xrpl_credentials_subject")
+  @@index([credential_type], map: "idx_xrpl_credentials_type")
+  @@schema("public")
+}
+
+model xrpl_delegate_permissions {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                  String?                       @db.Uuid
+  delegator_address           String                        @db.VarChar(64)
+  delegate_address            String                        @db.VarChar(64)
+  permissions                 Json                          @default("[]")
+  status                      String?                       @default("active") @db.VarChar(20)
+  setup_transaction_hash      String                        @db.VarChar(64)
+  revocation_transaction_hash String?                       @db.VarChar(64)
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  revoked_at                  DateTime?                     @db.Timestamptz(6)
+  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  projects                    projects?                     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  xrpl_delegate_usage_history xrpl_delegate_usage_history[]
+
+  @@unique([project_id, delegator_address, delegate_address], map: "unique_delegation_phase16")
+  @@index([delegate_address], map: "idx_xrpl_delegate_permissions_delegate")
+  @@index([delegator_address], map: "idx_xrpl_delegate_permissions_delegator")
+  @@index([project_id], map: "idx_xrpl_delegate_permissions_project")
+  @@index([status], map: "idx_xrpl_delegate_permissions_status")
+  @@schema("public")
+}
+
+model xrpl_delegate_usage_history {
+  id                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  delegate_permission_id    String?                    @db.Uuid
+  transaction_type          String                     @db.VarChar(50)
+  transaction_hash          String                     @unique @db.VarChar(64)
+  permission_used           String                     @db.VarChar(50)
+  result                    String                     @db.VarChar(20)
+  error_message             String?
+  ledger_index              Int?
+  timestamp                 DateTime?                  @default(now()) @db.Timestamptz(6)
+  xrpl_delegate_permissions xrpl_delegate_permissions? @relation(fields: [delegate_permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([delegate_permission_id], map: "idx_xrpl_delegate_usage_permission")
+  @@index([timestamp(sort: Desc)], map: "idx_xrpl_delegate_usage_timestamp")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_deposit_auth_requirements {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?   @db.Uuid
+  account_address           String    @unique @db.VarChar(64)
+  deposit_auth_enabled      Boolean?  @default(false)
+  require_authorization     Boolean?  @default(false)
+  require_destination_tag   Boolean?  @default(false)
+  enabled_at                DateTime? @db.Timestamptz(6)
+  enabled_transaction_hash  String?   @db.VarChar(64)
+  disabled_at               DateTime? @db.Timestamptz(6)
+  disabled_transaction_hash String?   @db.VarChar(64)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+  projects                  projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([deposit_auth_enabled], map: "idx_xrpl_deposit_auth_requirements_enabled")
+  @@index([project_id], map: "idx_xrpl_deposit_auth_requirements_project")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model xrpl_deposit_authorization_history {
+  id                          String                       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorization_id            String?                      @db.Uuid
+  action                      String                       @db.VarChar(20)
+  transaction_hash            String                       @db.VarChar(64)
+  performed_at                DateTime?                    @default(now()) @db.Timestamptz(6)
+  performed_by                String?                      @db.VarChar(255)
+  notes                       String?
+  xrpl_deposit_authorizations xrpl_deposit_authorizations? @relation(fields: [authorization_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_deposit_authorizations {
+  id                                 String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                         String?                              @db.Uuid
+  account_address                    String                               @db.VarChar(64)
+  authorized_address                 String                               @db.VarChar(64)
+  authorization_type                 String?                              @default("address") @db.VarChar(20)
+  credential_issuer                  String?                              @db.VarChar(64)
+  credential_type                    String?                              @db.VarChar(100)
+  is_active                          Boolean?                             @default(true)
+  authorized_at                      DateTime?                            @default(now()) @db.Timestamptz(6)
+  authorization_transaction_hash     String                               @db.VarChar(64)
+  revoked_at                         DateTime?                            @db.Timestamptz(6)
+  revocation_transaction_hash        String?                              @db.VarChar(64)
+  authorized_by                      String?                              @db.VarChar(255)
+  revoked_by                         String?                              @db.VarChar(255)
+  notes                              String?
+  metadata                           Json?
+  xrpl_deposit_authorization_history xrpl_deposit_authorization_history[]
+  projects                           projects?                            @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([account_address, authorized_address], map: "unique_deposit_authorization")
+  @@index([account_address], map: "idx_xrpl_deposit_authorizations_account")
+  @@index([is_active], map: "idx_xrpl_deposit_authorizations_active")
+  @@index([authorized_address], map: "idx_xrpl_deposit_authorizations_authorized")
+  @@index([project_id], map: "idx_xrpl_deposit_authorizations_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_dex_orderbook_snapshots {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id     String?   @db.Uuid
+  base_currency  String    @db.VarChar(40)
+  base_issuer    String?   @db.VarChar(64)
+  quote_currency String    @db.VarChar(40)
+  quote_issuer   String?   @db.VarChar(64)
+  bids           Json
+  asks           Json
+  snapshot_at    DateTime? @default(now()) @db.Timestamptz(6)
+  ledger_index   Int?
+  projects       projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([base_currency, quote_currency], map: "idx_xrpl_dex_snapshots_pair")
+  @@index([project_id], map: "idx_xrpl_dex_snapshots_project")
+  @@index([snapshot_at(sort: Desc)], map: "idx_xrpl_dex_snapshots_time")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_dex_orders {
+  id                            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                    String?   @db.Uuid
+  account_address               String    @db.VarChar(64)
+  order_sequence                Int
+  order_type                    String    @db.VarChar(10)
+  base_currency                 String    @db.VarChar(40)
+  base_issuer                   String?   @db.VarChar(64)
+  quote_currency                String    @db.VarChar(40)
+  quote_issuer                  String?   @db.VarChar(64)
+  taker_gets_amount             Decimal   @db.Decimal(30, 6)
+  taker_pays_amount             Decimal   @db.Decimal(30, 6)
+  price                         Decimal   @db.Decimal(30, 10)
+  status                        String?   @default("active") @db.VarChar(20)
+  filled_amount                 Decimal?  @default(0) @db.Decimal(30, 6)
+  remaining_amount              Decimal?  @db.Decimal(30, 6)
+  expiration                    DateTime? @db.Timestamptz(6)
+  creation_transaction_hash     String    @db.VarChar(64)
+  cancellation_transaction_hash String?   @db.VarChar(64)
+  created_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                    DateTime? @default(now()) @db.Timestamptz(6)
+  cancelled_at                  DateTime? @db.Timestamptz(6)
+  projects                      projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([account_address, order_sequence], map: "unique_order")
+  @@index([account_address], map: "idx_xrpl_dex_orders_account")
+  @@index([base_currency, quote_currency], map: "idx_xrpl_dex_orders_pair")
+  @@index([project_id], map: "idx_xrpl_dex_orders_project")
+  @@index([status], map: "idx_xrpl_dex_orders_status")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_dex_trades {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id       String?   @db.Uuid
+  maker_address    String    @db.VarChar(64)
+  taker_address    String    @db.VarChar(64)
+  base_currency    String    @db.VarChar(40)
+  base_issuer      String?   @db.VarChar(64)
+  quote_currency   String    @db.VarChar(40)
+  quote_issuer     String?   @db.VarChar(64)
+  base_amount      Decimal   @db.Decimal(30, 6)
+  quote_amount     Decimal   @db.Decimal(30, 6)
+  price            Decimal   @db.Decimal(30, 10)
+  transaction_hash String    @unique @db.VarChar(64)
+  ledger_index     Int?
+  executed_at      DateTime? @default(now()) @db.Timestamptz(6)
+  projects         projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([maker_address], map: "idx_xrpl_dex_trades_maker")
+  @@index([base_currency, quote_currency], map: "idx_xrpl_dex_trades_pair")
+  @@index([project_id], map: "idx_xrpl_dex_trades_project")
+  @@index([taker_address], map: "idx_xrpl_dex_trades_taker")
+  @@index([executed_at(sort: Desc)], map: "idx_xrpl_dex_trades_time")
+  @@index([executed_at(sort: Desc)], map: "idx_xrpl_dex_trades_timestamp")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model xrpl_did_update_history {
+  id               String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  did_id           String?    @db.Uuid
+  update_type      String     @db.VarChar(20)
+  old_document     Json?
+  new_document     Json?
+  transaction_hash String     @db.VarChar(64)
+  updated_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  xrpl_dids        xrpl_dids? @relation(fields: [did_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@schema("public")
+}
+
+model xrpl_did_verifications {
+  id                String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  did_id            String?    @db.Uuid
+  verifier_address  String     @db.VarChar(64)
+  verification_type String     @db.VarChar(50)
+  is_valid          Boolean
+  verification_data Json?
+  verified_at       DateTime?  @default(now()) @db.Timestamptz(6)
+  xrpl_dids         xrpl_dids? @relation(fields: [did_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([did_id], map: "idx_xrpl_did_verifications_did")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_dids {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?                   @db.Uuid
+  did                       String                    @unique @db.VarChar(255)
+  account_address           String                    @unique @db.VarChar(64)
+  did_document              Json
+  uri                       String?
+  data                      String?
+  status                    String?                   @default("active") @db.VarChar(20)
+  creation_transaction_hash String                    @db.VarChar(64)
+  deletion_transaction_hash String?                   @db.VarChar(64)
+  created_at                DateTime?                 @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime?                 @default(now()) @db.Timestamptz(6)
+  deleted_at                DateTime?                 @db.Timestamptz(6)
+  metadata                  Json?
+  xrpl_did_update_history   xrpl_did_update_history[]
+  xrpl_did_verifications    xrpl_did_verifications[]
+  projects                  projects?                 @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([account_address], map: "idx_xrpl_dids_account")
+  @@index([project_id], map: "idx_xrpl_dids_project")
+  @@index([status], map: "idx_xrpl_dids_status")
+  @@schema("public")
+}
+
+model xrpl_escrows {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?   @db.Uuid
+  owner_address             String    @db.VarChar(64)
+  destination_address       String    @db.VarChar(64)
+  amount                    String    @db.VarChar(32)
+  sequence                  Int
+  condition                 String?   @db.VarChar(256)
+  fulfillment               String?   @db.VarChar(256)
+  finish_after              DateTime? @db.Timestamptz(6)
+  cancel_after              DateTime? @db.Timestamptz(6)
+  destination_tag           Int?
+  status                    String?   @default("active") @db.VarChar(20)
+  finished_at               DateTime? @db.Timestamptz(6)
+  canceled_at               DateTime? @db.Timestamptz(6)
+  creation_transaction_hash String    @unique @db.VarChar(64)
+  finish_transaction_hash   String?   @db.VarChar(64)
+  cancel_transaction_hash   String?   @db.VarChar(64)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime? @default(now()) @db.Timestamptz(6)
+  projects                  projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_escrow_project")
+
+  @@unique([owner_address, sequence], map: "unique_escrow_sequence")
+  @@index([destination_address], map: "idx_escrows_destination")
+  @@index([owner_address], map: "idx_escrows_owner")
+  @@index([project_id], map: "idx_escrows_project")
+  @@index([status], map: "idx_escrows_status")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_freeze_events {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id       String?   @db.Uuid
+  issuer_address   String    @db.VarChar(64)
+  freeze_type      String    @db.VarChar(20)
+  holder_address   String?   @db.VarChar(64)
+  currency         String?   @db.VarChar(40)
+  action           String    @db.VarChar(10)
+  reason           String?
+  notes            String?
+  transaction_hash String    @db.VarChar(64)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  metadata         Json?
+  projects         projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([holder_address], map: "idx_xrpl_freeze_events_holder")
+  @@index([issuer_address], map: "idx_xrpl_freeze_events_issuer")
+  @@index([project_id], map: "idx_xrpl_freeze_events_project")
+  @@index([freeze_type], map: "idx_xrpl_freeze_events_type")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_frozen_trust_lines {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?   @db.Uuid
+  issuer_address            String    @db.VarChar(64)
+  holder_address            String    @db.VarChar(64)
+  currency                  String    @db.VarChar(40)
+  is_frozen                 Boolean   @default(true)
+  freeze_reason             String?
+  frozen_at                 DateTime? @default(now()) @db.Timestamptz(6)
+  frozen_transaction_hash   String    @db.VarChar(64)
+  unfrozen_at               DateTime? @db.Timestamptz(6)
+  unfrozen_transaction_hash String?   @db.VarChar(64)
+  frozen_by                 String?   @db.VarChar(255)
+  unfrozen_by               String?   @db.VarChar(255)
+  projects                  projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([issuer_address, holder_address, currency], map: "unique_frozen_trust_line")
+  @@index([is_frozen], map: "idx_xrpl_frozen_trust_lines_frozen")
+  @@index([holder_address], map: "idx_xrpl_frozen_trust_lines_holder")
+  @@index([issuer_address], map: "idx_xrpl_frozen_trust_lines_issuer")
+  @@index([project_id], map: "idx_xrpl_frozen_trust_lines_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_key_rotation_history {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id          String?   @db.Uuid
+  account_address     String    @db.VarChar(64)
+  rotation_type       String    @db.VarChar(20)
+  old_regular_key     String?   @db.VarChar(64)
+  new_regular_key     String?   @db.VarChar(64)
+  master_key_disabled Boolean?  @default(false)
+  transaction_hash    String    @db.VarChar(64)
+  ledger_index        Int?
+  rotated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  notes               String?
+  rotation_reason     String?   @db.VarChar(100)
+  projects            projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([account_address], map: "idx_xrpl_key_rotation_history_account")
+  @@index([project_id], map: "idx_xrpl_key_rotation_history_project")
+  @@index([rotated_at(sort: Desc)], map: "idx_xrpl_key_rotation_history_time")
+  @@index([rotation_type], map: "idx_xrpl_key_rotation_history_type")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_key_rotation_policies {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id               String?   @db.Uuid
+  account_address          String    @db.VarChar(64)
+  rotation_interval_days   Int       @default(90)
+  last_rotation            DateTime? @db.Timestamptz(6)
+  next_rotation_due        DateTime? @db.Timestamptz(6)
+  auto_rotation_enabled    Boolean?  @default(false)
+  notification_days_before Int?      @default(7)
+  notification_sent        Boolean?  @default(false)
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime? @default(now()) @db.Timestamptz(6)
+  projects                 projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, account_address], map: "unique_policy_per_account")
+  @@index([account_address], map: "idx_xrpl_key_rotation_policies_account")
+  @@index([project_id], map: "idx_xrpl_key_rotation_policies_project")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_monitored_transactions {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id          String?   @db.Uuid
+  account_address     String    @db.VarChar(64)
+  transaction_hash    String    @db.VarChar(64)
+  transaction_type    String    @db.VarChar(50)
+  destination_address String?   @db.VarChar(64)
+  amount              String?   @db.VarChar(32)
+  currency            String?   @db.VarChar(40)
+  status              String    @db.VarChar(20)
+  validated           Boolean   @default(false)
+  ledger_index        Int?
+  transaction_data    Json?
+  metadata            Json?
+  detected_at         DateTime  @db.Timestamptz(6)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  projects            projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, transaction_hash], map: "xrpl_monitored_tx_unique")
+  @@index([account_address], map: "idx_xrpl_monitored_tx_account")
+  @@index([detected_at(sort: Desc)], map: "idx_xrpl_monitored_tx_detected_at")
+  @@index([transaction_hash], map: "idx_xrpl_monitored_tx_hash")
+  @@index([project_id], map: "idx_xrpl_monitored_tx_project")
+  @@index([status], map: "idx_xrpl_monitored_tx_status")
+  @@index([transaction_type], map: "idx_xrpl_monitored_tx_type")
+  @@index([validated], map: "idx_xrpl_monitored_tx_validated")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_multisig_accounts {
+  id                                 String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                         String?                              @db.Uuid
+  account_address                    String                               @unique @db.VarChar(64)
+  signer_quorum                      Int
+  setup_transaction_hash             String?                              @db.VarChar(64)
+  status                             String?                              @default("active") @db.VarChar(20)
+  created_at                         DateTime?                            @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime?                            @default(now()) @db.Timestamptz(6)
+  projects                           projects?                            @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  xrpl_multisig_pending_transactions xrpl_multisig_pending_transactions[]
+  xrpl_multisig_signers              xrpl_multisig_signers[]
+
+  @@index([account_address], map: "idx_multisig_accounts_address")
+  @@index([project_id], map: "idx_multisig_accounts_project")
+  @@index([status], map: "idx_multisig_accounts_status")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_multisig_pending_transactions {
+  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  multisig_account_id      String?                    @db.Uuid
+  transaction_blob         String
+  transaction_type         String                     @db.VarChar(50)
+  required_weight          Int
+  current_weight           Int?                       @default(0)
+  status                   String?                    @default("pending") @db.VarChar(20)
+  transaction_hash         String?                    @db.VarChar(64)
+  expires_at               DateTime?                  @db.Timestamptz(6)
+  created_at               DateTime?                  @default(now()) @db.Timestamptz(6)
+  submitted_at             DateTime?                  @db.Timestamptz(6)
+  xrpl_multisig_accounts   xrpl_multisig_accounts?    @relation(fields: [multisig_account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  xrpl_multisig_signatures xrpl_multisig_signatures[]
+
+  @@index([multisig_account_id], map: "idx_multisig_pending_account")
+  @@index([transaction_hash], map: "idx_multisig_pending_hash")
+  @@index([status], map: "idx_multisig_pending_status")
+  @@index([status, created_at(sort: Desc)], map: "idx_xrpl_multisig_pending_status")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_multisig_signatures {
+  id                                 String                              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  pending_transaction_id             String?                             @db.Uuid
+  signer_address                     String                              @db.VarChar(64)
+  signature                          String
+  public_key                         String
+  signed_at                          DateTime?                           @default(now()) @db.Timestamptz(6)
+  xrpl_multisig_pending_transactions xrpl_multisig_pending_transactions? @relation(fields: [pending_transaction_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([pending_transaction_id, signer_address], map: "unique_transaction_signer")
+  @@index([pending_transaction_id], map: "idx_multisig_signatures_pending")
+  @@index([signer_address], map: "idx_multisig_signatures_signer")
+  @@index([pending_transaction_id], map: "idx_xrpl_multisig_signatures_tx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_multisig_signers {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  multisig_account_id    String?                 @db.Uuid
+  signer_address         String                  @db.VarChar(64)
+  signer_weight          Int
+  added_at               DateTime?               @default(now()) @db.Timestamptz(6)
+  xrpl_multisig_accounts xrpl_multisig_accounts? @relation(fields: [multisig_account_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([multisig_account_id, signer_address], map: "unique_account_signer")
+  @@index([multisig_account_id], map: "idx_multisig_signers_account")
+  @@index([signer_address], map: "idx_multisig_signers_address")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_nft_offers {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  offer_index         String    @unique @db.VarChar(64)
+  nft_id              String    @db.VarChar(64)
+  offer_type          String    @db.VarChar(10)
+  owner_address       String    @db.VarChar(64)
+  amount              String    @db.VarChar(32)
+  currency_code       String?   @db.VarChar(3)
+  issuer_address      String?   @db.VarChar(64)
+  destination_address String?   @db.VarChar(64)
+  expiration          DateTime? @db.Timestamptz(6)
+  status              String?   @default("active") @db.VarChar(20)
+  accepted_at         DateTime? @db.Timestamptz(6)
+  canceled_at         DateTime? @db.Timestamptz(6)
+  transaction_hash    String?   @db.VarChar(64)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+  project_id          String?   @db.Uuid
+  xrpl_nfts           xrpl_nfts @relation(fields: [nft_id], references: [nft_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_nft")
+  projects            projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([nft_id], map: "idx_xrpl_nft_offers_nft")
+  @@index([owner_address], map: "idx_xrpl_nft_offers_owner")
+  @@index([project_id], map: "idx_xrpl_nft_offers_project_id")
+  @@index([status], map: "idx_xrpl_nft_offers_status")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_nft_transfers {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nft_id           String    @db.VarChar(64)
+  from_address     String    @db.VarChar(64)
+  to_address       String    @db.VarChar(64)
+  price            String?   @db.VarChar(32)
+  currency_code    String?   @db.VarChar(3)
+  issuer_address   String?   @db.VarChar(64)
+  broker_address   String?   @db.VarChar(64)
+  broker_fee       String?   @db.VarChar(32)
+  transaction_hash String    @unique @db.VarChar(64)
+  transferred_at   DateTime? @default(now()) @db.Timestamptz(6)
+  project_id       String?   @db.Uuid
+  xrpl_nfts        xrpl_nfts @relation(fields: [nft_id], references: [nft_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_nft_transfer")
+  projects         projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([from_address], map: "idx_xrpl_nft_transfers_from")
+  @@index([nft_id], map: "idx_xrpl_nft_transfers_nft")
+  @@index([project_id], map: "idx_xrpl_nft_transfers_project_id")
+  @@index([to_address], map: "idx_xrpl_nft_transfers_to")
+  @@index([transaction_hash], map: "idx_xrpl_nft_transfers_tx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_nfts {
+  id                    String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nft_id                String               @unique @db.VarChar(64)
+  project_id            String?              @db.Uuid
+  issuer_address        String               @db.VarChar(64)
+  owner_address         String               @db.VarChar(64)
+  taxon                 Int
+  serial                Int
+  uri                   String?
+  name                  String?              @db.VarChar(255)
+  description           String?
+  image_url             String?
+  metadata_json         Json?
+  transfer_fee          Int?                 @default(0)
+  flags                 Int?                 @default(0)
+  is_burnable           Boolean?             @default(false)
+  is_only_xrp           Boolean?             @default(false)
+  is_transferable       Boolean?             @default(true)
+  status                String?              @default("active") @db.VarChar(20)
+  burned_at             DateTime?            @db.Timestamptz(6)
+  mint_transaction_hash String?              @db.VarChar(64)
+  created_at            DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime?            @default(now()) @db.Timestamptz(6)
+  xrpl_nft_offers       xrpl_nft_offers[]
+  xrpl_nft_transfers    xrpl_nft_transfers[]
+  projects              projects?            @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([issuer_address], map: "idx_xrpl_nfts_issuer")
+  @@index([owner_address], map: "idx_xrpl_nfts_owner")
+  @@index([project_id], map: "idx_xrpl_nfts_project")
+  @@index([status], map: "idx_xrpl_nfts_status")
+  @@index([taxon], map: "idx_xrpl_nfts_taxon")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_oracle_price_data {
+  id                 String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  oracle_id          String             @db.Uuid
+  base_asset         String             @db.VarChar(10)
+  quote_asset        String             @db.VarChar(10)
+  asset_price        Decimal            @db.Decimal(30, 15)
+  scale              Int
+  update_time        BigInt
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  project_id         String?            @db.Uuid
+  xrpl_price_oracles xrpl_price_oracles @relation(fields: [oracle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projects           projects?          @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([base_asset, quote_asset], map: "idx_xrpl_oracle_price_data_assets")
+  @@index([oracle_id], map: "idx_xrpl_oracle_price_data_oracle")
+  @@index([project_id], map: "idx_xrpl_oracle_price_data_project_id")
+  @@index([update_time(sort: Desc)], map: "idx_xrpl_oracle_price_data_time")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_oracle_updates {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  oracle_id           String             @db.Uuid
+  transaction_hash    String             @unique @db.VarChar(64)
+  ledger_index        BigInt?
+  price_data          Json
+  previous_price_data Json?
+  update_time         BigInt
+  created_at          DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_by          String?            @db.Uuid
+  project_id          String?            @db.Uuid
+  xrpl_price_oracles  xrpl_price_oracles @relation(fields: [oracle_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projects            projects?          @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               auth_users?        @relation(fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([oracle_id], map: "idx_xrpl_oracle_updates_oracle")
+  @@index([project_id], map: "idx_xrpl_oracle_updates_project_id")
+  @@index([update_time(sort: Desc)], map: "idx_xrpl_oracle_updates_time")
+  @@index([transaction_hash], map: "idx_xrpl_oracle_updates_tx")
+  @@schema("public")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_path_searches {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id           String?   @db.Uuid
+  source_account       String    @db.VarChar(64)
+  destination_account  String    @db.VarChar(64)
+  source_currency      String    @db.VarChar(40)
+  source_issuer        String?   @db.VarChar(64)
+  destination_currency String    @db.VarChar(40)
+  destination_issuer   String?   @db.VarChar(64)
+  destination_amount   Decimal   @db.Decimal(30, 6)
+  best_path            Json
+  effective_rate       Decimal   @db.Decimal(20, 10)
+  total_cost           String    @db.VarChar(32)
+  path_length          Int
+  intermediary_count   Int
+  quality_score        Decimal   @db.Decimal(5, 2)
+  searched_at          DateTime  @db.Timestamptz(6)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  projects             projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([source_account, destination_account], map: "idx_xrpl_path_searches_accounts")
+  @@index([source_currency, destination_currency], map: "idx_xrpl_path_searches_currencies")
+  @@index([project_id], map: "idx_xrpl_path_searches_project")
+  @@index([searched_at(sort: Desc)], map: "idx_xrpl_path_searches_searched_at")
+  @@schema("public")
+}
+
+model xrpl_payment_channel_claims {
+  id                    String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id            String                @db.VarChar(64)
+  claimer_address       String                @db.VarChar(64)
+  amount                String                @db.VarChar(32)
+  signature             String?               @db.VarChar(132)
+  status                String?               @default("pending") @db.VarChar(20)
+  claimed_at            DateTime?             @db.Timestamptz(6)
+  transaction_hash      String?               @unique @db.VarChar(64)
+  created_at            DateTime?             @default(now()) @db.Timestamptz(6)
+  project_id            String?               @db.Uuid
+  xrpl_payment_channels xrpl_payment_channels @relation(fields: [channel_id], references: [channel_id], onDelete: Cascade, onUpdate: NoAction, map: "fk_channel_claim")
+  projects              projects?             @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([channel_id], map: "idx_channel_claims_channel")
+  @@index([claimer_address], map: "idx_channel_claims_claimer")
+  @@index([status], map: "idx_channel_claims_status")
+  @@index([project_id], map: "idx_xrpl_payment_channel_claims_project_id")
+  @@schema("public")
+}
+
+model xrpl_payment_channels {
+  id                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  channel_id                  String                        @unique @db.VarChar(64)
+  project_id                  String?                       @db.Uuid
+  source_address              String                        @db.VarChar(64)
+  destination_address         String                        @db.VarChar(64)
+  amount                      String                        @db.VarChar(32)
+  balance                     String                        @default("0") @db.VarChar(32)
+  settle_delay                Int
+  public_key                  String                        @db.VarChar(66)
+  cancel_after                DateTime?                     @db.Timestamptz(6)
+  destination_tag             Int?
+  status                      String?                       @default("active") @db.VarChar(20)
+  closed_at                   DateTime?                     @db.Timestamptz(6)
+  creation_transaction_hash   String                        @db.VarChar(64)
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  xrpl_payment_channel_claims xrpl_payment_channel_claims[]
+  projects                    projects?                     @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_payment_channel_project")
+
+  @@index([destination_address], map: "idx_payment_channels_destination")
+  @@index([project_id], map: "idx_payment_channels_project")
+  @@index([source_address], map: "idx_payment_channels_source")
+  @@index([status], map: "idx_payment_channels_status")
+  @@schema("public")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model xrpl_price_oracles {
+  id                     String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id             String?                  @db.Uuid
+  oracle_address         String                   @db.VarChar(64)
+  oracle_document_id     Int
+  provider               String                   @db.VarChar(255)
+  uri                    String?
+  asset_class            String                   @db.VarChar(50)
+  status                 String?                  @default("active") @db.VarChar(20)
+  last_update_time       BigInt?
+  created_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?                @default(now()) @db.Timestamptz(6)
+  created_by             String?                  @db.Uuid
+  xrpl_oracle_price_data xrpl_oracle_price_data[]
+  xrpl_oracle_updates    xrpl_oracle_updates[]
+  projects               projects?                @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_project")
+  users                  auth_users?              @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([oracle_address, oracle_document_id], map: "unique_oracle_document")
+  @@index([oracle_address], map: "idx_xrpl_oracles_address")
+  @@index([project_id], map: "idx_xrpl_oracles_project")
+  @@index([status], map: "idx_xrpl_oracles_status")
+  @@schema("public")
+}
+
+model xrpl_transaction_retry_attempts {
+  id                           String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submission_id                String?                       @db.Uuid
+  attempt_number               Int
+  attempted_at                 DateTime?                     @default(now()) @db.Timestamptz(6)
+  result                       String?                       @db.VarChar(20)
+  error_code                   String?                       @db.VarChar(20)
+  error_message                String?
+  ledger_sequence              Int?
+  notes                        String?
+  xrpl_transaction_submissions xrpl_transaction_submissions? @relation(fields: [submission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([submission_id], map: "idx_xrpl_retry_attempts_submission")
+  @@index([attempted_at(sort: Desc)], map: "idx_xrpl_retry_attempts_timestamp")
+  @@schema("public")
+}
+
+model xrpl_transaction_submissions {
+  id                              String                            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                      String?                           @db.Uuid
+  transaction_hash                String                            @db.VarChar(64)
+  transaction_type                String                            @db.VarChar(50)
+  account_address                 String                            @db.VarChar(64)
+  sequence_number                 Int?
+  ticket_sequence                 Int?
+  last_ledger_sequence            Int?
+  status                          String?                           @default("pending") @db.VarChar(30)
+  result                          String?                           @db.VarChar(20)
+  submission_attempts             Int?                              @default(1)
+  first_submitted_at              DateTime?                         @default(now()) @db.Timestamptz(6)
+  last_submitted_at               DateTime?                         @default(now()) @db.Timestamptz(6)
+  validated_at                    DateTime?                         @db.Timestamptz(6)
+  included_in_ledger              Int?
+  ledger_sequence                 Int?
+  transaction_json                Json
+  signed_transaction_blob         String?
+  error_code                      String?                           @db.VarChar(20)
+  error_message                   String?
+  created_at                      DateTime?                         @default(now()) @db.Timestamptz(6)
+  updated_at                      DateTime?                         @default(now()) @db.Timestamptz(6)
+  xrpl_transaction_retry_attempts xrpl_transaction_retry_attempts[]
+  projects                        projects?                         @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  xrpl_transaction_verifications  xrpl_transaction_verifications[]
+
+  @@unique([project_id, transaction_hash], map: "unique_transaction_submission_phase16")
+  @@index([account_address], map: "idx_xrpl_tx_submissions_account")
+  @@index([transaction_hash], map: "idx_xrpl_tx_submissions_hash")
+  @@index([project_id], map: "idx_xrpl_tx_submissions_project")
+  @@index([status], map: "idx_xrpl_tx_submissions_status")
+  @@schema("public")
+}
+
+model xrpl_transaction_tickets {
+  id                        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                String?   @db.Uuid
+  account_address           String    @db.VarChar(64)
+  ticket_sequence           Int
+  status                    String?   @default("available") @db.VarChar(20)
+  used_in_transaction_hash  String?   @db.VarChar(64)
+  used_at                   DateTime? @db.Timestamptz(6)
+  creation_transaction_hash String    @db.VarChar(64)
+  created_at                DateTime? @default(now()) @db.Timestamptz(6)
+  projects                  projects? @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([project_id, account_address, ticket_sequence], map: "unique_ticket_phase16")
+  @@index([account_address], map: "idx_xrpl_tickets_account")
+  @@index([project_id], map: "idx_xrpl_tickets_project")
+  @@index([status], map: "idx_xrpl_tickets_status")
+  @@schema("public")
+}
+
+model xrpl_transaction_verifications {
+  id                           String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submission_id                String?                       @db.Uuid
+  verified_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  verification_method          String                        @db.VarChar(30)
+  is_validated                 Boolean
+  is_successful                Boolean?
+  transaction_result           String?                       @db.VarChar(20)
+  ledger_index                 Int?
+  ledger_hash                  String?                       @db.VarChar(64)
+  metadata                     Json?
+  xrpl_transaction_submissions xrpl_transaction_submissions? @relation(fields: [submission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([submission_id], map: "idx_xrpl_verifications_submission")
+  @@index([verified_at(sort: Desc)], map: "idx_xrpl_verifications_timestamp")
+  @@schema("public")
+}
+
+model xrpl_trust_line_holders {
+  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id               String                 @db.Uuid
+  holder_address         String                 @db.VarChar(64)
+  balance                String?                @default("0") @db.VarChar(32)
+  limit_amount           String?                @db.VarChar(32)
+  no_ripple              Boolean?               @default(false)
+  no_ripple_peer         Boolean?               @default(false)
+  authorized             Boolean?               @default(false)
+  peer_authorized        Boolean?               @default(false)
+  is_frozen              Boolean?               @default(false)
+  freeze_peer            Boolean?               @default(false)
+  quality_in             Int?                   @default(0)
+  quality_out            Int?                   @default(0)
+  created_at             DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?              @default(now()) @db.Timestamptz(6)
+  project_id             String?                @db.Uuid
+  xrpl_trust_line_tokens xrpl_trust_line_tokens @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_trust_line_holder_token")
+  projects               projects?              @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([token_id, holder_address], map: "unique_token_holder")
+  @@index([holder_address], map: "idx_trust_line_holders_address")
+  @@index([authorized], map: "idx_trust_line_holders_authorized")
+  @@index([token_id], map: "idx_trust_line_holders_token")
+  @@index([project_id], map: "idx_xrpl_trust_line_holders_project_id")
+  @@schema("public")
+}
+
+model xrpl_trust_line_tokens {
+  id                           String                         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id                   String?                        @db.Uuid
+  currency_code                String                         @db.VarChar(40)
+  issuer_address               String                         @db.VarChar(64)
+  total_supply                 String?                        @db.VarChar(32)
+  transfer_rate                Int?
+  tick_size                    Int?
+  domain                       String?                        @db.VarChar(255)
+  require_auth                 Boolean?                       @default(false)
+  require_dest_tag             Boolean?                       @default(false)
+  disallow_xrp                 Boolean?                       @default(false)
+  default_ripple               Boolean?                       @default(false)
+  name                         String                         @db.VarChar(100)
+  description                  String?
+  icon_url                     String?
+  metadata_json                Json?
+  status                       String?                        @default("active") @db.VarChar(20)
+  created_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime?                      @default(now()) @db.Timestamptz(6)
+  xrpl_trust_line_holders      xrpl_trust_line_holders[]
+  projects                     projects?                      @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  xrpl_trust_line_transactions xrpl_trust_line_transactions[]
+
+  @@unique([currency_code, issuer_address], map: "unique_currency_issuer")
+  @@index([currency_code], map: "idx_trust_line_tokens_currency")
+  @@index([issuer_address], map: "idx_trust_line_tokens_issuer")
+  @@index([project_id], map: "idx_trust_line_tokens_project")
+  @@index([status], map: "idx_trust_line_tokens_status")
+  @@schema("public")
+}
+
+model xrpl_trust_line_transactions {
+  id                     String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  token_id               String                 @db.Uuid
+  transaction_type       String                 @db.VarChar(20)
+  from_address           String                 @db.VarChar(64)
+  to_address             String                 @db.VarChar(64)
+  amount                 String                 @db.VarChar(32)
+  transaction_hash       String                 @unique @db.VarChar(64)
+  ledger_index           Int?
+  status                 String?                @default("confirmed") @db.VarChar(20)
+  created_at             DateTime?              @default(now()) @db.Timestamptz(6)
+  project_id             String?                @db.Uuid
+  xrpl_trust_line_tokens xrpl_trust_line_tokens @relation(fields: [token_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_trust_line_transaction_token")
+  projects               projects?              @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([from_address], map: "idx_trust_line_transactions_from")
+  @@index([to_address], map: "idx_trust_line_transactions_to")
+  @@index([token_id], map: "idx_trust_line_transactions_token")
+  @@index([transaction_type], map: "idx_trust_line_transactions_type")
+  @@index([project_id], map: "idx_xrpl_trust_line_transactions_project_id")
+  @@schema("public")
+}
+
 /// The underlying view does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
 view activity_analytics {
   id                 String?   @db.Uuid
@@ -15988,6 +17350,32 @@ view v_complete_deployments {
   modules_linked                BigInt?
   modules_configured            BigInt?
   all_transaction_hashes        String[]
+
+  @@schema("public")
+}
+
+view xrpl_credentials_with_expiry {
+  id                      String?   @db.Uuid
+  credential_id           String?   @db.VarChar(64)
+  project_id              String?   @db.Uuid
+  issuer_address          String?   @db.VarChar(64)
+  subject_address         String?   @db.VarChar(64)
+  credential_type         String?   @db.VarChar(255)
+  data_json               Json?
+  data_hash               String?   @db.VarChar(64)
+  status                  String?   @db.VarChar(20)
+  is_accepted             Boolean?
+  expiration              DateTime? @db.Timestamptz(6)
+  issue_transaction_hash  String?   @db.VarChar(64)
+  accept_transaction_hash String?   @db.VarChar(64)
+  delete_transaction_hash String?   @db.VarChar(64)
+  issued_at               DateTime? @db.Timestamptz(6)
+  accepted_at             DateTime? @db.Timestamptz(6)
+  deleted_at              DateTime? @db.Timestamptz(6)
+  created_at              DateTime? @db.Timestamptz(6)
+  updated_at              DateTime? @db.Timestamptz(6)
+  metadata                Json?
+  is_expired              Boolean?
 
   @@schema("public")
 }

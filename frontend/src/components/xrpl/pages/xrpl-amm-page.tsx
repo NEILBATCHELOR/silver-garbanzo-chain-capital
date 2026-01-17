@@ -12,6 +12,9 @@ import {
   AMMAddLiquidity,
   AMMRemoveLiquidity,
   AMMAuctionSlotManager,
+  AMMVoteFee,
+  AMMFeeCollection,
+  AMMPriceHistory,
   AMMPool 
 } from '@/components/xrpl/defi'
 
@@ -142,10 +145,13 @@ export function XRPLAMMPage({ wallet, network, projectId }: XRPLAMMPageProps) {
 
           {/* Pool Management Tabs */}
           <Tabs defaultValue="add-liquidity" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="add-liquidity">Add Liquidity</TabsTrigger>
               <TabsTrigger value="remove-liquidity">Remove Liquidity</TabsTrigger>
               <TabsTrigger value="auction-slot">Auction Slot</TabsTrigger>
+              <TabsTrigger value="vote-fee">Vote Fee</TabsTrigger>
+              <TabsTrigger value="fees">Fees</TabsTrigger>
+              <TabsTrigger value="price">Price History</TabsTrigger>
             </TabsList>
 
             <TabsContent value="add-liquidity" className="space-y-4">
@@ -175,6 +181,34 @@ export function XRPLAMMPage({ wallet, network, projectId }: XRPLAMMPageProps) {
                 network={network}
                 projectId={projectId}
                 onSuccess={handleSuccess}
+              />
+            </TabsContent>
+
+            <TabsContent value="vote-fee" className="space-y-4">
+              <AMMVoteFee
+                pool={selectedPool}
+                wallet={wallet}
+                network={network}
+                projectId={projectId}
+                onSuccess={handleSuccess}
+              />
+            </TabsContent>
+
+            <TabsContent value="fees" className="space-y-4">
+              <AMMFeeCollection
+                pool={selectedPool}
+                wallet={wallet}
+                network={network}
+                projectId={projectId}
+              />
+            </TabsContent>
+
+            <TabsContent value="price" className="space-y-4">
+              <AMMPriceHistory
+                pool={selectedPool}
+                wallet={wallet}
+                network={network}
+                projectId={projectId}
               />
             </TabsContent>
           </Tabs>

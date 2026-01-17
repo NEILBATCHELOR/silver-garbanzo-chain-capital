@@ -49,5 +49,14 @@ export {
 
 export type {
   FieldValidator,
-  ValidationSchema
+  XRPLValidationSchema
 } from './Validators';
+
+export {
+  normalizeCurrencyCode,
+  isXRP,
+  formatCurrencyAmount,
+  isValidCurrencyCode,
+  currencyCodeToHex,
+  currencyNormalizer
+} from './XRPLCurrencyNormalizer';

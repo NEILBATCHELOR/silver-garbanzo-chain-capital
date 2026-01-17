@@ -998,6 +998,36 @@ export async function getSupportedNetworks(): Promise<Cube3Response<Array<{ chai
 }
 
 // Enhanced risk analysis for deep wallet inspection
+
+// Export type alias for backward compatibility
+export type AddressVerification = WalletRiskAssessment;
+
+// Create a singleton service object to match expected import pattern
+export const cube3Service = {
+  init: initCube3Service,
+  enableDebugLogging,
+  checkWalletAddress,
+  checkMultipleAddresses,
+  verifyTransaction,
+  assessWalletRisk,
+  isWalletSafe,
+  getRiskColor,
+  getRiskDescription,
+  monitorAddress,
+  validateTransactionForUser,
+  checkWalletAddressWithCache,
+  clearRiskCache,
+  getControlLists,
+  createControlList,
+  addAddressToControlList,
+  removeAddressFromControlList,
+  createMonitor,
+  getMonitors,
+  addAddressesToMonitor,
+  inspectContract,
+  simulateTransaction,
+  getSupportedNetworks
+};
 export async function analyzeWalletRiskDetailed(
   address: string,
   chainId: number = 1,
