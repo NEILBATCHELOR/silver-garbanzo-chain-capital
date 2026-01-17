@@ -1,7 +1,8 @@
 /**
  * XRPL Navigation Component
  * 
- * Provides navigation for XRPL pages and features
+ * Provides comprehensive navigation for all XRPL features
+ * Updated with ALL 16 feature categories
  */
 
 import { Link, useLocation } from 'react-router-dom'
@@ -17,7 +18,13 @@ import {
   Shield,
   TrendingUp,
   Droplets,
-  ChevronRight
+  ChevronRight,
+  User,
+  ShieldCheck,
+  Key,
+  Wrench,
+  Activity,
+  FileText
 } from 'lucide-react'
 
 interface XRPLNavigationProps {
@@ -66,7 +73,7 @@ export function XRPLNavigation({ className, walletConnected = false }: XRPLNavig
       requiresWallet: true
     },
     {
-      title: 'Advanced',
+      title: 'Advanced Payments',
       href: '/xrpl/advanced',
       icon: ArrowLeftRight,
       description: 'Channels, Escrow, Checks',
@@ -89,6 +96,14 @@ export function XRPLNavigation({ className, walletConnected = false }: XRPLNavig
       requiresWallet: true
     },
     {
+      title: 'DEX Trading',
+      href: '/xrpl/dex',
+      icon: TrendingUp,
+      description: 'Decentralized exchange order books',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
       title: 'Trust Lines',
       href: '/xrpl/trustlines',
       icon: Shield,
@@ -96,9 +111,49 @@ export function XRPLNavigation({ className, walletConnected = false }: XRPLNavig
       requiresWallet: true
     },
     {
+      title: 'Identity',
+      href: '/xrpl/identity',
+      icon: User,
+      description: 'DIDs and verifiable credentials',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
+      title: 'Compliance',
+      href: '/xrpl/compliance',
+      icon: ShieldCheck,
+      description: 'Asset freeze and deposit authorization',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
+      title: 'Security',
+      href: '/xrpl/security',
+      icon: Key,
+      description: 'Key rotation and account security',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
+      title: 'Advanced Tools',
+      href: '/xrpl/tools',
+      icon: Wrench,
+      description: 'Batch operations, path finding, oracles',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
+      title: 'Monitoring',
+      href: '/xrpl/monitoring',
+      icon: Activity,
+      description: 'Real-time WebSocket monitoring',
+      badge: 'New',
+      requiresWallet: true
+    },
+    {
       title: 'Transactions',
       href: '/xrpl/transactions',
-      icon: TrendingUp,
+      icon: FileText,
       description: 'Transaction history and monitoring',
       requiresWallet: true
     }
