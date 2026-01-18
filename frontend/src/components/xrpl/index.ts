@@ -1,5 +1,4 @@
 // Dashboard Components
-export { XRPLDashboard } from './dashboard/xrpl-dashboard'
 export { XRPLPortfolio } from './dashboard/xrpl-portfolio'
 
 // MPT Components
