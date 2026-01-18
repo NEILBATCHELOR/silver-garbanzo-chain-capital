@@ -28,6 +28,7 @@ import {
   ArrowLeftRight,
   DollarSign,
   Factory,
+  Layers,
   ReceiptText,
   Percent
 } from 'lucide-react';
@@ -168,6 +169,24 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
     ]
   },
 
+// XRPL BLOCKCHAIN SECTION
+  {
+    id: 'xrpl',
+    title: 'XRPL BLOCKCHAIN',
+    permissions: ['wallet.view'],
+    roles: ['Agent', 'Operations', 'Owner', 'Super Admin'],
+    minRolePriority: 60,
+    items: [
+      {
+        id: 'xrpl-dashboard',
+        label: 'XRPL Dashboard',
+        href: '/xrpl',
+        icon: Layers,
+        permissions: ['wallet.view']
+      }
+    ]
+  },
+  
   // COMPLIANCE SECTION
   {
     id: 'compliance',

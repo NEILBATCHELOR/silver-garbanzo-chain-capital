@@ -19,7 +19,6 @@ import { Routes, Route, useNavigate } from 'react-router-dom'
 import type { Wallet } from 'xrpl'
 import { XRPLDashboardHeader } from '../shared/xrpl-dashboard-header'
 import { XRPLNavigation, XRPLStats } from '../shared/xrpl-navigation'
-import { XRPLDashboard } from '../dashboard/xrpl-dashboard'
 import { XRPLUnifiedDashboard } from '../dashboard/xrpl-unified-dashboard'
 import { WalletConnect } from '../wallet/wallet-connect'
 import { WalletBalance } from '../wallet/wallet-balance'
@@ -197,18 +196,6 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
           {/* Main Content Area */}
           <div className="col-span-12 lg:col-span-9">
             <Routes>
-              {/* Dashboard */}
-              <Route 
-                path="/" 
-                element={
-                  <XRPLDashboard 
-                    walletAddress={wallet?.address}
-                    network={network}
-                    projectId={projectId}
-                  />
-                } 
-              />
-
               {/* Alternative Unified Dashboard */}
               <Route 
                 path="/dashboard" 

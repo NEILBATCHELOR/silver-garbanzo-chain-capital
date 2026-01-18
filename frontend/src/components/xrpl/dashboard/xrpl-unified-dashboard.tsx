@@ -31,6 +31,7 @@ import {
 import { cn } from '@/utils/utils'
 import { XRPLDashboardHeader } from '../shared/xrpl-dashboard-header'
 import { XRPLNavigation } from '../shared/xrpl-navigation'
+import { XRPLPortfolio } from './xrpl-portfolio'
 import { useNavigate } from 'react-router-dom'
 
 interface FeatureStatus {
@@ -318,6 +319,14 @@ export const XRPLUnifiedDashboard: React.FC = () => {
                 </Card>
               ))}
             </div>
+
+            {/* Portfolio Overview - Integrated */}
+            {walletAddress && (
+              <XRPLPortfolio 
+                walletAddress={walletAddress}
+                network={network}
+              />
+            )}
 
             {/* Feature Categories */}
             {Object.entries(groupedFeatures).map(([category, categoryFeatures]) => (
