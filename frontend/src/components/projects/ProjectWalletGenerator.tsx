@@ -31,10 +31,14 @@ import {
   getChainConfig, 
   getChainEnvironments, 
   getChainEnvironment,
+  isNonEvmNetwork,
   type ChainConfig,
   type NetworkEnvironment,
   type ChainEnvironment
 } from '@/config/chains';
+
+// Import XRPL wallet generator for non-EVM chain support
+import { XRPLProjectWalletGenerator } from '@/components/xrpl/wallet/xrpl-project-wallet-generator';
 
 // Module-level lock to prevent concurrent wallet generation for the same project
 const inProgressProjectGenerations = new Set<string>();
@@ -84,6 +88,9 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
 
   // Get all available chains
   const allChains = getAllChains();
+  
+  // Check if selected network is non-EVM (like XRPL)
+  const isXrplSelected = selectedNetwork === 'ripple';
   
   // Get available environments for the selected network
   const availableEnvironments = selectedNetwork 
@@ -493,24 +500,46 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Permission Check Warning */}
-      {isCheckingPermissions ? (
-        <Alert>
-          <RefreshCw className="h-4 w-4 animate-spin" />
-          <AlertDescription>
-            Checking permissions...
-          </AlertDescription>
-        </Alert>
-      ) : hasRequiredPermissions === false ? (
-        <Alert variant="destructive">
-          <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Permission Denied</AlertTitle>
-          <AlertDescription>
-            You need both project.create and project.edit permissions to generate wallet credentials.
-            Please contact your administrator for access.
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {/* If XRPL is selected, show XRPL-specific wallet generator */}
+      {isXrplSelected ? (
+        <>
+          <Alert>
+            <Network className="h-4 w-4" />
+            <AlertTitle>XRP Ledger (XRPL) Selected</AlertTitle>
+            <AlertDescription>
+              XRPL is a non-EVM blockchain with its own wallet generation and transaction system.
+              The interface below is optimized for XRPL wallet creation.
+            </AlertDescription>
+          </Alert>
+          
+          <XRPLProjectWalletGenerator
+            projectId={projectId}
+            projectName={projectName}
+            projectType={projectType}
+            onWalletGenerated={onWalletGenerated}
+          />
+        </>
+      ) : (
+        <>
+          {/* EVM Wallet Generation - Original UI */}
+          {/* Permission Check Warning */}
+          {isCheckingPermissions ? (
+            <Alert>
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <AlertDescription>
+                Checking permissions...
+              </AlertDescription>
+            </Alert>
+          ) : hasRequiredPermissions === false ? (
+            <Alert variant="destructive">
+              <ShieldAlert className="h-4 w-4" />
+              <AlertTitle>Permission Denied</AlertTitle>
+              <AlertDescription>
+                You need both project.create and project.edit permissions to generate wallet credentials.
+                Please contact your administrator for access.
+              </AlertDescription>
+            </Alert>
+          ) : null}
       {/* Generation Mode Selection */}
       <Card>
         <CardHeader>
@@ -585,6 +614,9 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                           <span className="flex items-center gap-2">
                             <span>{chain.icon}</span>
                             <span>{chain.label}</span>
+                            {chain.isNonEvm && (
+                              <Badge variant="outline" className="ml-2">Non-EVM</Badge>
+                            )}
                           </span>
                         </SelectItem>
                       ))}
@@ -702,6 +734,9 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                         <span className="flex items-center gap-2">
                           <span>{chain.icon}</span>
                           <span>{chain.label}</span>
+                          {chain.isNonEvm && (
+                            <Badge variant="outline" className="ml-2">Non-EVM</Badge>
+                          )}
                         </span>
                       </SelectItem>
                     ))}
@@ -1013,7 +1048,9 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
           ))}
         </div>
       )}
-
+        </>
+      )}
+      {/* End conditional rendering for EVM vs XRPL */}
     </div>
   );
 };

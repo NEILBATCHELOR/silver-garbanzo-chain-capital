@@ -274,17 +274,17 @@ const LEGACY_FALLBACK_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'injective',
       networkType: 'mainnet',
-      rpcUrl: 'https://sentry.chain.grpc-web.injective.network:443',
-      explorerUrl: 'https://explorer.injective.network',
-      chainId: 'injective-1',
+      rpcUrl: 'https://sentry.evm-rpc.injective.network', // Injective EVM JSON-RPC
+      explorerUrl: 'https://blockscout.injective.network', // Blockscout EVM Explorer
+      chainId: '1776', // EVM Chain ID (maps to native 'injective-1')
       nativeCurrency: { name: 'Injective', symbol: 'INJ', decimals: 18 }
     },
     {
       chain: 'injective',
       networkType: 'testnet',
-      rpcUrl: 'https://testnet.sentry.chain.grpc-web.injective.network:443',
-      explorerUrl: 'https://testnet.explorer.injective.network',
-      chainId: 'injective-888',
+      rpcUrl: 'https://k8s.testnet.json-rpc.injective.network/', // Injective Testnet EVM JSON-RPC
+      explorerUrl: 'https://testnet.blockscout.injective.network', // Blockscout Testnet EVM Explorer
+      chainId: '1439', // EVM Chain ID (maps to native 'injective-888')
       nativeCurrency: { name: 'Injective', symbol: 'INJ', decimals: 18 }
     }
   ],

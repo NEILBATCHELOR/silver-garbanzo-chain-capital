@@ -45,6 +45,9 @@ import {
   walletsRoutes 
 } from './src/routes/xrpl'
 
+// Injective Routes (Phase 10 - Injective Native Integration)
+import injectiveNativeRoutes from './src/routes/injective-native'
+
 // PSP (Payment Service Provider) Routes (10 services)
 import authPspRoutes from './src/routes/psp/auth.routes'
 import balancesPspRoutes from './src/routes/psp/balances.routes'
@@ -1208,6 +1211,18 @@ Comprehensive platform supporting:
     await app.register(paymentsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/payments` }) // /api/v1/xrpl/payments/*
     await app.register(transactionsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/transactions` }) // /api/v1/xrpl/transactions/*
     await app.register(walletsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/wallets` })  // /api/v1/xrpl/wallets/*
+
+    // ============================================================================
+    // INJECTIVE NATIVE BLOCKCHAIN ROUTES - Phase 10
+    // ============================================================================
+    // Comprehensive Injective Native TokenFactory operations including:
+    // - TokenFactory - Permissionless native token creation
+    // - Market Launch - Spot markets on Injective DEX
+    // - Token Operations - Mint, burn, transfer, metadata
+    // - Balance Queries - Native and subaccount balances
+    // - Permissions - RBAC for regulated assets (future)
+    // ============================================================================
+    await app.register(injectiveNativeRoutes)  // Handles /api/injective/native/*
 
   } catch (error) {
     logger.error({ error }, 'Route registration failed')

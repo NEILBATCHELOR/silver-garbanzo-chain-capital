@@ -260,10 +260,9 @@ export type {
 export type {
   InjectiveAccountInfo,
   InjectiveGenerationOptions,
-  InjectiveEncryptedWallet,
   InjectiveNetworkInfo,
-  InjectiveMarketOrder,
-  InjectiveTransferParams
+  InjectiveOrderParams,
+  InjectiveSendParams
 } from './injective';
 
 // New wallet management services (note: ProjectWallet type conflicts resolved via domain types)

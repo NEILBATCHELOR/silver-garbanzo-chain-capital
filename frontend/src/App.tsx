@@ -56,6 +56,15 @@ import TokenDashboardComparison from "@/components/tokens/testing/TokenDashboard
 import { XRPLMasterPage } from "@/components/xrpl/pages/xrpl-master-page";
 import { XRPLProjectWrapper } from "@/components/xrpl/pages/xrpl-project-wrapper";
 
+// Injective Pages
+import { 
+  InjectiveDashboard,
+  InjectiveNativeTokenDeployment,
+  InjectiveMarketLaunch,
+  InjectiveTokenManager,
+  InjectiveMTSTransfer
+} from "@/components/injective";
+
 // Wallet Pages
 import NewWalletPage from "@/pages/wallet/NewWalletPage";
 import WalletDashboardPage from "@/pages/wallet/WalletDashboardPage";
@@ -722,6 +731,13 @@ function App() {
                         
                         {/* Project-specific XRPL Routes */}
                         <Route path="projects/:projectId/xrpl/*" element={<XRPLProjectWrapper />} />
+
+                        {/* Injective Routes - TokenFactory Integration */}
+                        <Route path="injective" element={<InjectiveDashboard />} />
+                        <Route path="injective/deploy" element={<InjectiveNativeTokenDeployment />} />
+                        <Route path="injective/market" element={<InjectiveMarketLaunch />} />
+                        <Route path="injective/mts-transfer" element={<InjectiveMTSTransfer />} />
+                        <Route path="injective/manage" element={<InjectiveTokenManager />} />
 
                         {/* Cap Table Routes */}
                         <Route path="captable" element={<CapTableManagerNew section="overview" />} />

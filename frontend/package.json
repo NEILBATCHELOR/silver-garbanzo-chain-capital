@@ -84,6 +84,8 @@
     "@injectivelabs/sdk-ts": "^1.16.12",
     "@injectivelabs/ts-types": "^1.16.12",
     "@injectivelabs/utils": "^1.16.12",
+    "@injectivelabs/wallet-strategy": "^1.17.5",
+    "@injectivelabs/wallet-ts": "^1.14.41",
     "@lit/context": "^1.1.5",
     "@lit/localize": "^0.12.2",
     "@lit/reactive-element": "^2.1.0",

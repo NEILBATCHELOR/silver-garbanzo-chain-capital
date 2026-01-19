@@ -13,23 +13,25 @@ import {
 
 export interface ChainEnvironment {
   name: string; // 'mainnet' or 'testnet'
-  chainId: string;
+  chainId: string | null; // null for non-EVM chains
   displayName: string;
   isTestnet: boolean;
   explorerUrl?: string;
   rpcUrl?: string;
+  isNonEvm?: boolean; // Flag for non-EVM chains
 }
 
 export interface ChainConfig {
-  name: string; // Network identifier (e.g., 'ethereum', 'polygon')
+  name: string; // Network identifier (e.g., 'ethereum', 'polygon', 'ripple')
   network: string; // Same as name for compatibility
   displayName: string;
   label: string; // Human-readable label
   icon?: string; // Icon or emoji
   environments: ChainEnvironment[];
+  isNonEvm?: boolean; // Flag for non-EVM chains
 }
 
-export type NetworkEnvironment = 'mainnet' | 'testnet';
+export type NetworkEnvironment = 'mainnet' | 'testnet' | 'devnet';
 
 /**
  * Network to environment mapping
@@ -193,6 +195,33 @@ const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
       explorerUrl: CHAIN_INFO[CHAIN_IDS.injectiveTestnet]?.explorer,
     },
   },
+  // Non-EVM Chains
+  ripple: {
+    mainnet: {
+      name: 'mainnet',
+      chainId: null,
+      displayName: 'XRPL Mainnet',
+      isTestnet: false,
+      explorerUrl: 'https://livenet.xrpl.org',
+      isNonEvm: true,
+    },
+    testnet: {
+      name: 'testnet',
+      chainId: null,
+      displayName: 'XRPL Testnet',
+      isTestnet: true,
+      explorerUrl: 'https://testnet.xrpl.org',
+      isNonEvm: true,
+    },
+    devnet: {
+      name: 'devnet',
+      chainId: null,
+      displayName: 'XRPL Devnet',
+      isTestnet: true,
+      explorerUrl: 'https://devnet.xrpl.org',
+      isNonEvm: true,
+    },
+  },
 };
 
 /**
@@ -201,6 +230,7 @@ const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
 export function getAllChains(): ChainConfig[] {
   return Object.entries(NETWORK_ENVIRONMENTS).map(([network, environments]) => {
     const displayName = getNetworkDisplayName(network);
+    const isNonEvm = Object.values(environments).some(env => env.isNonEvm);
     return {
       name: network,
       network,
@@ -208,6 +238,7 @@ export function getAllChains(): ChainConfig[] {
       label: displayName,
       icon: getNetworkIcon(network),
       environments: Object.values(environments),
+      isNonEvm,
     };
   });
 }
@@ -227,6 +258,7 @@ export function getChainConfig(network: string): ChainConfig | undefined {
   if (!environments) return undefined;
   
   const displayName = getNetworkDisplayName(network);
+  const isNonEvm = Object.values(environments).some(env => env.isNonEvm);
   return {
     name: network,
     network,
@@ -234,6 +266,7 @@ export function getChainConfig(network: string): ChainConfig | undefined {
     label: displayName,
     icon: getNetworkIcon(network),
     environments: Object.values(environments),
+    isNonEvm,
   };
 }
 
@@ -251,6 +284,7 @@ function getNetworkDisplayName(network: string): string {
     bsc: 'BNB Smart Chain',
     zksync: 'zkSync',
     injective: 'Injective',
+    ripple: 'XRP Ledger (XRPL)',
   };
   return displayNames[network] || network;
 }
@@ -269,6 +303,7 @@ function getNetworkIcon(network: string): string {
     bsc: '🟡',
     zksync: '⚡',
     injective: '💉',
+    ripple: '💧',
   };
   return icons[network] || '🔗';
 }
@@ -280,9 +315,7 @@ export function getChainEnvironment(
   network: string,
   environmentType: string
 ): ChainEnvironment | undefined {
-  // Convert string to NetworkEnvironment type
-  const envType = environmentType as NetworkEnvironment;
-  return NETWORK_ENVIRONMENTS[network]?.[envType];
+  return NETWORK_ENVIRONMENTS[network]?.[environmentType];
 }
 
 /**
@@ -308,8 +341,17 @@ export function resolveChainAndEnvironment(
  * Get explorer URL for a chain ID
  */
 export function getExplorerUrl(chainId: string | number): string | undefined {
+  if (chainId === null) return undefined;
   const chainIdNum = typeof chainId === 'string' ? parseInt(chainId, 10) : chainId;
   return CHAIN_INFO[chainIdNum]?.explorer;
+}
+
+/**
+ * Check if a network is non-EVM
+ */
+export function isNonEvmNetwork(network: string): boolean {
+  const config = getChainConfig(network);
+  return config?.isNonEvm === true;
 }
 
 /**

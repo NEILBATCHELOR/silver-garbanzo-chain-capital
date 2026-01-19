@@ -324,6 +324,12 @@ export class ProviderManager {
         testnet: 43113, // Fuji
         devnet: 43113,
         regtest: 43113
+      },
+      injective: {
+        mainnet: 1776,
+        testnet: 1439,
+        devnet: 1439,
+        regtest: 1439
       }
     };
 
@@ -343,6 +349,7 @@ export class ProviderManager {
       'optimism',
       'base',
       'avalanche',
+      'injective',
       'bitcoin',
       'solana',
       'near',

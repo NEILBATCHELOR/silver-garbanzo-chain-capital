@@ -86,8 +86,9 @@ const RPC_ENV_MAPPING: Record<SupportedChain, EnvironmentRPCMapping> = {
     testnet: import.meta.env.VITE_APTOS_TESTNET_RPC_URL
   },
   injective: {
-    mainnet: import.meta.env.VITE_INJECTIVE_RPC_URL || 'https://sentry.chain.grpc-web.injective.network:443',
-    testnet: import.meta.env.VITE_INJECTIVE_TESTNET_RPC_URL || 'https://testnet.sentry.chain.grpc-web.injective.network:443'
+    // Injective EVM JSON-RPC endpoints (not gRPC-web)
+    mainnet: import.meta.env.VITE_INJECTIVE_RPC_URL || 'https://sentry.evm-rpc.injective.network',
+    testnet: import.meta.env.VITE_INJECTIVE_TESTNET_RPC_URL || 'https://k8s.testnet.json-rpc.injective.network/'
   }
 };
 

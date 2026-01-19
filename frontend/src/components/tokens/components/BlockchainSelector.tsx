@@ -105,6 +105,8 @@ const BlockchainSelector: React.FC<BlockchainSelectorProps> = ({
       'optimism-sepolia': 'Optimism Sepolia',
       base: 'Base',
       'base-sepolia': 'Base Sepolia',
+      injective: 'Injective',
+      'injective-testnet': 'Injective Testnet',
       solana: 'Solana',
       'solana-devnet': 'Solana Devnet',
       bitcoin: 'Bitcoin',
