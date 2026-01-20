@@ -39,7 +39,8 @@ export function detectAddressFormat(address: string): AddressValidationResult {
         'base', 'base-sepolia',
         'bsc', 'bsc-testnet',
         'zksync', 'zksync-sepolia',
-        'avalanche', 'avalanche-testnet'
+        'avalanche', 'avalanche-testnet',
+        'xrpl-evm', 'xrpl-evm-testnet'
       ]
     };
   }
@@ -125,7 +126,8 @@ export function getChainCategory(chainName: string): ChainCategory {
       normalized.includes('optimism') || normalized.includes('arbitrum') ||
       normalized.includes('base') || normalized.includes('bsc') || 
       normalized.includes('zksync') || normalized.includes('avalanche') ||
-      normalized.includes('sepolia') || normalized.includes('holesky') || normalized.includes('amoy')) {
+      normalized.includes('sepolia') || normalized.includes('holesky') || normalized.includes('amoy') ||
+      normalized.includes('xrpl-evm') || normalized.includes('xrplevm')) {
     return 'evm';
   }
   

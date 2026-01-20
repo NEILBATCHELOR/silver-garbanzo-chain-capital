@@ -200,7 +200,7 @@ const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
     mainnet: {
       name: 'mainnet',
       chainId: null,
-      displayName: 'XRPL Mainnet',
+      displayName: 'XRP Mainnet',
       isTestnet: false,
       explorerUrl: 'https://livenet.xrpl.org',
       isNonEvm: true,
@@ -208,7 +208,7 @@ const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
     testnet: {
       name: 'testnet',
       chainId: null,
-      displayName: 'XRPL Testnet',
+      displayName: 'XRP Testnet',
       isTestnet: true,
       explorerUrl: 'https://testnet.xrpl.org',
       isNonEvm: true,
@@ -216,10 +216,29 @@ const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
     devnet: {
       name: 'devnet',
       chainId: null,
-      displayName: 'XRPL Devnet',
+      displayName: 'XRP Devnet',
       isTestnet: true,
       explorerUrl: 'https://devnet.xrpl.org',
       isNonEvm: true,
+    },
+  },
+  // XRPL EVM (Future Support - EVM-compatible sidechain)
+  'xrpl-evm': {
+    mainnet: {
+      name: 'mainnet',
+      chainId: '1440002', // XRPL EVM Mainnet Chain ID
+      displayName: 'XRPL EVM Mainnet',
+      isTestnet: false,
+      explorerUrl: 'https://explorer.xrplevm.org',
+      isNonEvm: false,
+    },
+    testnet: {
+      name: 'testnet',
+      chainId: '1440001', // XRPL EVM Testnet Chain ID
+      displayName: 'XRPL EVM Testnet',
+      isTestnet: true,
+      explorerUrl: 'https://explorer.testnet.xrplevm.org',
+      isNonEvm: false,
     },
   },
 };
@@ -284,7 +303,8 @@ function getNetworkDisplayName(network: string): string {
     bsc: 'BNB Smart Chain',
     zksync: 'zkSync',
     injective: 'Injective',
-    ripple: 'XRP Ledger (XRPL)',
+    ripple: 'XRP Ledger (XRP)',
+    'xrpl-evm': 'XRPL EVM',
   };
   return displayNames[network] || network;
 }
@@ -304,6 +324,7 @@ function getNetworkIcon(network: string): string {
     zksync: '⚡',
     injective: '💉',
     ripple: '💧',
+    'xrpl-evm': '⚡💧',
   };
   return icons[network] || '🔗';
 }

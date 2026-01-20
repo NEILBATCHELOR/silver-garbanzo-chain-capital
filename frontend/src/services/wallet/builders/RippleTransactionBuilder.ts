@@ -122,12 +122,19 @@ export class RippleTransactionBuilder {
       );
       
       if (!endpoints || endpoints.length === 0) {
-        // Fallback to default endpoints
-        const defaultUrl = this.config.networkType === 'mainnet' 
-          ? 'wss://xrplcluster.com'
-          : 'wss://testnet.xrpl-labs.com';
+        // Use environment variable WebSocket URL for XRPL client
+        const wsUrl = this.config.networkType === 'mainnet' 
+          ? import.meta.env.VITE_XRPL_MAINNET_WS_URL
+          : import.meta.env.VITE_XRPL_TESTNET_WS_URL;
         
-        this.config.rpcUrl = defaultUrl;
+        if (!wsUrl) {
+          throw new Error(
+            `XRPL WebSocket URL not configured for ${this.config.networkType}. ` +
+            `Please set VITE_XRPL_${this.config.networkType.toUpperCase()}_WS_URL in .env`
+          );
+        }
+        
+        this.config.rpcUrl = wsUrl;
       } else {
         this.config.rpcUrl = endpoints[0];
       }
@@ -137,6 +144,7 @@ export class RippleTransactionBuilder {
       console.log(`Ripple client initialized for ${this.config.chainName} at ${this.config.rpcUrl}`);
     } catch (error) {
       console.error('Failed to initialize Ripple client:', error);
+      throw error;
     }
   }
 

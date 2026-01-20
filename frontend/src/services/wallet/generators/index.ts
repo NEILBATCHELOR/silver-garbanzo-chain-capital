@@ -12,6 +12,7 @@ export { NEARWalletGenerator } from './NEARWalletGenerator';
 
 // Existing Enhanced Generators
 export { XRPWalletGenerator } from './XRPWalletGenerator';
+export { XRPLEvmWalletGenerator } from './XRPLEvmWalletGenerator';
 export { StellarWalletGenerator } from './StellarWalletGenerator';
 
 // EVM-based Generators

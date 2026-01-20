@@ -141,8 +141,16 @@ export class InjectiveBalanceService extends BaseChainBalanceService {
           console.warn(`⚠️ Failed to process token ${balance.denom}:`, tokenError);
         }
       }
-    } catch (error) {
-      console.warn(`⚠️ Token enumeration failed:`, error);
+    } catch (error: any) {
+      // Gracefully handle API failures
+      // Return empty array instead of propagating error to prevent breaking UI
+      const errorMessage = error?.message || String(error);
+      console.warn(`⚠️ Token enumeration failed (non-critical):`, errorMessage);
+      
+      // Check if it's a network/connection error
+      if (errorMessage.includes('fetch') || errorMessage.includes('request') || errorMessage.includes('HttpRequestException')) {
+        console.info('💡 This is likely due to endpoint connectivity. Native balance will still be fetched.');
+      }
     }
 
     return tokens;

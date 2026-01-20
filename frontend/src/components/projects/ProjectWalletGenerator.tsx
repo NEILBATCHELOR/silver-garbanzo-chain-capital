@@ -505,10 +505,10 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
         <>
           <Alert>
             <Network className="h-4 w-4" />
-            <AlertTitle>XRP Ledger (XRPL) Selected</AlertTitle>
+            <AlertTitle>XRP Ledger (XRP) Selected</AlertTitle>
             <AlertDescription>
-              XRPL is a non-EVM blockchain with its own wallet generation and transaction system.
-              The interface below is optimized for XRPL wallet creation.
+              XRP is a non-EVM blockchain with its own wallet generation and transaction system.
+              The interface below is optimized for XRP wallet creation.
             </AlertDescription>
           </Alert>
           

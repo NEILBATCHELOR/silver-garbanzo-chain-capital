@@ -2,6 +2,7 @@ import { WalletGenerator } from '../WalletGenerator';
 import { ETHWalletGenerator } from './ETHWalletGenerator';
 import { BTCWalletGenerator } from './BTCWalletGenerator';
 import { XRPWalletGenerator } from './XRPWalletGenerator';
+import { XRPLEvmWalletGenerator } from './XRPLEvmWalletGenerator';
 import { PolygonWalletGenerator } from './PolygonWalletGenerator';
 import { SolanaWalletGenerator } from './SolanaWalletGenerator';
 import { AptosWalletGenerator } from './AptosWalletGenerator';
@@ -46,6 +47,8 @@ export class WalletGeneratorFactory {
       case 'ripple':
       case 'xrp':
         return new XRPWalletGenerator();
+      case 'xrpl-evm':
+        return new XRPLEvmWalletGenerator();
       case 'polygon':
         return new PolygonWalletGenerator();
       case 'solana':
@@ -92,7 +95,8 @@ export class WalletGeneratorFactory {
       'near',        // ✅ Enhanced with near-js
       
       // Previously enhanced
-      'ripple',      // ✅ Enhanced with xrpl
+      'ripple',      // ✅ Enhanced with xrpl (XRP native, non-EVM)
+      'xrpl-evm',    // XRPL EVM (EVM-compatible sidechain) - Placeholder for future
       'stellar',     // ✅ Enhanced with @stellar/stellar-sdk
       
       // EVM chains using ETH generator

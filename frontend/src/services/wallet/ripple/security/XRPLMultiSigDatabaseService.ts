@@ -3,7 +3,7 @@
  * Manages multi-sig account and transaction data persistence
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from '@/infrastructure/database/client'
 import { Transaction } from 'xrpl'
 import {
   DBMultiSigAccount,
@@ -16,14 +16,7 @@ import {
 } from './types'
 
 export class XRPLMultiSigDatabaseService {
-  private supabase: SupabaseClient
-
-  constructor(supabaseUrl?: string, supabaseKey?: string) {
-    this.supabase = createClient(
-      supabaseUrl || process.env.VITE_SUPABASE_URL || '',
-      supabaseKey || process.env.VITE_SUPABASE_ANON_KEY || ''
-    )
-  }
+  private supabase = supabase
 
   /**
    * Save multi-sig account setup

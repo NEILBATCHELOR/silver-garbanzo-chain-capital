@@ -114,6 +114,10 @@ export const CHAIN_IDS = {
 
   // Deprecated Networks (kept for backward compatibility)
   cronos: 25, // Deprecated Oct 6, 2024
+  
+  // XRPL EVM Sidechain Networks
+  xrplEvm: 1440002,
+  xrplEvmTestnet: 1440001,
 } as const;
 
 /**
@@ -190,6 +194,8 @@ export const CHAIN_ID_TO_NAME: Record<number, string> = {
   33111: 'apeChainCurtis',
   43521: 'memecore',
   25: 'cronos',
+  1440002: 'xrplEvm',
+  1440001: 'xrplEvmTestnet',
 };
 
 /**
@@ -645,6 +651,24 @@ export const CHAIN_INFO: Record<number, ChainInfo> = {
     deprecationDate: '2024-10-06',
     explorer: 'https://cronoscan.com',
   },
+  
+  // XRPL EVM Sidechain Networks
+  1440002: {
+    id: 1440002,
+    name: 'XRPL EVM Sidechain',
+    type: 'mainnet',
+    explorer: 'https://evm-sidechain.xrpl.org',
+    rpcUrl: 'https://xrplevm.buildintheshade.com',
+    eip1559: true,
+  },
+  1440001: {
+    id: 1440001,
+    name: 'XRPL EVM Sidechain Testnet',
+    type: 'testnet',
+    explorer: 'https://evm-sidechain-testnet.xrpl.org',
+    rpcUrl: 'https://xrplevm-testnet.buildintheshade.com',
+    eip1559: true,
+  },
 };
 
 /**
@@ -776,6 +800,7 @@ export function getChainsByCategory(): Record<string, number[]> {
     celo: [42220, 44787],
     moonbeam: [1284, 1285, 1287],
     injective: [1776, 1439],
+    xrplEvm: [1440002, 1440001],
     other: [
       100, 199, 1029, 50, 51, 999, 33139, 33111, 43521, 80094, 80069, 1329,
       1328, 747474, 480, 4801, 50104, 531050104, 10143,

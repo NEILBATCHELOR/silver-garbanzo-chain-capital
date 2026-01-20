@@ -83,6 +83,28 @@ interface WalletWithBalance extends ProjectWalletData {
 
 type SortOption = 'network_asc' | 'network_desc' | 'balance_desc' | 'balance_asc';
 
+/**
+ * Get display symbol for a network
+ * Maps network names to their proper ticker symbols
+ */
+const getNetworkSymbol = (networkName: string): string => {
+  const symbolMap: Record<string, string> = {
+    'ripple': 'XRP',
+    'ripple-testnet': 'XRP',
+    'bitcoin': 'BTC',
+    'bitcoin-testnet': 'BTC',
+    'ethereum': 'ETH',
+    'polygon': 'MATIC',
+    'bsc': 'BNB',
+    'avalanche': 'AVAX',
+    'solana': 'SOL',
+    'injective': 'INJ',
+  };
+  
+  const normalized = networkName.toLowerCase();
+  return symbolMap[normalized] || networkName.toUpperCase();
+};
+
 export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId, onRefresh }) => {
   const { toast } = useToast();
   const [wallets, setWallets] = useState<WalletWithBalance[]>([]);
@@ -243,8 +265,13 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           console.log(`🧪 Derived testnet network: ${networkKey}`);
         }
 
+        // CRITICAL: Non-EVM addresses (XRPL, Bitcoin, Cosmos) are case-sensitive
+        // Only lowercase EVM addresses
+        const isNonEVM = w.non_evm_network || ['ripple', 'bitcoin', 'cosmos', 'solana'].includes(networkKey);
+        const normalizedAddress = isNonEVM ? w.wallet_address : w.wallet_address.toLowerCase();
+
         return {
-          address: w.wallet_address.toLowerCase(),
+          address: normalizedAddress,
           walletType: networkKey
         };
       });
@@ -267,7 +294,10 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
 
       // Update wallet data with found balances
       setWallets(prev => prev.map(wallet => {
-        const addressBalances = addressBalancesMap.get(wallet.wallet_address.toLowerCase());
+        // CRITICAL: Use same normalization logic as above for consistent lookup
+        const isNonEVM = wallet.non_evm_network || ['ripple', 'bitcoin', 'cosmos', 'solana'].includes(wallet.wallet_type.toLowerCase());
+        const lookupAddress = isNonEVM ? wallet.wallet_address : wallet.wallet_address.toLowerCase();
+        const addressBalances = addressBalancesMap.get(lookupAddress);
 
         if (addressBalances && addressBalances.length > 0) {
           // Find the most relevant balance for this wallet:
@@ -651,7 +681,7 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           <span className="text-sm font-medium">
             {BalanceFormatter.formatBalance(
               balance.nativeBalance,
-              balance.network.toUpperCase(),
+              getNetworkSymbol(balance.network),
               { showFullPrecision: true, useAbbreviation: false }
             )}
           </span>

@@ -4,7 +4,7 @@
  * Handles database operations for key rotation history, policies, and configurations
  */
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { supabase } from '@/infrastructure/database/client'
 import {
   KeyRotationHistory,
   KeyRotationPolicy,
@@ -16,14 +16,7 @@ import {
 } from './key-rotation-types'
 
 export class XRPLKeyRotationDatabaseService {
-  private supabase: SupabaseClient
-
-  constructor() {
-    this.supabase = createClient(
-      import.meta.env.VITE_SUPABASE_URL,
-      import.meta.env.VITE_SUPABASE_ANON_KEY
-    )
-  }
+  private supabase = supabase
 
   /**
    * Save rotation history entry

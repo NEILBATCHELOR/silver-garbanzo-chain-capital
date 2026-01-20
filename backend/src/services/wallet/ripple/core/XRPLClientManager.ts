@@ -14,15 +14,15 @@ interface NetworkConfig {
 
 const XRPL_NETWORKS: Record<XRPLNetwork, NetworkConfig> = {
   mainnet: {
-    url: 'wss://xrplcluster.com',
+    url: process.env.XRPL_MAINNET_WS_URL || '',
     name: 'Mainnet'
   },
   testnet: {
-    url: 'wss://s.altnet.rippletest.net:51233',
+    url: process.env.XRPL_TESTNET_WS_URL || '',
     name: 'Testnet'
   },
   devnet: {
-    url: 'wss://s.devnet.rippletest.net:51233',
+    url: process.env.XRPL_DEVNET_WS_URL || '',
     name: 'Devnet'
   }
 }
@@ -39,6 +39,15 @@ class XRPLClientManager {
   getClient(network: XRPLNetwork = 'mainnet'): Client {
     if (!this.clients.has(network)) {
       const config = XRPL_NETWORKS[network]
+      
+      // Validate that URL is configured
+      if (!config.url) {
+        throw new Error(
+          `XRPL WebSocket URL not configured for ${network}. ` +
+          `Please set XRPL_${network.toUpperCase()}_WS_URL in backend .env file`
+        )
+      }
+      
       const client = new Client(config.url)
       this.clients.set(network, client)
     }

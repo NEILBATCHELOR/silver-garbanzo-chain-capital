@@ -48,6 +48,10 @@ import { injectiveBalanceService } from './injective/InjectiveBalanceService';
 import { injectiveTestnetBalanceService } from './injective/InjectiveTestnetBalanceService';
 import { rippleMainnetBalanceService, rippleTestnetBalanceService } from './ripple/RippleBalanceService';
 
+// Import XRPL-EVM balance services (EVM-compatible sidechain)
+import { xrplEvmBalanceService } from './evm/XRPLEVMBalanceService';
+import { xrplEvmTestnetBalanceService } from './evm/XRPLEVMTestnetBalanceService';
+
 // Legacy interface for backward compatibility
 export interface TokenBalance {
   symbol: string;
@@ -178,6 +182,12 @@ export class BalanceService {
     'xrpl': rippleMainnetBalanceService,
     'xrpl-testnet': rippleTestnetBalanceService,
     
+    // XRPL-EVM networks (EVM-compatible sidechain)
+    'xrpl-evm': xrplEvmBalanceService,
+    'xrpl-evm-testnet': xrplEvmTestnetBalanceService,
+    'xrplevm': xrplEvmBalanceService,
+    'xrplevm-testnet': xrplEvmTestnetBalanceService,
+    
     // Additional EVM chains (to be implemented)
     // 'fantom': fantomBalanceService,
     // 'fantom-testnet': fantomTestnetBalanceService,
@@ -203,12 +213,12 @@ export class BalanceService {
     'base-sepolia', 'bsc-testnet', 'zksync-sepolia', 'avalanche-testnet',
     'fuji', 'bitcoin-testnet', 'solana-devnet', 'solana-testnet',
     'aptos-testnet', 'sui-testnet', 'near-testnet', 'injective-testnet',
-    'ripple-testnet', 'fantom-testnet', 'cronos-testnet', 'sei-testnet',
+    'ripple-testnet', 'xrpl-evm-testnet', 'fantom-testnet', 'cronos-testnet', 'sei-testnet',
     'ronin-testnet', 'core-testnet', 'eth-sepolia', 'eth-holesky', 'eth-hoodi',
     'polygon-testnet', 'polygon-amoy', 'opt-sepolia', 'arb-sepolia',
     'bnb-testnet', 'ftm-testnet', 'cro-testnet', 'ron-testnet',
     'btc-testnet', 'sol-devnet', 'apt-testnet', 'inj-testnet',
-    'xrp-testnet', 'xrpl-testnet'
+    'xrp-testnet', 'xrpl-testnet', 'xrplevm-testnet'
   ]);
 
   // Mainnet to testnet mapping
@@ -691,6 +701,8 @@ export class BalanceService {
       'ripple': ['ripple', 'ripple-testnet'],
       'xrp': ['ripple', 'ripple-testnet'],
       'xrpl': ['ripple', 'ripple-testnet'],
+      'xrpl-evm': ['xrpl-evm', 'xrpl-evm-testnet'],
+      'xrplevm': ['xrpl-evm', 'xrpl-evm-testnet'],
     };
     
     return mapping[normalized] || [normalized];

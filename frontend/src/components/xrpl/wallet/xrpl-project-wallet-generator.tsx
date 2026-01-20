@@ -1,6 +1,6 @@
 /**
- * XRPL Project Wallet Generator
- * Integrates with ProjectWalletGenerator pattern for XRPL wallet creation
+ * XRP Project Wallet Generator
+ * Integrates with ProjectWalletGenerator pattern for XRP wallet creation
  * Follows same architecture as other blockchain integrations
  */
 
@@ -147,7 +147,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
         
         toast({
           title: "Success",
-          description: `XRPL ${network} wallet generated successfully`,
+          description: `XRP ${network} wallet generated successfully`,
         })
       } else {
         toast({
@@ -257,7 +257,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
         <CardHeader>
           <CardTitle className="flex items-center">
             <Plus className="mr-2 h-5 w-5" />
-            Generate New XRPL Wallet
+            Generate New XRP Wallet
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -329,7 +329,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
             ) : (
               <Wallet className="mr-2 h-4 w-4" />
             )}
-            {isGenerating ? 'Generating...' : 'Generate XRPL Wallet'}
+            {isGenerating ? 'Generating...' : 'Generate XRP Wallet'}
           </Button>
         </CardContent>
       </Card>
@@ -340,7 +340,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
           <CardHeader>
             <CardTitle className="flex items-center">
               <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
-              XRPL Wallet Generated Successfully
+              XRP Wallet Generated Successfully
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -373,7 +373,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => copyToClipboard(generatedWallet.walletAddress, 'XRPL wallet address')}
+                  onClick={() => copyToClipboard(generatedWallet.walletAddress, 'XRP wallet address')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -393,7 +393,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => copyToClipboard(generatedWallet.publicKey, 'XRPL public key')}
+                  onClick={() => copyToClipboard(generatedWallet.publicKey, 'XRP public key')}
                 >
                   <Copy className="h-4 w-4" />
                 </Button>
@@ -421,7 +421,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => copyToClipboard(generatedWallet.privateKey!, 'XRPL private key')}
+                    onClick={() => copyToClipboard(generatedWallet.privateKey!, 'XRP private key')}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>
@@ -450,7 +450,7 @@ export const XRPLProjectWalletGenerator: React.FC<XRPLProjectWalletGeneratorProp
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => copyToClipboard(generatedWallet.mnemonic!, 'XRPL mnemonic phrase')}
+                    onClick={() => copyToClipboard(generatedWallet.mnemonic!, 'XRP mnemonic phrase')}
                   >
                     <Copy className="h-4 w-4" />
                   </Button>

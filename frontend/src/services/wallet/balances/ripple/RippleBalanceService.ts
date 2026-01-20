@@ -66,16 +66,21 @@ export class RippleBalanceService extends BaseChainBalanceService {
       decimals: 6,
       networkType,
       rpcUrl: networkType === 'mainnet' 
-        ? (import.meta.env.VITE_RIPPLE_RPC_URL || 'https://xrplcluster.com')
-        : (import.meta.env.VITE_RIPPLE_TESTNET_RPC_URL || 'https://testnet.xrpl-labs.com'),
+        ? import.meta.env.VITE_XRPL_MAINNET_RPC_URL
+        : import.meta.env.VITE_XRPL_TESTNET_RPC_URL,
       explorerUrl: networkType === 'mainnet' 
-        ? 'https://livenet.xrpl.org'
-        : 'https://testnet.xrpl.org',
+        ? import.meta.env.VITE_XRPL_MAINNET_EXPLORER_URL
+        : import.meta.env.VITE_XRPL_TESTNET_EXPLORER_URL,
       coingeckoId: 'ripple',
       timeout: 15000,
       isEVM: false
     };
     super(config);
+    
+    // Validate that RPC URL is configured
+    if (!this.config.rpcUrl) {
+      throw new Error(`XRPL RPC URL not configured for ${networkType}. Please set VITE_XRPL_${networkType.toUpperCase()}_RPC_URL in .env`);
+    }
   }
 
   validateAddress(address: string): boolean {
