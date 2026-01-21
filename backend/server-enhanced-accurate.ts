@@ -47,6 +47,8 @@ import {
 
 // Injective Routes (Phase 10 - Injective Native Integration)
 import injectiveNativeRoutes from './src/routes/injective-native'
+import { injectiveExchangeRoutes } from './src/routes/injective-exchange'
+import { injectiveVaultRoutes } from './src/routes/injective-vault'
 
 // PSP (Payment Service Provider) Routes (10 services)
 import authPspRoutes from './src/routes/psp/auth.routes'
@@ -1223,6 +1225,30 @@ Comprehensive platform supporting:
     // - Permissions - RBAC for regulated assets (future)
     // ============================================================================
     await app.register(injectiveNativeRoutes)  // Handles /api/injective/native/*
+
+    // ============================================================================
+    // INJECTIVE EXCHANGE (MARKET MAKER) ROUTES - Phase 10.1
+    // ============================================================================
+    // Market maker operations using CCMM.sol via Exchange Precompile:
+    // - Contract Deployment - Deploy CCMM market maker contracts
+    // - Market Configuration - Configure product markets with spreads
+    // - Liquidity Provision - Place buy/sell orders automatically
+    // - Order Management - Cancel and update orders
+    // - Operations Tracking - Audit trail for all operations
+    // ============================================================================
+    await app.register(injectiveExchangeRoutes)  // Handles /api/injective/exchange/*
+
+    // ============================================================================
+    // INJECTIVE VAULT ROUTES - Phase 10.2
+    // ============================================================================
+    // Yield-bearing vault operations using CCeTracker.sol:
+    // - Vault Deployment - Deploy CCeTracker yield vaults
+    // - Deposit/Withdraw - User deposit and withdrawal operations
+    // - Exchange Rate - Backend oracle rate updates
+    // - Strategies - Yield strategy management
+    // - Position Tracking - User position monitoring
+    // ============================================================================
+    await app.register(injectiveVaultRoutes)  // Handles /api/injective/vault/*
 
   } catch (error) {
     logger.error({ error }, 'Route registration failed')

@@ -50,7 +50,11 @@ const QUOTE_DENOMS = {
   'USDC': 'peggy0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
 };
 
-export const InjectiveMarketLaunch: React.FC = () => {
+interface InjectiveMarketLaunchProps {
+  projectId?: string;
+}
+
+export const InjectiveMarketLaunch: React.FC<InjectiveMarketLaunchProps> = ({ projectId }) => {
   const [config, setConfig] = useState<MarketConfig>({
     ticker: '',
     baseDenom: '',

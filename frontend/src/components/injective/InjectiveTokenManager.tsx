@@ -40,17 +40,18 @@ import {
   AlertCircle,
   Copy,
   CheckCircle2,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Filter
 } from 'lucide-react';
 import { MTSUtilities, mtsUtilitiesTestnet, mtsUtilitiesMainnet } from '@/services/wallet/injective';
 import { Network } from '@injectivelabs/networks';
 import { cn } from '@/utils/utils';
 
 /**
- * Enhanced Injective Token Manager with MTS Integration
+ * Enhanced Injective Token Manager with MTS Integration and Project Awareness
  * 
  * Features:
- * - Lists TokenFactory tokens
+ * - Project-scoped token listing
  * - Shows MTS status (EVM-compatible yes/no)
  * - Displays both Native denom and EVM address
  * - Mint, burn, metadata, market actions
@@ -59,6 +60,7 @@ import { cn } from '@/utils/utils';
 
 interface Token {
   id: string;
+  project_id: string | null;
   denom: string;
   subdenom: string;
   creator_address: string;
@@ -83,10 +85,19 @@ interface ActionResult {
   txHash?: string;
 }
 
-export const InjectiveTokenManager: React.FC = () => {
+interface InjectiveTokenManagerProps {
+  projectId?: string;
+  showProjectFilter?: boolean;
+}
+
+export const InjectiveTokenManager: React.FC<InjectiveTokenManagerProps> = ({ 
+  projectId,
+  showProjectFilter = true 
+}) => {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [loading, setLoading] = useState(true);
   const [network, setNetwork] = useState<'testnet' | 'mainnet'>('testnet');
+  const [filterByProject, setFilterByProject] = useState(!!projectId);
   const [selectedToken, setSelectedToken] = useState<Token | null>(null);
   const [copiedDenom, setCopiedDenom] = useState<string | null>(null);
 
@@ -100,19 +111,23 @@ export const InjectiveTokenManager: React.FC = () => {
   // Load tokens
   useEffect(() => {
     loadTokens();
-  }, [network]);
+  }, [network, projectId, filterByProject]);
 
   const loadTokens = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `/api/injective/native/tokens?network=${network}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-          }
+      let url = `/api/injective/native/tokens?network=${network}`;
+      
+      // Add project filter if enabled and projectId exists
+      if (filterByProject && projectId) {
+        url += `&project_id=${projectId}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
-      );
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -313,6 +328,10 @@ export const InjectiveTokenManager: React.FC = () => {
     setActionResult(null);
   };
 
+  const getFilteredTokensCount = () => {
+    return tokens.length;
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -322,12 +341,33 @@ export const InjectiveTokenManager: React.FC = () => {
               <CardTitle className="flex items-center gap-2">
                 <Coins className="h-5 w-5" />
                 Injective Token Manager
+                {projectId && filterByProject && (
+                  <Badge variant="secondary" className="ml-2">
+                    <Filter className="h-3 w-3 mr-1" />
+                    Project Scope
+                  </Badge>
+                )}
               </CardTitle>
               <CardDescription>
                 Manage your Injective Native TokenFactory tokens with MTS support
+                {projectId && filterByProject && (
+                  <span className="block mt-1 text-xs">
+                    Showing {getFilteredTokensCount()} token{getFilteredTokensCount() !== 1 ? 's' : ''} for this project
+                  </span>
+                )}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              {showProjectFilter && projectId && (
+                <Button
+                  variant={filterByProject ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setFilterByProject(!filterByProject)}
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  {filterByProject ? 'Project Only' : 'All Tokens'}
+                </Button>
+              )}
               <Select value={network} onValueChange={(value: 'testnet' | 'mainnet') => setNetwork(value)}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
@@ -351,7 +391,12 @@ export const InjectiveTokenManager: React.FC = () => {
             </div>
           ) : tokens.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-muted-foreground">No tokens found on {network}</p>
+              <p className="text-muted-foreground">
+                {filterByProject && projectId 
+                  ? 'No tokens found for this project on ' + network
+                  : 'No tokens found on ' + network
+                }
+              </p>
               <p className="text-sm text-muted-foreground mt-2">
                 Create your first token using the Deploy page
               </p>

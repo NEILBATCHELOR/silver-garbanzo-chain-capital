@@ -1,146 +1,120 @@
 /**
- * Injective Navigation Component
+ * Injective Horizontal Navigation Component
  * 
- * Provides comprehensive navigation for Injective TokenFactory features
- * Updated to match Chain Capital's Injective Native integration
+ * Provides horizontal tab navigation for Injective TokenFactory features
+ * Matches the ClimateReceivables pattern
  */
 
-import { Link, useLocation } from 'react-router-dom'
-import { cn } from '@/utils/utils'
-import { Badge } from '@/components/ui/badge'
-import {
-  Home,
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/utils/utils";
+import { 
+  LayoutDashboard,
   Coins,
   TrendingUp,
   Settings,
-  ChevronRight,
   Wallet,
-  Activity
-} from 'lucide-react'
+  Activity,
+  ArrowLeftRight
+} from "lucide-react";
 
 interface InjectiveNavigationProps {
-  className?: string
-  walletConnected?: boolean
+  projectId?: string;
 }
 
-export function InjectiveNavigation({ className, walletConnected = false }: InjectiveNavigationProps) {
-  const location = useLocation()
+export const InjectiveNavigation: React.FC<InjectiveNavigationProps> = ({ projectId }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
 
-  const navItems = [
-    {
-      title: 'Dashboard',
-      href: '/injective',
-      icon: Home,
-      description: 'Injective overview and portfolio',
-      requiresWallet: false
-    },
-    {
-      title: 'Wallet',
-      href: '/injective/wallet',
-      icon: Wallet,
-      description: 'Connect and manage Injective wallets',
-      requiresWallet: false
-    },
-    {
-      title: 'Deploy Token',
-      href: '/injective/deploy',
-      icon: Coins,
-      description: 'Create TokenFactory tokens',
-      badge: 'Native',
-      requiresWallet: true
-    },
-    {
-      title: 'Launch Market',
-      href: '/injective/market',
-      icon: TrendingUp,
-      description: 'Launch spot markets on DEX',
-      badge: 'DEX',
-      requiresWallet: true
-    },
-    {
-      title: 'MTS Transfer',
-      href: '/injective/mts-transfer',
-      icon: Activity,
-      description: 'Cross-VM token transfers',
-      badge: 'MTS',
-      requiresWallet: true
-    },
-    {
-      title: 'Manage Tokens',
-      href: '/injective/manage',
-      icon: Settings,
-      description: 'Mint, burn, and update tokens',
-      requiresWallet: true
-    },
-    {
-      title: 'Transactions',
-      href: '/injective/transactions',
-      icon: Activity,
-      description: 'Transaction history and monitoring',
-      requiresWallet: true
-    }
-  ]
+  const isActive = (path: string) => {
+    return currentPath.includes(path);
+  };
 
-  const isActive = (href: string) => {
-    if (href === '/injective') {
-      return location.pathname === href
+  // Get project-aware or standalone URLs
+  const getPath = (subPath: string) => {
+    if (projectId) {
+      return `/projects/${projectId}/injective${subPath}`;
     }
-    return location.pathname.startsWith(href)
-  }
+    return `/injective${subPath}`;
+  };
+
+  // Define navigation links
+  const navLinks = [
+    {
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      label: "Dashboard",
+      href: getPath(""),
+      active: currentPath === getPath("") || currentPath === `/injective`,
+    },
+    {
+      icon: <Wallet className="h-4 w-4" />,
+      label: "Wallet",
+      href: getPath("/wallet"),
+      active: isActive("/wallet"),
+    },
+    {
+      icon: <Coins className="h-4 w-4" />,
+      label: "Deploy Token",
+      href: getPath("/deploy"),
+      active: isActive("/deploy"),
+    },
+    {
+      icon: <TrendingUp className="h-4 w-4" />,
+      label: "Launch Market",
+      href: getPath("/market"),
+      active: isActive("/market"),
+    },
+    {
+      icon: <ArrowLeftRight className="h-4 w-4" />,
+      label: "MTS Transfer",
+      href: getPath("/mts-transfer"),
+      active: isActive("/mts-transfer"),
+    },
+    {
+      icon: <Settings className="h-4 w-4" />,
+      label: "Manage Tokens",
+      href: getPath("/manage"),
+      active: isActive("/manage"),
+    },
+    {
+      icon: <Activity className="h-4 w-4" />,
+      label: "Transactions",
+      href: getPath("/transactions"),
+      active: isActive("/transactions"),
+    },
+  ];
 
   return (
-    <nav className={cn('space-y-1', className)}>
-      {navItems.map((item) => {
-        const Icon = item.icon
-        const active = isActive(item.href)
-        const disabled = item.requiresWallet && !walletConnected
-
-        return (
-          <Link
-            key={item.href}
-            to={disabled ? '#' : item.href}
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
-              disabled && 'opacity-50 cursor-not-allowed',
-              !disabled && active && 'bg-primary text-primary-foreground',
-              !disabled && !active && 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-            onClick={(e) => disabled && e.preventDefault()}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium truncate">{item.title}</span>
-                {item.badge && (
-                  <Badge
-                    variant={active ? 'secondary' : 'outline'}
-                    className="text-xs shrink-0"
-                  >
-                    {item.badge}
-                  </Badge>
-                )}
-                {disabled && (
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    Wallet Required
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs truncate opacity-80">{item.description}</p>
-            </div>
-            {!disabled && <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />}
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
+    <div className="bg-white border-b px-6 py-3">
+      <div className="flex space-x-8 overflow-x-auto">
+        {navLinks.map((link) => {
+          return (
+            <Link
+              key={link.href}
+              to={link.href}
+              className={cn(
+                "flex items-center gap-2 py-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors",
+                link.active
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+              )}
+            >
+              {link.icon}
+              {link.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 /**
  * Breadcrumb Navigation for Injective
  */
 interface InjectiveBreadcrumbProps {
-  currentPage?: string
-  className?: string
+  currentPage?: string;
+  className?: string;
 }
 
 export function InjectiveBreadcrumb({ 
@@ -152,29 +126,29 @@ export function InjectiveBreadcrumb({
       <Link to="/" className="hover:text-foreground transition-colors">
         Home
       </Link>
-      <ChevronRight className="h-4 w-4" />
+      <span>/</span>
       <Link to="/injective" className="hover:text-foreground transition-colors">
         Injective
       </Link>
       {currentPage !== 'Dashboard' && (
         <>
-          <ChevronRight className="h-4 w-4" />
+          <span>/</span>
           <span className="text-foreground font-medium">{currentPage}</span>
         </>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * Quick Stats Component for Injective
  */
 interface InjectiveStatsProps {
-  className?: string
-  walletBalance?: string
-  tokenCount?: number
-  marketCount?: number
-  transactionCount?: number
+  className?: string;
+  walletBalance?: string;
+  tokenCount?: number;
+  marketCount?: number;
+  transactionCount?: number;
 }
 
 export function InjectiveStats({ 
@@ -189,7 +163,7 @@ export function InjectiveStats({
     { label: 'Tokens Created', value: tokenCount.toString(), color: 'text-green-600' },
     { label: 'Markets Launched', value: marketCount.toString(), color: 'text-purple-600' },
     { label: 'Transactions', value: transactionCount.toString(), color: 'text-amber-600' }
-  ]
+  ];
 
   return (
     <div className={cn('grid grid-cols-2 md:grid-cols-4 gap-4', className)}>
@@ -200,5 +174,5 @@ export function InjectiveStats({
         </div>
       ))}
     </div>
-  )
+  );
 }

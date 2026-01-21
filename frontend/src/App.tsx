@@ -62,8 +62,12 @@ import {
   InjectiveNativeTokenDeployment,
   InjectiveMarketLaunch,
   InjectiveTokenManager,
-  InjectiveMTSTransfer
+  InjectiveMTSTransfer,
+  InjectiveProjectWrapper
 } from "@/components/injective";
+
+// Vault Pages
+import { VaultDashboard, VaultProjectWrapper } from "@/components/vault";
 
 // Wallet Pages
 import NewWalletPage from "@/pages/wallet/NewWalletPage";
@@ -733,11 +737,18 @@ function App() {
                         <Route path="projects/:projectId/xrpl/*" element={<XRPLProjectWrapper />} />
 
                         {/* Injective Routes - TokenFactory Integration */}
-                        <Route path="injective" element={<InjectiveDashboard />} />
-                        <Route path="injective/deploy" element={<InjectiveNativeTokenDeployment />} />
-                        <Route path="injective/market" element={<InjectiveMarketLaunch />} />
-                        <Route path="injective/mts-transfer" element={<InjectiveMTSTransfer />} />
-                        <Route path="injective/manage" element={<InjectiveTokenManager />} />
+                        {/* Global Injective route (will auto-select project) */}
+                        <Route path="injective/*" element={<InjectiveProjectWrapper />} />
+                        
+                        {/* Project-specific Injective Routes */}
+                        <Route path="projects/:projectId/injective/*" element={<InjectiveProjectWrapper />} />
+
+                        {/* Vault Routes */}
+                        {/* Global Vault route (will auto-select project) */}
+                        <Route path="vault/*" element={<VaultProjectWrapper />} />
+                        
+                        {/* Project-specific Vault Routes */}
+                        <Route path="projects/:projectId/vault/*" element={<VaultProjectWrapper />} />
 
                         {/* Cap Table Routes */}
                         <Route path="captable" element={<CapTableManagerNew section="overview" />} />

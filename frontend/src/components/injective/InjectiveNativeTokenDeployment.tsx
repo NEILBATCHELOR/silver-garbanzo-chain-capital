@@ -38,7 +38,11 @@ interface DeploymentResult {
   error?: string;
 }
 
-export const InjectiveNativeTokenDeployment: React.FC = () => {
+interface InjectiveNativeTokenDeploymentProps {
+  projectId?: string;
+}
+
+export const InjectiveNativeTokenDeployment: React.FC<InjectiveNativeTokenDeploymentProps> = ({ projectId }) => {
   const [subdenom, setSubdenom] = useState('');
   const [initialSupply, setInitialSupply] = useState('');
   const [metadata, setMetadata] = useState<TokenMetadata>({
@@ -124,7 +128,8 @@ export const InjectiveNativeTokenDeployment: React.FC = () => {
           creatorAddress,
           privateKey: useHSM ? undefined : privateKey,
           useHSM,
-          network
+          network,
+          projectId // Add projectId to request
         })
       });
 

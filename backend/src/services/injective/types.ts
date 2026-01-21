@@ -1,7 +1,15 @@
 /**
- * Injective Native TokenFactory Types
- * Backend-specific types for Injective operations
+ * Injective TokenFactory Types
+ * Backend-specific types for Injective TokenFactory operations
+ * 
+ * NOTE: Exchange and Vault types have been moved to:
+ * - /services/exchange/types.ts
+ * - /services/vault/types.ts
  */
+
+// ============================================================================
+// TOKENFACTORY TYPES
+// ============================================================================
 
 export interface TokenMetadata {
   name: string;

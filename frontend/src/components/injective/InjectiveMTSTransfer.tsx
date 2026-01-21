@@ -47,6 +47,7 @@ interface InjectiveMTSTransferProps {
   network?: 'testnet' | 'mainnet';
   defaultAddress?: string;
   defaultTokenAddress?: string;
+  projectId?: string; // Project context for filtering/tracking
   onTransferComplete?: (txHash: string) => void;
 }
 

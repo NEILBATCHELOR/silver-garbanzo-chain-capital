@@ -1,15 +1,16 @@
 /**
- * XRPL Navigation Component
+ * XRPL Horizontal Navigation Component
  * 
- * Provides comprehensive navigation for all XRPL features
- * Updated with ALL 16 feature categories
+ * Provides horizontal tab navigation for XRPL features
+ * Matches the ClimateReceivables pattern
  */
 
-import { Link, useLocation } from 'react-router-dom'
-import { cn } from '@/utils/utils'
-import { Badge } from '@/components/ui/badge'
-import {
-  Home,
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
+import { cn } from "@/utils/utils";
+import { Badge } from '@/components/ui/badge';
+import { 
+  LayoutDashboard,
   Wallet,
   Coins,
   Image,
@@ -18,207 +19,165 @@ import {
   Shield,
   TrendingUp,
   Droplets,
-  ChevronRight,
   User,
   ShieldCheck,
   Key,
   Wrench,
   Activity,
   FileText
-} from 'lucide-react'
+} from "lucide-react";
 
 interface XRPLNavigationProps {
-  className?: string
-  walletConnected?: boolean
+  projectId?: string;
 }
 
-export function XRPLNavigation({ className, walletConnected = false }: XRPLNavigationProps) {
-  const location = useLocation()
+export const XRPLNavigation: React.FC<XRPLNavigationProps> = ({ projectId }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
 
-  const navItems = [
-    {
-      title: 'Dashboard',
-      href: '/xrpl',
-      icon: Home,
-      description: 'XRPL overview and portfolio',
-      requiresWallet: false
-    },
-    {
-      title: 'Wallet',
-      href: '/xrpl/wallet',
-      icon: Wallet,
-      description: 'Connect and manage XRPL wallets',
-      requiresWallet: false
-    },
-    {
-      title: 'MPT Tokens',
-      href: '/xrpl/mpt',
-      icon: Coins,
-      description: 'Multi-Purpose Token management',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'NFTs',
-      href: '/xrpl/nfts',
-      icon: Image,
-      description: 'Mint, trade, and manage NFTs',
-      requiresWallet: true
-    },
-    {
-      title: 'Payments',
-      href: '/xrpl/payments',
-      icon: Send,
-      description: 'Send XRP and tokens',
-      requiresWallet: true
-    },
-    {
-      title: 'Advanced Payments',
-      href: '/xrpl/advanced',
-      icon: ArrowLeftRight,
-      description: 'Channels, Escrow, Checks',
-      requiresWallet: true
-    },
-    {
-      title: 'Multi-Sig',
-      href: '/xrpl/multisig',
-      icon: Shield,
-      description: 'Multi-signature account management',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'AMM Pools',
-      href: '/xrpl/amm',
-      icon: Droplets,
-      description: 'Automated Market Maker liquidity pools',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'DEX Trading',
-      href: '/xrpl/dex',
-      icon: TrendingUp,
-      description: 'Decentralized exchange order books',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'Trust Lines',
-      href: '/xrpl/trustlines',
-      icon: Shield,
-      description: 'Manage token trust lines',
-      requiresWallet: true
-    },
-    {
-      title: 'Identity',
-      href: '/xrpl/identity',
-      icon: User,
-      description: 'DIDs and verifiable credentials',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'Compliance',
-      href: '/xrpl/compliance',
-      icon: ShieldCheck,
-      description: 'Asset freeze and deposit authorization',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'Security',
-      href: '/xrpl/security',
-      icon: Key,
-      description: 'Key rotation and account security',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'Advanced Tools',
-      href: '/xrpl/tools',
-      icon: Wrench,
-      description: 'Batch operations, path finding, oracles',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'Monitoring',
-      href: '/xrpl/monitoring',
-      icon: Activity,
-      description: 'Real-time WebSocket monitoring',
-      badge: 'New',
-      requiresWallet: true
-    },
-    {
-      title: 'Transactions',
-      href: '/xrpl/transactions',
-      icon: FileText,
-      description: 'Transaction history and monitoring',
-      requiresWallet: true
-    }
-  ]
+  const isActive = (path: string) => {
+    return currentPath.includes(path);
+  };
 
-  const isActive = (href: string) => {
-    if (href === '/xrpl') {
-      return location.pathname === href
+  // Get project-aware or standalone URLs
+  const getPath = (subPath: string) => {
+    if (projectId) {
+      return `/projects/${projectId}/xrpl${subPath}`;
     }
-    return location.pathname.startsWith(href)
-  }
+    return `/xrpl${subPath}`;
+  };
+
+  // Define navigation links - comprehensive XRPL features
+  const navLinks = [
+    {
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      label: "Dashboard",
+      href: getPath(""),
+      active: currentPath === getPath("") || currentPath === `/xrpl`,
+    },
+    {
+      icon: <Wallet className="h-4 w-4" />,
+      label: "Wallet",
+      href: getPath("/wallet"),
+      active: isActive("/wallet"),
+    },
+    {
+      icon: <Coins className="h-4 w-4" />,
+      label: "MPT Tokens",
+      href: getPath("/mpt"),
+      active: isActive("/mpt"),
+    },
+    {
+      icon: <Image className="h-4 w-4" />,
+      label: "NFTs",
+      href: getPath("/nfts"),
+      active: isActive("/nfts"),
+    },
+    {
+      icon: <Send className="h-4 w-4" />,
+      label: "Payments",
+      href: getPath("/payments"),
+      active: isActive("/payments"),
+    },
+    {
+      icon: <ArrowLeftRight className="h-4 w-4" />,
+      label: "Advanced Payments",
+      href: getPath("/advanced"),
+      active: isActive("/advanced"),
+    },
+    {
+      icon: <Shield className="h-4 w-4" />,
+      label: "Multi-Sig",
+      href: getPath("/multisig"),
+      active: isActive("/multisig"),
+    },
+    {
+      icon: <Droplets className="h-4 w-4" />,
+      label: "AMM Pools",
+      href: getPath("/amm"),
+      active: isActive("/amm"),
+    },
+    {
+      icon: <TrendingUp className="h-4 w-4" />,
+      label: "DEX Trading",
+      href: getPath("/dex"),
+      active: isActive("/dex"),
+    },
+    {
+      icon: <Shield className="h-4 w-4" />,
+      label: "Trust Lines",
+      href: getPath("/trustlines"),
+      active: isActive("/trustlines"),
+    },
+    {
+      icon: <User className="h-4 w-4" />,
+      label: "Identity",
+      href: getPath("/identity"),
+      active: isActive("/identity"),
+    },
+    {
+      icon: <ShieldCheck className="h-4 w-4" />,
+      label: "Compliance",
+      href: getPath("/compliance"),
+      active: isActive("/compliance"),
+    },
+    {
+      icon: <Key className="h-4 w-4" />,
+      label: "Security",
+      href: getPath("/security"),
+      active: isActive("/security"),
+    },
+    {
+      icon: <Wrench className="h-4 w-4" />,
+      label: "Advanced Tools",
+      href: getPath("/tools"),
+      active: isActive("/tools"),
+    },
+    {
+      icon: <Activity className="h-4 w-4" />,
+      label: "Monitoring",
+      href: getPath("/monitoring"),
+      active: isActive("/monitoring"),
+    },
+    {
+      icon: <FileText className="h-4 w-4" />,
+      label: "Transactions",
+      href: getPath("/transactions"),
+      active: isActive("/transactions"),
+    },
+  ];
 
   return (
-    <nav className={cn('space-y-1', className)}>
-      {navItems.map((item) => {
-        const Icon = item.icon
-        const active = isActive(item.href)
-        const disabled = item.requiresWallet && !walletConnected
-
-        return (
-          <Link
-            key={item.href}
-            to={disabled ? '#' : item.href}
-            className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
-              disabled && 'opacity-50 cursor-not-allowed',
-              !disabled && active && 'bg-primary text-primary-foreground',
-              !disabled && !active && 'text-muted-foreground hover:bg-muted hover:text-foreground'
-            )}
-            onClick={(e) => disabled && e.preventDefault()}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium truncate">{item.title}</span>
-                {item.badge && (
-                  <Badge
-                    variant={active ? 'secondary' : 'outline'}
-                    className="text-xs shrink-0"
-                  >
-                    {item.badge}
-                  </Badge>
-                )}
-                {disabled && (
-                  <Badge variant="outline" className="text-xs shrink-0">
-                    Wallet Required
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs truncate opacity-80">{item.description}</p>
-            </div>
-            {!disabled && <ChevronRight className="h-4 w-4 shrink-0 opacity-50" />}
-          </Link>
-        )
-      })}
-    </nav>
-  )
-}
+    <div className="bg-white border-b px-6 py-3">
+      <div className="flex space-x-8 overflow-x-auto">
+        {navLinks.map((link) => {
+          return (
+            <Link
+              key={link.href}
+              to={link.href}
+              className={cn(
+                "flex items-center gap-2 py-2 border-b-2 text-sm font-medium whitespace-nowrap transition-colors",
+                link.active
+                  ? "border-primary text-primary"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-gray-300"
+              )}
+            >
+              {link.icon}
+              {link.label}
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 /**
  * Breadcrumb Navigation for XRPL
  */
 interface XRPLBreadcrumbProps {
-  currentPage?: string
-  className?: string
+  currentPage?: string;
+  className?: string;
 }
 
 export function XRPLBreadcrumb({ 
@@ -230,29 +189,29 @@ export function XRPLBreadcrumb({
       <Link to="/" className="hover:text-foreground transition-colors">
         Home
       </Link>
-      <ChevronRight className="h-4 w-4" />
+      <span>/</span>
       <Link to="/xrpl" className="hover:text-foreground transition-colors">
         XRPL
       </Link>
       {currentPage !== 'Dashboard' && (
         <>
-          <ChevronRight className="h-4 w-4" />
+          <span>/</span>
           <span className="text-foreground font-medium">{currentPage}</span>
         </>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * Quick Stats Component for XRPL
  */
 interface XRPLStatsProps {
-  className?: string
-  walletBalance?: string
-  mptCount?: number
-  nftCount?: number
-  transactionCount?: number
+  className?: string;
+  walletBalance?: string;
+  mptCount?: number;
+  nftCount?: number;
+  transactionCount?: number;
 }
 
 export function XRPLStats({ 
@@ -267,7 +226,7 @@ export function XRPLStats({
     { label: 'MPT Tokens', value: mptCount.toString(), color: 'text-green-600' },
     { label: 'NFTs Owned', value: nftCount.toString(), color: 'text-purple-600' },
     { label: 'Transactions', value: transactionCount.toString(), color: 'text-amber-600' }
-  ]
+  ];
 
   return (
     <div className={cn('grid grid-cols-2 md:grid-cols-4 gap-4', className)}>
@@ -278,5 +237,5 @@ export function XRPLStats({
         </div>
       ))}
     </div>
-  )
+  );
 }

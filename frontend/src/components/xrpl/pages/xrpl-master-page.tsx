@@ -3,7 +3,7 @@
  * Main entry point for XRPL integration with all components accessible
  * 
  * Features:
- * - Shared navigation and header
+ * - Horizontal navigation tabs (ClimateReceivables pattern)
  * - ALL 16 feature categories accessible
  * - Wallet management
  * - MPT tokens, NFTs, Payments
@@ -12,6 +12,8 @@
  * - Security, Advanced Tools, Monitoring
  * - Transaction history
  * - Project-scoped data (when projectId provided)
+ * 
+ * Updated: Uses horizontal navigation instead of vertical sidebar
  */
 
 import React, { useState, useEffect } from 'react'
@@ -48,7 +50,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface XRPLMasterPageProps {
-  projectId?: string // Optional project ID for scoping data
+  projectId?: string
 }
 
 export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
@@ -74,7 +76,6 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
       description: `Connected to ${connectedWallet.address}`
     })
     
-    // Refresh balance and stats
     handleRefresh()
   }
 
@@ -92,7 +93,6 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
     setIsLoading(true)
     try {
       // TODO: Implement actual balance fetching
-      // For now, mock data
       setWalletBalance('1000.00')
       setStats({
         mptCount: 3,
@@ -111,7 +111,8 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
   }
 
   const handleConnectWallet = () => {
-    navigate('/wallet')
+    const basePath = projectId ? `/projects/${projectId}/xrpl` : '/xrpl'
+    navigate(`${basePath}/wallet`)
   }
 
   // Helper component for wallet-required routes
@@ -162,375 +163,356 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
         onPayments={() => navigate('/payments')}
       />
 
-      <div className="container mx-auto p-6">
-        <div className="grid grid-cols-12 gap-6">
-          {/* Sidebar Navigation */}
-          <div className="col-span-12 lg:col-span-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm">Navigation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <XRPLNavigation walletConnected={!!wallet} />
-              </CardContent>
-            </Card>
+      {/* HORIZONTAL NAVIGATION */}
+      <XRPLNavigation projectId={projectId} />
 
-            {/* Stats Card */}
-            {wallet && (
-              <Card className="mt-6">
+      {/* MAIN CONTENT - Full Width */}
+      <div className="container mx-auto p-6">
+        {/* Stats Section */}
+        {wallet && (
+          <div className="mb-6">
+            <XRPLStats
+              walletBalance={walletBalance}
+              mptCount={stats.mptCount}
+              nftCount={stats.nftCount}
+              transactionCount={stats.transactionCount}
+            />
+          </div>
+        )}
+
+        {/* Routes */}
+        <Routes>
+          {/* Dashboard */}
+          <Route 
+            path="/dashboard" 
+            element={<XRPLUnifiedDashboard />} 
+          />
+
+          {/* Wallet Management */}
+          <Route 
+            path="/wallet" 
+            element={
+              <Card>
                 <CardHeader>
-                  <CardTitle className="text-sm">Quick Stats</CardTitle>
+                  <CardTitle>Wallet Management</CardTitle>
+                  <CardDescription>Connect, import, or generate your XRPL wallet</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <XRPLStats
-                    walletBalance={walletBalance}
-                    mptCount={stats.mptCount}
-                    nftCount={stats.nftCount}
-                    transactionCount={stats.transactionCount}
-                  />
+                  {wallet ? (
+                    <WalletBalance wallet={wallet} network={network} />
+                  ) : (
+                    <WalletConnect 
+                      onWalletConnected={handleWalletConnected}
+                      network={network}
+                    />
+                  )}
                 </CardContent>
               </Card>
-            )}
-          </div>
+            } 
+          />
 
-          {/* Main Content Area */}
-          <div className="col-span-12 lg:col-span-9">
-            <Routes>
-              {/* Alternative Unified Dashboard */}
-              <Route 
-                path="/dashboard" 
-                element={<XRPLUnifiedDashboard />} 
-              />
+          {/* MPT Tokens */}
+          <Route 
+            path="/mpt" 
+            element={
+              <WalletRequiredCard
+                title="Multi-Purpose Tokens (MPT)"
+                description="Create, manage, and transfer MPT tokens"
+              >
+                <Tabs defaultValue="manager">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="manager">Manager</TabsTrigger>
+                    <TabsTrigger value="create">Create</TabsTrigger>
+                    <TabsTrigger value="transfer">Transfer</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="manager">
+                    <MPTManager wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="create">
+                    <MPTCreator wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="transfer">
+                    <MPTTransfer wallet={wallet!} network={network} />
+                  </TabsContent>
+                </Tabs>
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* Wallet Management */}
-              <Route 
-                path="/wallet" 
-                element={
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Wallet Management</CardTitle>
-                      <CardDescription>Connect, import, or generate your XRPL wallet</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {wallet ? (
-                        <WalletBalance wallet={wallet} network={network} />
-                      ) : (
-                        <WalletConnect 
-                          onWalletConnected={handleWalletConnected}
-                          network={network}
-                        />
-                      )}
-                    </CardContent>
-                  </Card>
-                } 
-              />
+          {/* NFTs */}
+          <Route 
+            path="/nfts" 
+            element={
+              <WalletRequiredCard
+                title="NFT Management"
+                description="Mint, trade, and manage your NFTs"
+              >
+                <Tabs defaultValue="gallery">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="gallery">My NFTs</TabsTrigger>
+                    <TabsTrigger value="mint">Mint</TabsTrigger>
+                    <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="gallery">
+                    <NFTGallery wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="mint">
+                    <NFTMinter wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="marketplace">
+                    <NFTMarketplace wallet={wallet!} network={network} />
+                  </TabsContent>
+                </Tabs>
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* MPT Tokens */}
-              <Route 
-                path="/mpt" 
-                element={
-                  <WalletRequiredCard
-                    title="Multi-Purpose Tokens (MPT)"
-                    description="Create, manage, and transfer MPT tokens"
-                  >
-                    <Tabs defaultValue="manager">
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="manager">Manager</TabsTrigger>
-                        <TabsTrigger value="create">Create</TabsTrigger>
-                        <TabsTrigger value="transfer">Transfer</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="manager">
-                        <MPTManager wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="create">
-                        <MPTCreator wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="transfer">
-                        <MPTTransfer wallet={wallet!} network={network} />
-                      </TabsContent>
-                    </Tabs>
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* Payments */}
+          <Route 
+            path="/payments" 
+            element={
+              <WalletRequiredCard
+                title="Payments"
+                description="Send XRP and tokens"
+              >
+                <XRPPaymentForm wallet={wallet!} network={network} />
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* NFTs */}
-              <Route 
-                path="/nfts" 
-                element={
-                  <WalletRequiredCard
-                    title="NFT Management"
-                    description="Mint, trade, and manage your NFTs"
-                  >
-                    <Tabs defaultValue="gallery">
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="gallery">My NFTs</TabsTrigger>
-                        <TabsTrigger value="mint">Mint</TabsTrigger>
-                        <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="gallery">
-                        <NFTGallery wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="mint">
-                        <NFTMinter wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="marketplace">
-                        <NFTMarketplace wallet={wallet!} network={network} />
-                      </TabsContent>
-                    </Tabs>
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* Advanced Payment Features */}
+          <Route 
+            path="/advanced" 
+            element={
+              <WalletRequiredCard
+                title="Advanced Payment Features"
+                description="Payment channels, escrow, and checks"
+              >
+                <Tabs defaultValue="channels">
+                  <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="channels">Payment Channels</TabsTrigger>
+                    <TabsTrigger value="escrow">Escrow</TabsTrigger>
+                    <TabsTrigger value="checks">Checks</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="channels">
+                    <PaymentChannelManager wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="escrow">
+                    <EscrowManager wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="checks">
+                    <CheckManager wallet={wallet!} network={network} />
+                  </TabsContent>
+                </Tabs>
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* Payments */}
-              <Route 
-                path="/payments" 
-                element={
-                  <WalletRequiredCard
-                    title="Payments"
-                    description="Send XRP and tokens"
-                  >
-                    <XRPPaymentForm wallet={wallet!} network={network} />
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* Transactions */}
+          <Route 
+            path="/transactions" 
+            element={
+              <WalletRequiredCard
+                title="Transaction History"
+                description="View and monitor your transactions"
+              >
+                <Tabs defaultValue="history">
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="history">History</TabsTrigger>
+                    <TabsTrigger value="monitor">Monitor</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="history">
+                    <TransactionHistory wallet={wallet!} network={network} />
+                  </TabsContent>
+                  <TabsContent value="monitor">
+                    <TransactionMonitor wallet={wallet!} network={network} />
+                  </TabsContent>
+                </Tabs>
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* Advanced Payment Features (Channels, Escrow, Checks) */}
-              <Route 
-                path="/advanced" 
-                element={
-                  <WalletRequiredCard
-                    title="Advanced Payment Features"
-                    description="Payment channels, escrow, and checks"
-                  >
-                    <Tabs defaultValue="channels">
-                      <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="channels">Payment Channels</TabsTrigger>
-                        <TabsTrigger value="escrow">Escrow</TabsTrigger>
-                        <TabsTrigger value="checks">Checks</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="channels">
-                        <PaymentChannelManager wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="escrow">
-                        <EscrowManager wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="checks">
-                        <CheckManager wallet={wallet!} network={network} />
-                      </TabsContent>
-                    </Tabs>
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* Multi-Signature */}
+          <Route 
+            path="/multisig" 
+            element={
+              <WalletRequiredCard
+                title="Multi-Signature Accounts"
+                description="Configure and manage multi-signature accounts for enhanced security"
+              >
+                <XRPLMultiSigPage 
+                  wallet={wallet!} 
+                  network={network}
+                  projectId={projectId}
+                />
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* Transactions */}
-              <Route 
-                path="/transactions" 
-                element={
-                  <WalletRequiredCard
-                    title="Transaction History"
-                    description="View and monitor your transactions"
-                  >
-                    <Tabs defaultValue="history">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="history">History</TabsTrigger>
-                        <TabsTrigger value="monitor">Monitor</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="history">
-                        <TransactionHistory wallet={wallet!} network={network} />
-                      </TabsContent>
-                      <TabsContent value="monitor">
-                        <TransactionMonitor wallet={wallet!} network={network} />
-                      </TabsContent>
-                    </Tabs>
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* AMM */}
+          <Route 
+            path="/amm" 
+            element={
+              <WalletRequiredCard
+                title="Automated Market Maker (AMM)"
+                description="Create liquidity pools and earn trading fees"
+              >
+                <XRPLAMMPage 
+                  wallet={wallet!} 
+                  network={network}
+                  projectId={projectId}
+                />
+              </WalletRequiredCard>
+            } 
+          />
 
-              {/* Multi-Signature */}
-              <Route 
-                path="/multisig" 
-                element={
-                  <WalletRequiredCard
-                    title="Multi-Signature Accounts"
-                    description="Configure and manage multi-signature accounts for enhanced security"
-                  >
-                    <XRPLMultiSigPage 
-                      wallet={wallet!} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* DEX Trading */}
+          <Route 
+            path="/dex" 
+            element={
+              wallet ? (
+                <XRPLDEXPage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="DEX Trading"
+                  description="Trade on the XRPL decentralized exchange"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
 
-              {/* AMM (Automated Market Maker) */}
-              <Route 
-                path="/amm" 
-                element={
-                  <WalletRequiredCard
-                    title="Automated Market Maker (AMM)"
-                    description="Create liquidity pools and earn trading fees"
-                  >
-                    <XRPLAMMPage 
-                      wallet={wallet!} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  </WalletRequiredCard>
-                } 
-              />
+          {/* Identity Management */}
+          <Route 
+            path="/identity" 
+            element={
+              wallet ? (
+                <XRPLIdentityPage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="Identity Management"
+                  description="Manage DIDs and verifiable credentials"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
 
-              {/* ========== NEW ROUTES ========== */}
+          {/* Compliance */}
+          <Route 
+            path="/compliance" 
+            element={
+              wallet ? (
+                <XRPLCompliancePage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="Compliance Controls"
+                  description="Asset freeze and deposit authorization"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
 
-              {/* DEX Trading */}
-              <Route 
-                path="/dex" 
-                element={
-                  wallet ? (
-                    <XRPLDEXPage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="DEX Trading"
-                      description="Trade on the XRPL decentralized exchange"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
+          {/* Security Settings */}
+          <Route 
+            path="/security" 
+            element={
+              wallet ? (
+                <XRPLSecurityPage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="Security Settings"
+                  description="Key rotation and account security"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
 
-              {/* Identity Management */}
-              <Route 
-                path="/identity" 
-                element={
-                  wallet ? (
-                    <XRPLIdentityPage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="Identity Management"
-                      description="Manage DIDs and verifiable credentials"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
+          {/* Advanced Tools */}
+          <Route 
+            path="/tools" 
+            element={
+              wallet ? (
+                <XRPLAdvancedToolsPage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="Advanced Tools"
+                  description="Batch operations, path finding, and price oracles"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
 
-              {/* Compliance */}
-              <Route 
-                path="/compliance" 
-                element={
-                  wallet ? (
-                    <XRPLCompliancePage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="Compliance Controls"
-                      description="Asset freeze and deposit authorization"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
+          {/* Monitoring */}
+          <Route 
+            path="/monitoring" 
+            element={
+              wallet ? (
+                <XRPLMonitoringPage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="Real-Time Monitoring"
+                  description="WebSocket monitoring and activity feeds"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
 
-              {/* Security Settings */}
-              <Route 
-                path="/security" 
-                element={
-                  wallet ? (
-                    <XRPLSecurityPage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="Security Settings"
-                      description="Key rotation and account security"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
-
-              {/* Advanced Tools */}
-              <Route 
-                path="/tools" 
-                element={
-                  wallet ? (
-                    <XRPLAdvancedToolsPage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="Advanced Tools"
-                      description="Batch operations, path finding, and price oracles"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
-
-              {/* Monitoring */}
-              <Route 
-                path="/monitoring" 
-                element={
-                  wallet ? (
-                    <XRPLMonitoringPage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="Real-Time Monitoring"
-                      description="WebSocket monitoring and activity feeds"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
-
-              {/* Trust Lines */}
-              <Route 
-                path="/trustlines" 
-                element={
-                  wallet ? (
-                    <XRPLTrustLinesPage 
-                      wallet={wallet} 
-                      network={network}
-                      projectId={projectId}
-                    />
-                  ) : (
-                    <WalletRequiredCard
-                      title="Trust Lines"
-                      description="Manage token trust line relationships"
-                    >
-                      <div />
-                    </WalletRequiredCard>
-                  )
-                } 
-              />
-            </Routes>
-          </div>
-        </div>
+          {/* Trust Lines */}
+          <Route 
+            path="/trustlines" 
+            element={
+              wallet ? (
+                <XRPLTrustLinesPage 
+                  wallet={wallet} 
+                  network={network}
+                  projectId={projectId}
+                />
+              ) : (
+                <WalletRequiredCard
+                  title="Trust Lines"
+                  description="Manage token trust line relationships"
+                >
+                  <div />
+                </WalletRequiredCard>
+              )
+            } 
+          />
+        </Routes>
       </div>
     </div>
   )

@@ -186,6 +186,42 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
       }
     ]
   },
+
+  // INJECTIVE BLOCKCHAIN SECTION
+  {
+    id: 'injective',
+    title: 'INJECTIVE BLOCKCHAIN',
+    permissions: ['wallet.view'],
+    roles: ['Agent', 'Operations', 'Owner', 'Super Admin'],
+    minRolePriority: 60,
+    items: [
+      {
+        id: 'injective-dashboard',
+        label: 'Injective Dashboard',
+        href: '/injective',
+        icon: Layers,
+        permissions: ['wallet.view']
+      }
+    ]
+  },
+
+  // VAULTS (CCeTracker) SECTION
+  {
+    id: 'vault',
+    title: 'VAULTS (TRACKERS)',
+    permissions: ['wallet.view'],
+    roles: ['Agent', 'Operations', 'Owner', 'Super Admin'],
+    minRolePriority: 60,
+    items: [
+      {
+        id: 'vault-dashboard',
+        label: 'Vault Dashboard',
+        href: '/vault',
+        icon: Shield,
+        permissions: ['wallet.view']
+      }
+    ]
+  },
   
   // COMPLIANCE SECTION
   {

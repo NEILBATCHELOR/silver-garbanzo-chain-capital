@@ -293,7 +293,7 @@ export const XRPLUnifiedDashboard: React.FC = () => {
       <div className="flex">
         {/* Sidebar Navigation */}
         <aside className="w-64 border-r bg-muted/10 p-6 min-h-[calc(100vh-4rem)]">
-          <XRPLNavigation walletConnected={!!walletAddress} />
+          <XRPLNavigation projectId={projectId} />
         </aside>
 
         {/* Main Content */}

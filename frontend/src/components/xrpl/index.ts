@@ -1,6 +1,9 @@
 // Dashboard Components
 export { XRPLPortfolio } from './dashboard/xrpl-portfolio'
 
+// Horizontal Navigation (NEW)
+export { XRPLNavigation } from './shared/xrpl-navigation';
+
 // MPT Components
 export * from './mpt'
 
@@ -16,7 +19,7 @@ export * from './transactions'
 // Wallet Components
 export * from './wallet'
 
-// Shared Components
+// Shared Components (legacy vertical navigation)
 export * from './shared'
 
 // Pages
