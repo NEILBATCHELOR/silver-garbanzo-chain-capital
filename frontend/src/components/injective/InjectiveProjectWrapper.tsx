@@ -32,6 +32,7 @@ import {
   InjectiveMTSTransfer,
   InjectiveTokenManager
 } from '@/components/injective'
+import { DerivativesProjectWrapper } from '@/components/injective/derivatives'
 
 interface Project {
   id: string
@@ -221,6 +222,7 @@ export function InjectiveProjectWrapper() {
         <Route index element={<InjectiveDashboard projectId={currentProject.id} />} />
         <Route path="deploy" element={<InjectiveNativeTokenDeployment projectId={currentProject.id} />} />
         <Route path="market" element={<InjectiveMarketLaunch projectId={currentProject.id} />} />
+        <Route path="derivatives/*" element={<DerivativesProjectWrapper />} />
         <Route path="mts-transfer" element={<InjectiveMTSTransfer projectId={currentProject.id} />} />
         <Route path="manage" element={<InjectiveTokenManager projectId={currentProject.id} />} />
       </Routes>

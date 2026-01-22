@@ -65,6 +65,7 @@ import {
   InjectiveMTSTransfer,
   InjectiveProjectWrapper
 } from "@/components/injective";
+import { DerivativesProjectWrapper } from "@/components/injective/derivatives";
 
 // Vault Pages
 import { VaultDashboard, VaultProjectWrapper } from "@/components/vault";
@@ -749,6 +750,13 @@ function App() {
                         
                         {/* Project-specific Vault Routes */}
                         <Route path="projects/:projectId/vault/*" element={<VaultProjectWrapper />} />
+
+                        {/* Derivatives Routes - Perpetuals, Futures, Options */}
+                        {/* Global Derivatives route (will auto-select project) */}
+                        <Route path="derivatives/*" element={<DerivativesProjectWrapper />} />
+                        
+                        {/* Project-specific Derivatives Routes */}
+                        <Route path="projects/:projectId/derivatives/*" element={<DerivativesProjectWrapper />} />
 
                         {/* Cap Table Routes */}
                         <Route path="captable" element={<CapTableManagerNew section="overview" />} />

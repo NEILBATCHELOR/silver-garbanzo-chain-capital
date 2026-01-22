@@ -49,6 +49,7 @@ import {
 import injectiveNativeRoutes from './src/routes/injective-native'
 import { injectiveExchangeRoutes } from './src/routes/injective-exchange'
 import { injectiveVaultRoutes } from './src/routes/injective-vault'
+import injectiveDerivativesRoutes from './src/routes/injective-derivatives'
 
 // PSP (Payment Service Provider) Routes (10 services)
 import authPspRoutes from './src/routes/psp/auth.routes'
@@ -738,6 +739,82 @@ const SERVICE_CATALOG = {
     total_endpoints: 28,
     total_services: 5
   },
+  injective_blockchain: {
+    category: 'Injective Blockchain Operations',
+    services: [
+      {
+        name: 'Injective Native (TokenFactory)',
+        endpoints: 8,
+        routes: [
+          'POST /injective/native/tokens (create-token)',
+          'POST /injective/native/tokens/:denom/mint (mint)',
+          'POST /injective/native/tokens/:denom/burn (burn)',
+          'POST /injective/native/markets (launch-market)',
+          'GET /injective/native/tokens (list-tokens)',
+          'GET /injective/native/balances/:address (get-balances)',
+          'GET /injective/native/markets/:marketId (get-market)',
+          'GET /injective/native/oracles/:oracleId (get-oracle)'
+        ],
+        operations: ['TokenFactory', 'Market Launch', 'Token Operations', 'Balance Queries', 'Permissions'],
+        prefix: '/api/injective/native',
+        description: 'Permissionless native token creation and spot market operations on Injective'
+      },
+      {
+        name: 'Injective Exchange (Market Maker)',
+        endpoints: 8,
+        routes: [
+          'POST /injective/exchange/deploy (deploy-ccmm)',
+          'POST /injective/exchange/configure (configure-market)',
+          'POST /injective/exchange/provide-liquidity (provide-liquidity)',
+          'POST /injective/exchange/cancel-orders (cancel-orders)',
+          'POST /injective/exchange/update-market (update-config)',
+          'GET /injective/exchange/contracts (list-contracts)',
+          'GET /injective/exchange/markets (list-markets)',
+          'GET /injective/exchange/operations (list-operations)'
+        ],
+        operations: ['Contract Deployment', 'Market Configuration', 'Liquidity Provision', 'Order Management', 'Operations Tracking'],
+        prefix: '/api/injective/exchange',
+        description: 'Automated market making using CCMM.sol via Exchange Precompile'
+      },
+      {
+        name: 'Injective Vault',
+        endpoints: 9,
+        routes: [
+          'POST /injective/vault/deploy (deploy-vault)',
+          'POST /injective/vault/deposit (deposit)',
+          'POST /injective/vault/withdraw (withdraw)',
+          'POST /injective/vault/update-rate (update-exchange-rate)',
+          'POST /injective/vault/add-strategy (add-strategy)',
+          'GET /injective/vault/contracts (list-vaults)',
+          'GET /injective/vault/positions (list-positions)',
+          'GET /injective/vault/info/:vaultAddress (get-vault-info)',
+          'GET /injective/vault/strategies/:vaultAddress (get-strategies)'
+        ],
+        operations: ['Vault Deployment', 'Deposit/Withdraw', 'Exchange Rate Updates', 'Strategy Management', 'Position Tracking'],
+        prefix: '/api/injective/vault',
+        description: 'Yield-bearing vault operations using CCeTracker.sol'
+      },
+      {
+        name: 'Injective Derivatives',
+        endpoints: 8,
+        routes: [
+          'POST /injective/derivatives/launch-perpetual (launch-perp)',
+          'POST /injective/derivatives/launch-future (launch-future)',
+          'POST /injective/derivatives/open-position (open-position)',
+          'POST /injective/derivatives/close-position (close-position)',
+          'GET /injective/derivatives/markets (list-markets)',
+          'GET /injective/derivatives/positions (list-positions)',
+          'GET /injective/derivatives/market-info/:marketId (get-market-info)',
+          'GET /injective/derivatives/funding-rate/:marketId (get-funding-rate)'
+        ],
+        operations: ['Perpetual Futures', 'Expiry Futures', 'Position Management', 'Market Information', 'Funding Rates'],
+        prefix: '/api/injective/derivatives',
+        description: 'Derivatives trading: perpetuals, futures, and options with leverage and margin'
+      }
+    ],
+    total_endpoints: 33,
+    total_services: 4
+  },
   admin_deployment: {
     category: 'Admin & Deployment',
     services: [
@@ -1010,7 +1087,11 @@ Comprehensive platform supporting:
         'PSP - Multi-Rail Payment Orchestration (ACH, Wire, RTP, FedNow, P2C, Crypto)',
         'Stablecoin-First Payment Infrastructure',
         'KYB/KYC Identity Verification',
-        'Webhook Management & Event Tracking'
+        'Webhook Management & Event Tracking',
+        'XRPL - Multi-Purpose Tokens (MPT), NFTs, Payment Systems',
+        'Injective - Native TokenFactory, DEX Markets, Automated Market Making',
+        'Injective - Yield-Bearing Vaults (CCeTracker)',
+        'Injective - Derivatives Trading (Perpetuals, Futures, Options)'
       ],
       service_categories: Object.keys(SERVICE_CATALOG).map(key => ({
         key,
@@ -1024,6 +1105,8 @@ Comprehensive platform supporting:
         ready: '/ready',
         api: '/api/v1',
         psp: '/api/psp',
+        xrpl: '/api/v1/xrpl',
+        injective: '/api/injective',
         services: '/debug/services',
         routes: '/debug/routes',
         catalog: '/debug/catalog'
@@ -1250,6 +1333,18 @@ Comprehensive platform supporting:
     // ============================================================================
     await app.register(injectiveVaultRoutes)  // Handles /api/injective/vault/*
 
+    // ============================================================================
+    // INJECTIVE DERIVATIVES ROUTES - Phase 10.3
+    // ============================================================================
+    // Derivatives trading operations:
+    // - Perpetual Futures - Long/short positions with funding rates
+    // - Expiry Futures - Time-limited contracts with settlement
+    // - Position Management - Open, close, and track positions
+    // - Market Information - Real-time market data and funding rates
+    // - Leverage & Margin - Advanced trading with risk management
+    // ============================================================================
+    await app.register(injectiveDerivativesRoutes)  // Handles /api/injective/derivatives/*
+
   } catch (error) {
     logger.error({ error }, 'Route registration failed')
     throw error
@@ -1380,6 +1475,7 @@ async function start() {
     console.log('   🔧 Infrastructure (4): Auth, Users, Audit, Calendar')
     console.log('   💳 PSP Services (10): Auth, Balances, External Accounts, Identity, Payments, Settings, Trades, Transactions, Virtual Accounts, Webhooks')
     console.log('   🔗 XRPL Blockchain (5): MPT, NFT, Payment Systems, Transactions, Wallets')
+    console.log('   🔥 Injective Blockchain (4): Native TokenFactory, Exchange (Market Maker), Vaults, Derivatives')
     console.log('')
     console.log('🔗 QUICK ACCESS:')
     console.log(`   📚 API Docs: http://${HOST}:${PORT}/docs`)
@@ -1387,6 +1483,7 @@ async function start() {
     console.log(`   📊 Status: http://${HOST}:${PORT}/api/v1/status`)
     console.log(`   💳 PSP API: http://${HOST}:${PORT}/api/psp/*`)
     console.log(`   🔗 XRPL API: http://${HOST}:${PORT}/api/v1/xrpl/*`)
+    console.log(`   🔥 Injective API: http://${HOST}:${PORT}/api/injective/*`)
     console.log(`   🐛 Debug Services: http://${HOST}:${PORT}/debug/services`)
     console.log(`   📋 Service Catalog: http://${HOST}:${PORT}/debug/catalog`)
     console.log('')

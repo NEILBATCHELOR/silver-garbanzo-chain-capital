@@ -205,6 +205,24 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
     ]
   },
 
+  // DERIVATIVES TRADING SECTION
+  {
+    id: 'derivatives',
+    title: 'DERIVATIVES (PERPS/FUTURES/OPTIONS)',
+    permissions: ['wallet.view'],
+    roles: ['Agent', 'Operations', 'Owner', 'Super Admin'],
+    minRolePriority: 60,
+    items: [
+      {
+        id: 'derivatives-dashboard',
+        label: 'Derivatives Dashboard',
+        href: '/derivatives',
+        icon: TrendingUp,
+        permissions: ['wallet.view']
+      }
+    ]
+  },
+
   // VAULTS (CCeTracker) SECTION
   {
     id: 'vault',

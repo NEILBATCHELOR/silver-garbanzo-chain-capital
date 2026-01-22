@@ -15,7 +15,8 @@ import {
   Settings,
   Wallet,
   Activity,
-  ArrowLeftRight
+  ArrowLeftRight,
+  BarChart3
 } from "lucide-react";
 
 interface InjectiveNavigationProps {
@@ -63,6 +64,12 @@ export const InjectiveNavigation: React.FC<InjectiveNavigationProps> = ({ projec
       label: "Launch Market",
       href: getPath("/market"),
       active: isActive("/market"),
+    },
+    {
+      icon: <BarChart3 className="h-4 w-4" />,
+      label: "Derivatives",
+      href: getPath("/derivatives"),
+      active: isActive("/derivatives"),
     },
     {
       icon: <ArrowLeftRight className="h-4 w-4" />,
