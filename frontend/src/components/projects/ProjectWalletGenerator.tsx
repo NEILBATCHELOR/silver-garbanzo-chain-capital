@@ -31,14 +31,18 @@ import {
   getChainConfig, 
   getChainEnvironments, 
   getChainEnvironment,
+  getNetworkDisplayName,
   isNonEvmNetwork,
   type ChainConfig,
   type NetworkEnvironment,
-  type ChainEnvironment
+  type ChainEnvironmentConfig,
+  type EnvironmentOption
 } from '@/config/chains';
 
-// Import XRPL wallet generator for non-EVM chain support
+// Import non-EVM wallet generators
 import { XRPLProjectWalletGenerator } from '@/components/xrpl/wallet/xrpl-project-wallet-generator';
+import { SolanaProjectWalletGenerator } from '@/components/solana/wallet/SolanaProjectWalletGenerator';
+import { modernSolanaWalletGenerator } from '@/services/wallet/generators/ModernSolanaWalletGenerator';
 
 // Module-level lock to prevent concurrent wallet generation for the same project
 const inProgressProjectGenerations = new Set<string>();
@@ -89,8 +93,9 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   // Get all available chains
   const allChains = getAllChains();
   
-  // Check if selected network is non-EVM (like XRPL)
+  // Check if selected network is non-EVM (like XRPL or Solana)
   const isXrplSelected = selectedNetwork === 'ripple';
+  const isSolanaSelected = selectedNetwork === 'solana';
   
   // Get available environments for the selected network
   const availableEnvironments = selectedNetwork 
@@ -276,17 +281,20 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
       console.log(`[WalletGenerator] Generating single wallet for ${selectedNetwork}/${selectedEnvironment}, request: ${requestId}`);
       
       // Get the specific environment configuration
-      const environment = getChainEnvironment(selectedNetwork, selectedEnvironment);
+      const environment = getChainEnvironment(selectedNetwork, selectedEnvironment as 'mainnet' | 'testnet');
       if (!environment) {
         throw new Error(`Invalid environment: ${selectedNetwork}/${selectedEnvironment}`);
       }
+      
+      // Determine network environment from selectedEnvironment
+      const networkEnvironment = selectedEnvironment === 'mainnet' ? 'mainnet' : 'testnet';
       
       const result = await enhancedProjectWalletService.generateWalletForProject({
         projectId,
         projectName,
         projectType,
         network: selectedNetwork,
-        networkEnvironment: environment.isTestnet ? 'testnet' : 'mainnet',
+        networkEnvironment,
         chainId: environment.chainId,
         includePrivateKey,
         includeMnemonic,
@@ -301,9 +309,10 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
           onWalletGenerated(result);
         }
         
+        const displayName = getNetworkDisplayName(selectedNetwork, selectedEnvironment);
         toast({
           title: "Success",
-          description: `${environment.displayName} wallet generated successfully`,
+          description: `${displayName} wallet generated successfully`,
         });
       } else {
         toast({
@@ -519,6 +528,24 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
             onWalletGenerated={onWalletGenerated}
           />
         </>
+      ) : isSolanaSelected ? (
+        <>
+          <Alert>
+            <Network className="h-4 w-4" />
+            <AlertTitle>Solana (SOL) Selected</AlertTitle>
+            <AlertDescription>
+              Solana is a high-performance non-EVM blockchain with its own wallet generation system.
+              The interface below is optimized for Solana wallet creation.
+            </AlertDescription>
+          </Alert>
+          
+          <SolanaProjectWalletGenerator
+            projectId={projectId}
+            projectName={projectName}
+            projectType={projectType}
+            onWalletGenerated={onWalletGenerated}
+          />
+        </>
       ) : (
         <>
           {/* EVM Wallet Generation - Original UI */}
@@ -612,8 +639,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                       {allChains.map((chain) => (
                         <SelectItem key={chain.name} value={chain.name}>
                           <span className="flex items-center gap-2">
-                            <span>{chain.icon}</span>
-                            <span>{chain.label}</span>
+                            <span>{chain.displayName}</span>
                             {chain.isNonEvm && (
                               <Badge variant="outline" className="ml-2">Non-EVM</Badge>
                             )}
@@ -732,8 +758,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                     {allChains.map((chain) => (
                       <SelectItem key={chain.name} value={chain.name}>
                         <span className="flex items-center gap-2">
-                          <span>{chain.icon}</span>
-                          <span>{chain.label}</span>
+                          <span>{chain.displayName}</span>
                           {chain.isNonEvm && (
                             <Badge variant="outline" className="ml-2">Non-EVM</Badge>
                           )}
@@ -771,7 +796,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedEnvironment && !getChainEnvironment(selectedNetwork, selectedEnvironment)?.isTestnet && (
+                {selectedEnvironment && selectedEnvironment === 'mainnet' && (
                   <Alert variant="destructive" className="mt-2">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
@@ -806,8 +831,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                         onCheckedChange={(checked) => handleNetworkToggle(chain.name, checked as boolean)}
                       />
                       <label htmlFor={chain.name} className="text-sm flex items-center space-x-1">
-                        <span>{chain.icon}</span>
-                        <span>{chain.label}</span>
+                        <span>{chain.displayName}</span>
                       </label>
                     </div>
                   ))}
@@ -878,7 +902,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <CheckCircle className="mr-2 h-5 w-5 text-green-500" />
-                  {getNetworkConfig(wallet.network)?.label || wallet.network} Wallet Generated Successfully
+                  {getNetworkConfig(wallet.network)?.displayName || wallet.network} Wallet Generated Successfully
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -886,7 +910,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                 <div className="flex items-center space-x-2 flex-wrap">
                   <Badge variant="outline" className="flex items-center space-x-1">
                     <Network className="h-3 w-3" />
-                    <span>{getNetworkConfig(wallet.network)?.label || wallet.network}</span>
+                    <span>{getNetworkConfig(wallet.network)?.displayName || wallet.network}</span>
                   </Badge>
                   {wallet.chainId && (
                     <Badge variant="outline" className="flex items-center space-x-1">

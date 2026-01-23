@@ -187,6 +187,24 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
     ]
   },
 
+  // SOLANA BLOCKCHAIN SECTION
+  {
+    id: 'solana',
+    title: 'SOLANA BLOCKCHAIN',
+    permissions: ['wallet.view'],
+    roles: ['Agent', 'Operations', 'Owner', 'Super Admin'],
+    minRolePriority: 60,
+    items: [
+      {
+        id: 'solana-dashboard',
+        label: 'Token Launchpad',
+        href: '/solana',
+        icon: Layers,
+        permissions: ['wallet.view']
+      }
+    ]
+  },
+
   // INJECTIVE BLOCKCHAIN SECTION
   {
     id: 'injective',

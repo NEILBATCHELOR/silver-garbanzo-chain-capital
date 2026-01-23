@@ -38,10 +38,12 @@ if (typeof window !== 'undefined' && !window.process) {
   } as any;
 }
 
-// Solana environment configuration
+import { getRpcUrl } from './rpc/rpc-config';
+
+// Solana environment configuration - NO FALLBACKS
 export const SOLANA_CONFIG = {
   // Default to devnet for development
-  defaultEndpoint: import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.devnet.solana.com',
+  defaultEndpoint: getRpcUrl('solana', 'devnet'),
   commitment: 'confirmed' as const,
   preflightCommitment: 'confirmed' as const
 };

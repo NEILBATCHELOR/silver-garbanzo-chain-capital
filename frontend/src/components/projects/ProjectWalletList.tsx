@@ -156,7 +156,8 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
         isLoadingBalance: false,
         balance: undefined,
         // Compute wallet_type and environment from database fields
-        wallet_type: deriveWalletType(wallet.chain_id, wallet.non_evm_network),
+        // FIXED: Pass wallet.wallet_type as fallback for proper display
+        wallet_type: deriveWalletType(wallet.chain_id, wallet.non_evm_network, wallet.wallet_type),
         environment: wallet.chain_id ? getNetworkEnvironment(wallet.chain_id) : undefined,
       }));
 
@@ -968,17 +969,67 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                         )}
                       </TableCell>
 
-                      {/* Network Cell with Chain ID Mapping */}
+                      {/* Network Cell with Chain ID Mapping and Environment Detection */}
                       <TableCell>
                         <Badge variant="outline" className="font-normal flex items-center space-x-1">
                           <span>{BalanceFormatter.getNetworkIcon(wallet.balance?.network || chainName)}</span>
                           <span className="capitalize">{chainName}</span>
                         </Badge>
-                        {isTestnetChain && (
-                          <Badge variant="outline" className="ml-1 text-xs bg-amber-50 text-amber-600 mt-1">
-                            Testnet
-                          </Badge>
-                        )}
+                        {/* Environment Badge - Show for ALL wallets */}
+                        {(() => {
+                          // Determine environment based on network configuration
+                          let environment: 'mainnet' | 'testnet' | 'devnet' | null = null;
+                          
+                          // For EVM chains, use isTestnet check
+                          if (chainId && !isNaN(chainId)) {
+                            environment = isTestnetChain ? 'testnet' : 'mainnet';
+                          }
+                          // For non-EVM networks, detect from network name
+                          else if (wallet.non_evm_network) {
+                            const networkLower = wallet.non_evm_network.toLowerCase();
+                            if (networkLower.includes('testnet') || networkLower.includes('test')) {
+                              environment = 'testnet';
+                            } else if (networkLower.includes('devnet') || networkLower.includes('dev')) {
+                              environment = 'devnet';
+                            } else {
+                              environment = 'mainnet';
+                            }
+                          }
+                          // Fallback: Check wallet_type for environment hints
+                          else if (wallet.wallet_type) {
+                            const typeLower = wallet.wallet_type.toLowerCase();
+                            if (typeLower.includes('testnet') || typeLower.includes('test')) {
+                              environment = 'testnet';
+                            } else if (typeLower.includes('devnet') || typeLower.includes('dev')) {
+                              environment = 'devnet';
+                            } else if (typeLower === 'solana' || typeLower === 'ripple' || typeLower === 'bitcoin') {
+                              // Default non-EVM networks to mainnet if not specified
+                              environment = 'mainnet';
+                            }
+                          }
+                          
+                          // Display environment badge
+                          if (environment === 'testnet') {
+                            return (
+                              <Badge variant="outline" className="ml-1 text-xs bg-amber-50 text-amber-600 mt-1">
+                                Testnet
+                              </Badge>
+                            );
+                          } else if (environment === 'devnet') {
+                            return (
+                              <Badge variant="outline" className="ml-1 text-xs bg-purple-50 text-purple-600 mt-1">
+                                Devnet
+                              </Badge>
+                            );
+                          } else if (environment === 'mainnet') {
+                            return (
+                              <Badge variant="outline" className="ml-1 text-xs bg-green-50 text-green-600 mt-1">
+                                Mainnet
+                              </Badge>
+                            );
+                          }
+                          return null;
+                        })()}
                         {chainIdDisplay && (
                           <div className="text-xs text-muted-foreground mt-1">
                             Chain ID: {chainIdDisplay}

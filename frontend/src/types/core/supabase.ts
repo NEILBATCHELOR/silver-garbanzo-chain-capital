@@ -7316,6 +7316,441 @@ export type Database = {
           },
         ]
       }
+      derivative_funding_payments: {
+        Row: {
+          blockchain: string
+          created_at: string | null
+          funding_rate: number
+          id: string
+          market_id: string
+          network: string
+          payment_amount: number
+          payment_timestamp: string | null
+          position_id: string | null
+          position_size: number
+          subaccount_id: string | null
+          tx_hash: string | null
+          user_address: string
+        }
+        Insert: {
+          blockchain: string
+          created_at?: string | null
+          funding_rate: number
+          id?: string
+          market_id: string
+          network: string
+          payment_amount: number
+          payment_timestamp?: string | null
+          position_id?: string | null
+          position_size: number
+          subaccount_id?: string | null
+          tx_hash?: string | null
+          user_address: string
+        }
+        Update: {
+          blockchain?: string
+          created_at?: string | null
+          funding_rate?: number
+          id?: string
+          market_id?: string
+          network?: string
+          payment_amount?: number
+          payment_timestamp?: string | null
+          position_id?: string | null
+          position_size?: number
+          subaccount_id?: string | null
+          tx_hash?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      derivative_liquidations: {
+        Row: {
+          blockchain: string
+          created_at: string | null
+          entry_price: number
+          final_pnl: number | null
+          id: string
+          is_long: boolean
+          liquidated_at: string | null
+          liquidation_price: number
+          liquidator_address: string | null
+          market_id: string
+          network: string
+          notes: string | null
+          position_id: string | null
+          position_size: number
+          subaccount_id: string | null
+          tx_hash: string | null
+          user_address: string
+        }
+        Insert: {
+          blockchain: string
+          created_at?: string | null
+          entry_price: number
+          final_pnl?: number | null
+          id?: string
+          is_long: boolean
+          liquidated_at?: string | null
+          liquidation_price: number
+          liquidator_address?: string | null
+          market_id: string
+          network: string
+          notes?: string | null
+          position_id?: string | null
+          position_size: number
+          subaccount_id?: string | null
+          tx_hash?: string | null
+          user_address: string
+        }
+        Update: {
+          blockchain?: string
+          created_at?: string | null
+          entry_price?: number
+          final_pnl?: number | null
+          id?: string
+          is_long?: boolean
+          liquidated_at?: string | null
+          liquidation_price?: number
+          liquidator_address?: string | null
+          market_id?: string
+          network?: string
+          notes?: string | null
+          position_id?: string | null
+          position_size?: number
+          subaccount_id?: string | null
+          tx_hash?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      derivative_markets: {
+        Row: {
+          base_denom: string | null
+          blockchain: string
+          chain_id: string
+          created_at: string | null
+          expiry_timestamp: string | null
+          funding_interval: number | null
+          id: string
+          initial_margin_ratio: number
+          last_funding_rate: number | null
+          launched_at: string | null
+          maintenance_margin_ratio: number
+          maker_fee_rate: number | null
+          market_id: string
+          market_type: string
+          min_notional: number | null
+          min_price_tick_size: number | null
+          min_quantity_tick_size: number | null
+          network: string
+          next_funding_timestamp: string | null
+          notes: string | null
+          open_interest: number | null
+          oracle_base: string | null
+          oracle_quote: string | null
+          oracle_scale_factor: number | null
+          oracle_type: string | null
+          product_id: string | null
+          product_type: string | null
+          project_id: string | null
+          quote_denom: string
+          settled_at: string | null
+          settlement_price: number | null
+          status: string | null
+          taker_fee_rate: number | null
+          ticker: string
+          total_liquidations: number | null
+          total_positions_opened: number | null
+          total_volume: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          base_denom?: string | null
+          blockchain: string
+          chain_id: string
+          created_at?: string | null
+          expiry_timestamp?: string | null
+          funding_interval?: number | null
+          id?: string
+          initial_margin_ratio: number
+          last_funding_rate?: number | null
+          launched_at?: string | null
+          maintenance_margin_ratio: number
+          maker_fee_rate?: number | null
+          market_id: string
+          market_type: string
+          min_notional?: number | null
+          min_price_tick_size?: number | null
+          min_quantity_tick_size?: number | null
+          network: string
+          next_funding_timestamp?: string | null
+          notes?: string | null
+          open_interest?: number | null
+          oracle_base?: string | null
+          oracle_quote?: string | null
+          oracle_scale_factor?: number | null
+          oracle_type?: string | null
+          product_id?: string | null
+          product_type?: string | null
+          project_id?: string | null
+          quote_denom: string
+          settled_at?: string | null
+          settlement_price?: number | null
+          status?: string | null
+          taker_fee_rate?: number | null
+          ticker: string
+          total_liquidations?: number | null
+          total_positions_opened?: number | null
+          total_volume?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          base_denom?: string | null
+          blockchain?: string
+          chain_id?: string
+          created_at?: string | null
+          expiry_timestamp?: string | null
+          funding_interval?: number | null
+          id?: string
+          initial_margin_ratio?: number
+          last_funding_rate?: number | null
+          launched_at?: string | null
+          maintenance_margin_ratio?: number
+          maker_fee_rate?: number | null
+          market_id?: string
+          market_type?: string
+          min_notional?: number | null
+          min_price_tick_size?: number | null
+          min_quantity_tick_size?: number | null
+          network?: string
+          next_funding_timestamp?: string | null
+          notes?: string | null
+          open_interest?: number | null
+          oracle_base?: string | null
+          oracle_quote?: string | null
+          oracle_scale_factor?: number | null
+          oracle_type?: string | null
+          product_id?: string | null
+          product_type?: string | null
+          project_id?: string | null
+          quote_denom?: string
+          settled_at?: string | null
+          settlement_price?: number | null
+          status?: string | null
+          taker_fee_rate?: number | null
+          ticker?: string
+          total_liquidations?: number | null
+          total_positions_opened?: number | null
+          total_volume?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      derivative_orders: {
+        Row: {
+          average_fill_price: number | null
+          blockchain: string
+          cancelled_at: string | null
+          chain_id: string
+          created_at: string | null
+          expires_at: string | null
+          filled_at: string | null
+          filled_quantity: number | null
+          id: string
+          maker_fee: number | null
+          market_id: string
+          network: string
+          notes: string | null
+          order_hash: string | null
+          order_side: string
+          order_type: string
+          placed_at: string | null
+          price: number | null
+          product_id: string | null
+          project_id: string | null
+          quantity: number
+          status: string | null
+          subaccount_id: string | null
+          taker_fee: number | null
+          trigger_price: number | null
+          tx_hash: string | null
+          updated_at: string | null
+          user_address: string
+        }
+        Insert: {
+          average_fill_price?: number | null
+          blockchain: string
+          cancelled_at?: string | null
+          chain_id: string
+          created_at?: string | null
+          expires_at?: string | null
+          filled_at?: string | null
+          filled_quantity?: number | null
+          id?: string
+          maker_fee?: number | null
+          market_id: string
+          network: string
+          notes?: string | null
+          order_hash?: string | null
+          order_side: string
+          order_type: string
+          placed_at?: string | null
+          price?: number | null
+          product_id?: string | null
+          project_id?: string | null
+          quantity: number
+          status?: string | null
+          subaccount_id?: string | null
+          taker_fee?: number | null
+          trigger_price?: number | null
+          tx_hash?: string | null
+          updated_at?: string | null
+          user_address: string
+        }
+        Update: {
+          average_fill_price?: number | null
+          blockchain?: string
+          cancelled_at?: string | null
+          chain_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          filled_at?: string | null
+          filled_quantity?: number | null
+          id?: string
+          maker_fee?: number | null
+          market_id?: string
+          network?: string
+          notes?: string | null
+          order_hash?: string | null
+          order_side?: string
+          order_type?: string
+          placed_at?: string | null
+          price?: number | null
+          product_id?: string | null
+          project_id?: string | null
+          quantity?: number
+          status?: string | null
+          subaccount_id?: string | null
+          taker_fee?: number | null
+          trigger_price?: number | null
+          tx_hash?: string | null
+          updated_at?: string | null
+          user_address?: string
+        }
+        Relationships: []
+      }
+      derivative_positions: {
+        Row: {
+          available_margin: number | null
+          blockchain: string
+          chain_id: string
+          close_pnl: number | null
+          close_price: number | null
+          close_tx_hash: string | null
+          closed_at: string | null
+          created_at: string | null
+          current_price: number | null
+          entry_price: number
+          id: string
+          is_long: boolean
+          last_updated_at: string | null
+          leverage: number | null
+          liquidation_price: number | null
+          margin: number
+          market_id: string | null
+          network: string
+          notes: string | null
+          open_tx_hash: string | null
+          opened_at: string | null
+          position_id: string | null
+          product_id: string | null
+          project_id: string | null
+          quantity: number
+          realized_pnl: number | null
+          status: string | null
+          subaccount_id: string | null
+          total_fees_paid: number | null
+          total_funding_paid: number | null
+          unrealized_pnl: number | null
+          updated_at: string | null
+          user_address: string
+          user_id: string | null
+        }
+        Insert: {
+          available_margin?: number | null
+          blockchain: string
+          chain_id: string
+          close_pnl?: number | null
+          close_price?: number | null
+          close_tx_hash?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          current_price?: number | null
+          entry_price: number
+          id?: string
+          is_long: boolean
+          last_updated_at?: string | null
+          leverage?: number | null
+          liquidation_price?: number | null
+          margin: number
+          market_id?: string | null
+          network: string
+          notes?: string | null
+          open_tx_hash?: string | null
+          opened_at?: string | null
+          position_id?: string | null
+          product_id?: string | null
+          project_id?: string | null
+          quantity: number
+          realized_pnl?: number | null
+          status?: string | null
+          subaccount_id?: string | null
+          total_fees_paid?: number | null
+          total_funding_paid?: number | null
+          unrealized_pnl?: number | null
+          updated_at?: string | null
+          user_address: string
+          user_id?: string | null
+        }
+        Update: {
+          available_margin?: number | null
+          blockchain?: string
+          chain_id?: string
+          close_pnl?: number | null
+          close_price?: number | null
+          close_tx_hash?: string | null
+          closed_at?: string | null
+          created_at?: string | null
+          current_price?: number | null
+          entry_price?: number
+          id?: string
+          is_long?: boolean
+          last_updated_at?: string | null
+          leverage?: number | null
+          liquidation_price?: number | null
+          margin?: number
+          market_id?: string | null
+          network?: string
+          notes?: string | null
+          open_tx_hash?: string | null
+          opened_at?: string | null
+          position_id?: string | null
+          product_id?: string | null
+          project_id?: string | null
+          quantity?: number
+          realized_pnl?: number | null
+          status?: string | null
+          subaccount_id?: string | null
+          total_fees_paid?: number | null
+          total_funding_paid?: number | null
+          unrealized_pnl?: number | null
+          updated_at?: string | null
+          user_address?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       dfns_activity_logs: {
         Row: {
           activity_type: string
@@ -12284,6 +12719,87 @@ export type Database = {
           },
         ]
       }
+      exchange_contracts: {
+        Row: {
+          abi_json: Json | null
+          backend_oracle_address: string | null
+          backend_service_address: string | null
+          blockchain: string
+          chain_id: string
+          contract_address: string
+          contract_name: string
+          contract_type: string
+          created_at: string | null
+          deployer_address: string
+          deployment_block_number: number | null
+          deployment_timestamp: string | null
+          deployment_tx_hash: string | null
+          fund_manager_address: string | null
+          id: string
+          is_active: boolean | null
+          network: string
+          notes: string | null
+          product_id: string | null
+          product_type: string | null
+          project_id: string | null
+          updated_at: string | null
+          verification_url: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          abi_json?: Json | null
+          backend_oracle_address?: string | null
+          backend_service_address?: string | null
+          blockchain: string
+          chain_id: string
+          contract_address: string
+          contract_name: string
+          contract_type: string
+          created_at?: string | null
+          deployer_address: string
+          deployment_block_number?: number | null
+          deployment_timestamp?: string | null
+          deployment_tx_hash?: string | null
+          fund_manager_address?: string | null
+          id?: string
+          is_active?: boolean | null
+          network: string
+          notes?: string | null
+          product_id?: string | null
+          product_type?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          verification_url?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          abi_json?: Json | null
+          backend_oracle_address?: string | null
+          backend_service_address?: string | null
+          blockchain?: string
+          chain_id?: string
+          contract_address?: string
+          contract_name?: string
+          contract_type?: string
+          created_at?: string | null
+          deployer_address?: string
+          deployment_block_number?: number | null
+          deployment_timestamp?: string | null
+          deployment_tx_hash?: string | null
+          fund_manager_address?: string | null
+          id?: string
+          is_active?: boolean | null
+          network?: string
+          notes?: string | null
+          product_id?: string | null
+          product_type?: string | null
+          project_id?: string | null
+          updated_at?: string | null
+          verification_url?: string | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       exchange_rate_history: {
         Row: {
           confidence: number | null
@@ -14093,6 +14609,360 @@ export type Database = {
           },
         ]
       }
+      injective_markets: {
+        Row: {
+          base_denom: string
+          chain_id: string
+          created_at: string | null
+          high_24h: number | null
+          id: string
+          last_price: number | null
+          launch_block_height: number | null
+          launch_tx_hash: string | null
+          low_24h: number | null
+          maker_fee_rate: number | null
+          market_id: string
+          market_type: string
+          min_price_tick_size: number | null
+          min_quantity_tick_size: number | null
+          network: string
+          oracle_config: Json | null
+          project_id: string | null
+          quote_denom: string
+          status: string
+          taker_fee_rate: number | null
+          ticker: string
+          updated_at: string | null
+          volume_24h: number | null
+          volume_total: number | null
+        }
+        Insert: {
+          base_denom: string
+          chain_id: string
+          created_at?: string | null
+          high_24h?: number | null
+          id?: string
+          last_price?: number | null
+          launch_block_height?: number | null
+          launch_tx_hash?: string | null
+          low_24h?: number | null
+          maker_fee_rate?: number | null
+          market_id: string
+          market_type: string
+          min_price_tick_size?: number | null
+          min_quantity_tick_size?: number | null
+          network?: string
+          oracle_config?: Json | null
+          project_id?: string | null
+          quote_denom: string
+          status?: string
+          taker_fee_rate?: number | null
+          ticker: string
+          updated_at?: string | null
+          volume_24h?: number | null
+          volume_total?: number | null
+        }
+        Update: {
+          base_denom?: string
+          chain_id?: string
+          created_at?: string | null
+          high_24h?: number | null
+          id?: string
+          last_price?: number | null
+          launch_block_height?: number | null
+          launch_tx_hash?: string | null
+          low_24h?: number | null
+          maker_fee_rate?: number | null
+          market_id?: string
+          market_type?: string
+          min_price_tick_size?: number | null
+          min_quantity_tick_size?: number | null
+          network?: string
+          oracle_config?: Json | null
+          project_id?: string | null
+          quote_denom?: string
+          status?: string
+          taker_fee_rate?: number | null
+          ticker?: string
+          updated_at?: string | null
+          volume_24h?: number | null
+          volume_total?: number | null
+        }
+        Relationships: []
+      }
+      injective_native_tokens: {
+        Row: {
+          admin_address: string
+          chain_id: string
+          circulating_supply: number | null
+          created_at: string | null
+          creation_block_height: number | null
+          creation_tx_hash: string | null
+          creator_address: string
+          decimals: number
+          denom: string
+          description: string | null
+          display_denom: string | null
+          id: string
+          is_burnable: boolean | null
+          is_mintable: boolean | null
+          name: string
+          namespace_id: string | null
+          network: string
+          permissions_enabled: boolean | null
+          project_id: string | null
+          status: string
+          subdenom: string
+          symbol: string
+          total_supply: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          admin_address: string
+          chain_id: string
+          circulating_supply?: number | null
+          created_at?: string | null
+          creation_block_height?: number | null
+          creation_tx_hash?: string | null
+          creator_address: string
+          decimals?: number
+          denom: string
+          description?: string | null
+          display_denom?: string | null
+          id?: string
+          is_burnable?: boolean | null
+          is_mintable?: boolean | null
+          name: string
+          namespace_id?: string | null
+          network?: string
+          permissions_enabled?: boolean | null
+          project_id?: string | null
+          status?: string
+          subdenom: string
+          symbol: string
+          total_supply?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          admin_address?: string
+          chain_id?: string
+          circulating_supply?: number | null
+          created_at?: string | null
+          creation_block_height?: number | null
+          creation_tx_hash?: string | null
+          creator_address?: string
+          decimals?: number
+          denom?: string
+          description?: string | null
+          display_denom?: string | null
+          id?: string
+          is_burnable?: boolean | null
+          is_mintable?: boolean | null
+          name?: string
+          namespace_id?: string | null
+          network?: string
+          permissions_enabled?: boolean | null
+          project_id?: string | null
+          status?: string
+          subdenom?: string
+          symbol?: string
+          total_supply?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      injective_oracle_prices: {
+        Row: {
+          block_height: number | null
+          created_at: string | null
+          id: string
+          network: string
+          oracle_id: string | null
+          price: number
+          relayer_address: string
+          timestamp: string
+          tx_hash: string | null
+        }
+        Insert: {
+          block_height?: number | null
+          created_at?: string | null
+          id?: string
+          network?: string
+          oracle_id?: string | null
+          price: number
+          relayer_address: string
+          timestamp: string
+          tx_hash?: string | null
+        }
+        Update: {
+          block_height?: number | null
+          created_at?: string | null
+          id?: string
+          network?: string
+          oracle_id?: string | null
+          price?: number
+          relayer_address?: string
+          timestamp?: string
+          tx_hash?: string | null
+        }
+        Relationships: []
+      }
+      injective_oracles: {
+        Row: {
+          created_at: string | null
+          current_price: number | null
+          id: string
+          last_update: string | null
+          network: string
+          provider_name: string
+          registration_tx_hash: string | null
+          relayer_addresses: string[]
+          status: string
+          symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_price?: number | null
+          id?: string
+          last_update?: string | null
+          network?: string
+          provider_name: string
+          registration_tx_hash?: string | null
+          relayer_addresses: string[]
+          status?: string
+          symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_price?: number | null
+          id?: string
+          last_update?: string | null
+          network?: string
+          provider_name?: string
+          registration_tx_hash?: string | null
+          relayer_addresses?: string[]
+          status?: string
+          symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      injective_permissions: {
+        Row: {
+          address: string
+          assigned_at: string | null
+          assigned_by: string | null
+          assignment_tx_hash: string | null
+          created_at: string | null
+          denom: string | null
+          id: string
+          network: string
+          permissions: number
+          revocation_tx_hash: string | null
+          revoked_at: string | null
+          roles: string[] | null
+          updated_at: string | null
+        }
+        Insert: {
+          address: string
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assignment_tx_hash?: string | null
+          created_at?: string | null
+          denom?: string | null
+          id?: string
+          network?: string
+          permissions: number
+          revocation_tx_hash?: string | null
+          revoked_at?: string | null
+          roles?: string[] | null
+          updated_at?: string | null
+        }
+        Update: {
+          address?: string
+          assigned_at?: string | null
+          assigned_by?: string | null
+          assignment_tx_hash?: string | null
+          created_at?: string | null
+          denom?: string | null
+          id?: string
+          network?: string
+          permissions?: number
+          revocation_tx_hash?: string | null
+          revoked_at?: string | null
+          roles?: string[] | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      injective_trades: {
+        Row: {
+          block_height: number | null
+          created_at: string | null
+          execution_type: string | null
+          id: string
+          maker_fee: number | null
+          market_id: string | null
+          network: string
+          order_hash: string
+          order_type: string
+          price: number
+          quantity: number
+          side: string
+          subaccount_id: string | null
+          taker_fee: number | null
+          timestamp: string
+          total_fee: number | null
+          trade_id: string | null
+          trader_address: string
+          tx_hash: string | null
+        }
+        Insert: {
+          block_height?: number | null
+          created_at?: string | null
+          execution_type?: string | null
+          id?: string
+          maker_fee?: number | null
+          market_id?: string | null
+          network?: string
+          order_hash: string
+          order_type: string
+          price: number
+          quantity: number
+          side: string
+          subaccount_id?: string | null
+          taker_fee?: number | null
+          timestamp: string
+          total_fee?: number | null
+          trade_id?: string | null
+          trader_address: string
+          tx_hash?: string | null
+        }
+        Update: {
+          block_height?: number | null
+          created_at?: string | null
+          execution_type?: string | null
+          id?: string
+          maker_fee?: number | null
+          market_id?: string | null
+          network?: string
+          order_hash?: string
+          order_type?: string
+          price?: number
+          quantity?: number
+          side?: string
+          subaccount_id?: string | null
+          taker_fee?: number | null
+          timestamp?: string
+          total_fee?: number | null
+          trade_id?: string | null
+          trader_address?: string
+          tx_hash?: string | null
+        }
+        Relationships: []
+      }
       investor_approvals: {
         Row: {
           approval_date: string | null
@@ -15706,6 +16576,71 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      market_maker_operations: {
+        Row: {
+          blockchain: string
+          chain_id: string
+          contract_address: string | null
+          created_at: string | null
+          error_message: string | null
+          executed_at: string | null
+          executor: string
+          id: string
+          market_id: string | null
+          network: string
+          operation_type: string
+          parameters: Json | null
+          product_id: string | null
+          project_id: string | null
+          success: boolean | null
+          transaction_hash: string | null
+        }
+        Insert: {
+          blockchain: string
+          chain_id: string
+          contract_address?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          executor: string
+          id?: string
+          market_id?: string | null
+          network: string
+          operation_type: string
+          parameters?: Json | null
+          product_id?: string | null
+          project_id?: string | null
+          success?: boolean | null
+          transaction_hash?: string | null
+        }
+        Update: {
+          blockchain?: string
+          chain_id?: string
+          contract_address?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          executed_at?: string | null
+          executor?: string
+          id?: string
+          market_id?: string | null
+          network?: string
+          operation_type?: string
+          parameters?: Json | null
+          product_id?: string | null
+          project_id?: string | null
+          success?: boolean | null
+          transaction_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_maker_operations_contract_address_fkey"
+            columns: ["contract_address"]
+            isOneToOne: false
+            referencedRelation: "exchange_contracts"
+            referencedColumns: ["contract_address"]
+          },
+        ]
       }
       market_rent_data: {
         Row: {
@@ -21384,6 +22319,89 @@ export type Database = {
         }
         Relationships: []
       }
+      product_markets: {
+        Row: {
+          blockchain: string
+          chain_id: string
+          configured_at: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_order_at: string | null
+          market_id: string | null
+          market_maker_contract: string | null
+          max_order_size: number | null
+          min_order_size: number | null
+          network: string
+          notes: string | null
+          oracle_config: Json | null
+          order_size: number | null
+          product_id: string | null
+          project_id: string | null
+          spread_bps: number | null
+          total_orders_placed: number | null
+          total_volume: number | null
+          updated_at: string | null
+          use_nav_pricing: boolean | null
+        }
+        Insert: {
+          blockchain: string
+          chain_id: string
+          configured_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_order_at?: string | null
+          market_id?: string | null
+          market_maker_contract?: string | null
+          max_order_size?: number | null
+          min_order_size?: number | null
+          network: string
+          notes?: string | null
+          oracle_config?: Json | null
+          order_size?: number | null
+          product_id?: string | null
+          project_id?: string | null
+          spread_bps?: number | null
+          total_orders_placed?: number | null
+          total_volume?: number | null
+          updated_at?: string | null
+          use_nav_pricing?: boolean | null
+        }
+        Update: {
+          blockchain?: string
+          chain_id?: string
+          configured_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_order_at?: string | null
+          market_id?: string | null
+          market_maker_contract?: string | null
+          max_order_size?: number | null
+          min_order_size?: number | null
+          network?: string
+          notes?: string | null
+          oracle_config?: Json | null
+          order_size?: number | null
+          product_id?: string | null
+          project_id?: string | null
+          spread_bps?: number | null
+          total_orders_placed?: number | null
+          total_volume?: number | null
+          updated_at?: string | null
+          use_nav_pricing?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_markets_market_maker_contract_fkey"
+            columns: ["market_maker_contract"]
+            isOneToOne: false
+            referencedRelation: "exchange_contracts"
+            referencedColumns: ["contract_address"]
+          },
+        ]
+      }
       production_data: {
         Row: {
           asset_id: string | null
@@ -21525,6 +22543,7 @@ export type Database = {
           id: string
           mnemonic: string | null
           mnemonic_vault_id: string | null
+          net: string | null
           non_evm_network: string | null
           private_key: string | null
           private_key_vault_id: string | null
@@ -21544,6 +22563,7 @@ export type Database = {
           id?: string
           mnemonic?: string | null
           mnemonic_vault_id?: string | null
+          net?: string | null
           non_evm_network?: string | null
           private_key?: string | null
           private_key_vault_id?: string | null
@@ -21563,6 +22583,7 @@ export type Database = {
           id?: string
           mnemonic?: string | null
           mnemonic_vault_id?: string | null
+          net?: string | null
           non_evm_network?: string | null
           private_key?: string | null
           private_key_vault_id?: string | null
@@ -27420,6 +28441,130 @@ export type Database = {
           },
         ]
       }
+      solana_token_transactions: {
+        Row: {
+          amount: string
+          block_number: number | null
+          created_at: string
+          decimals: number
+          from_address: string
+          id: string
+          network: string
+          project_id: string
+          status: string
+          timestamp: string
+          to_address: string
+          token_address: string
+          token_id: string
+          token_symbol: string
+          transaction_hash: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount: string
+          block_number?: number | null
+          created_at?: string
+          decimals: number
+          from_address: string
+          id?: string
+          network: string
+          project_id: string
+          status?: string
+          timestamp?: string
+          to_address: string
+          token_address: string
+          token_id: string
+          token_symbol: string
+          transaction_hash: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount?: string
+          block_number?: number | null
+          created_at?: string
+          decimals?: number
+          from_address?: string
+          id?: string
+          network?: string
+          project_id?: string
+          status?: string
+          timestamp?: string
+          to_address?: string
+          token_address?: string
+          token_id?: string
+          token_symbol?: string
+          transaction_hash?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solana_token_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "solana_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sp_barrier_events: {
         Row: {
           barrier_level: number
@@ -29526,6 +30671,12 @@ export type Database = {
           last_source_verification_attempt: string | null
           master_address: string | null
           network: string
+          solana_extensions:
+            | Database["public"]["Enums"]["token_extension_type"][]
+            | null
+          solana_token_type:
+            | Database["public"]["Enums"]["solana_token_type"]
+            | null
           source_verification_attempts: number | null
           source_verification_guid: string | null
           source_verification_status: string | null
@@ -29554,6 +30705,12 @@ export type Database = {
           last_source_verification_attempt?: string | null
           master_address?: string | null
           network: string
+          solana_extensions?:
+            | Database["public"]["Enums"]["token_extension_type"][]
+            | null
+          solana_token_type?:
+            | Database["public"]["Enums"]["solana_token_type"]
+            | null
           source_verification_attempts?: number | null
           source_verification_guid?: string | null
           source_verification_status?: string | null
@@ -29582,6 +30739,12 @@ export type Database = {
           last_source_verification_attempt?: string | null
           master_address?: string | null
           network?: string
+          solana_extensions?:
+            | Database["public"]["Enums"]["token_extension_type"][]
+            | null
+          solana_token_type?:
+            | Database["public"]["Enums"]["solana_token_type"]
+            | null
           source_verification_attempts?: number | null
           source_verification_guid?: string | null
           source_verification_status?: string | null
@@ -37029,6 +38192,89 @@ export type Database = {
           },
         ]
       }
+      vault_positions: {
+        Row: {
+          blockchain: string
+          chain_id: string
+          created_at: string | null
+          deposit_count: number | null
+          exchange_rate: number
+          first_deposit_at: string | null
+          id: string
+          is_active: boolean | null
+          last_deposit_at: string | null
+          last_withdrawal_at: string | null
+          network: string
+          product_id: string | null
+          project_id: string | null
+          shares: number
+          total_deposited: number | null
+          total_withdrawn: number | null
+          underlying_value: number
+          updated_at: string | null
+          user_address: string
+          user_id: string | null
+          vault_contract: string
+          withdrawal_count: number | null
+        }
+        Insert: {
+          blockchain: string
+          chain_id: string
+          created_at?: string | null
+          deposit_count?: number | null
+          exchange_rate?: number
+          first_deposit_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_deposit_at?: string | null
+          last_withdrawal_at?: string | null
+          network: string
+          product_id?: string | null
+          project_id?: string | null
+          shares?: number
+          total_deposited?: number | null
+          total_withdrawn?: number | null
+          underlying_value?: number
+          updated_at?: string | null
+          user_address: string
+          user_id?: string | null
+          vault_contract: string
+          withdrawal_count?: number | null
+        }
+        Update: {
+          blockchain?: string
+          chain_id?: string
+          created_at?: string | null
+          deposit_count?: number | null
+          exchange_rate?: number
+          first_deposit_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_deposit_at?: string | null
+          last_withdrawal_at?: string | null
+          network?: string
+          product_id?: string | null
+          project_id?: string | null
+          shares?: number
+          total_deposited?: number | null
+          total_withdrawn?: number | null
+          underlying_value?: number
+          updated_at?: string | null
+          user_address?: string
+          user_id?: string | null
+          vault_contract?: string
+          withdrawal_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_positions_vault_contract_fkey"
+            columns: ["vault_contract"]
+            isOneToOne: false
+            referencedRelation: "exchange_contracts"
+            referencedColumns: ["contract_address"]
+          },
+        ]
+      }
       violation_patterns: {
         Row: {
           count: number
@@ -42709,6 +43955,10 @@ export type Database = {
         Args: { p_fund_id: string; p_project_id?: string; p_shares: number }
         Returns: undefined
       }
+      decrement_token_supply: {
+        Args: { p_amount: string; p_denom: string }
+        Returns: undefined
+      }
       delete_project_cascade: {
         Args: { project_id: string }
         Returns: undefined
@@ -43096,6 +44346,10 @@ export type Database = {
       }
       increment_shares_outstanding: {
         Args: { p_fund_id: string; p_project_id?: string; p_shares: number }
+        Returns: undefined
+      }
+      increment_token_supply: {
+        Args: { p_amount: string; p_denom: string }
         Returns: undefined
       }
       insert_energy_asset_safe: {
@@ -43519,6 +44773,7 @@ export type Database = {
         | "10y"
         | "20y"
         | "30y"
+      solana_token_type: "SPL" | "Token2022"
       stablecoin_collateral_type:
         | "Fiat"
         | "Crypto"
@@ -43528,6 +44783,23 @@ export type Database = {
         | "None"
       submission_date_mode_enum: "fixed" | "relative"
       token_config_mode_enum: "min" | "max" | "basic" | "advanced"
+      token_extension_type:
+        | "MintCloseAuthority"
+        | "TransferFee"
+        | "TransferHook"
+        | "Metadata"
+        | "DefaultAccountState"
+        | "ImmutableOwner"
+        | "NonTransferable"
+        | "InterestBearing"
+        | "PermanentDelegate"
+        | "CpiGuard"
+        | "MetadataPointer"
+        | "GroupPointer"
+        | "Group"
+        | "MemberPointer"
+        | "Member"
+        | "ConfidentialTransfer"
       token_standard_enum:
         | "ERC-20"
         | "ERC-721"
@@ -43813,6 +45085,7 @@ export const Constants = {
         "20y",
         "30y",
       ],
+      solana_token_type: ["SPL", "Token2022"],
       stablecoin_collateral_type: [
         "Fiat",
         "Crypto",
@@ -43823,6 +45096,24 @@ export const Constants = {
       ],
       submission_date_mode_enum: ["fixed", "relative"],
       token_config_mode_enum: ["min", "max", "basic", "advanced"],
+      token_extension_type: [
+        "MintCloseAuthority",
+        "TransferFee",
+        "TransferHook",
+        "Metadata",
+        "DefaultAccountState",
+        "ImmutableOwner",
+        "NonTransferable",
+        "InterestBearing",
+        "PermanentDelegate",
+        "CpiGuard",
+        "MetadataPointer",
+        "GroupPointer",
+        "Group",
+        "MemberPointer",
+        "Member",
+        "ConfidentialTransfer",
+      ],
       token_standard_enum: [
         "ERC-20",
         "ERC-721",

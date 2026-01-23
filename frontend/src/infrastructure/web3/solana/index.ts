@@ -12,6 +12,21 @@ export {
   getDefaultEndpoint 
 } from './ModernSolanaRpc';
 
+// Explorer Service
+export { 
+  ModernSolanaExplorer, 
+  solanaExplorer 
+} from './ModernSolanaExplorer';
+export type { ExplorerType, ExplorerProvider, ExplorerLink } from './ModernSolanaExplorer';
+
+// Error Handler
+export {
+  ModernSolanaErrorHandler,
+  handleSolanaError,
+  ERROR_CODES
+} from './ModernSolanaErrorHandler';
+export type { SolanaError, ErrorCategory } from './ModernSolanaErrorHandler';
+
 // Types
 export * from './ModernSolanaTypes';
 

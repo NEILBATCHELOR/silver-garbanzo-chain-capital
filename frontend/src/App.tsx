@@ -56,6 +56,9 @@ import TokenDashboardComparison from "@/components/tokens/testing/TokenDashboard
 import { XRPLMasterPage } from "@/components/xrpl/pages/xrpl-master-page";
 import { XRPLProjectWrapper } from "@/components/xrpl/pages/xrpl-project-wrapper";
 
+// Solana Pages
+import { SolanaProjectWrapper } from "@/components/solana/shared/SolanaProjectWrapper";
+
 // Injective Pages
 import { 
   InjectiveDashboard,
@@ -736,6 +739,13 @@ function App() {
                         
                         {/* Project-specific XRPL Routes */}
                         <Route path="projects/:projectId/xrpl/*" element={<XRPLProjectWrapper />} />
+
+                        {/* Solana Routes - Token Launchpad */}
+                        {/* Global Solana route (will auto-select project) */}
+                        <Route path="solana/*" element={<SolanaProjectWrapper />} />
+                        
+                        {/* Project-specific Solana Routes */}
+                        <Route path="projects/:projectId/solana/*" element={<SolanaProjectWrapper />} />
 
                         {/* Injective Routes - TokenFactory Integration */}
                         {/* Global Injective route (will auto-select project) */}

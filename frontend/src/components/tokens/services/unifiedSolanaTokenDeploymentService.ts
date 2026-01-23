@@ -1,15 +1,30 @@
 /**
  * Unified Solana Token Deployment Service
  * 
+ * MIGRATION STATUS: ✅ USING MODERN SERVICES
+ * Uses ModernSPLTokenDeploymentService for SPL tokens
+ * Uses Token2022DeploymentService for Token-2022 (being migrated)
+ * 
  * Manages SPL and Token-2022 deployments with automatic strategy selection
  * Follows Chain Capital's unified deployment pattern
  */
 
-import { solanaTokenDeploymentService, SolanaSPLTokenConfig, SolanaTokenDeploymentOptions } from '@/services/wallet/solana';
-import { solanaToken2022Service, SolanaToken2022Config, Token2022DeploymentOptions } from '@/services/wallet/solana/SolanaToken2022Service';
+import {
+  ModernSPLTokenDeploymentService,
+  type ModernSPLTokenConfig,
+  type ModernSPLDeploymentOptions
+} from '@/services/wallet/solana/ModernSPLTokenDeploymentService';
+import {
+  Token2022DeploymentService,
+  type Token2022Config,
+  type Token2022DeploymentOptions
+} from '@/services/wallet/solana/Token2022DeploymentService';
 import { logActivity } from '@/infrastructure/activityLogger';
 import { supabase } from '@/infrastructure/database/client';
-import { PublicKey } from '@solana/web3.js';
+
+// ============================================================================
+// INTERFACES
+// ============================================================================
 
 export interface UnifiedSolanaDeploymentResult {
   success: boolean;
@@ -29,7 +44,19 @@ export interface UnifiedSolanaDeploymentResult {
   deploymentTimeMs?: number;
 }
 
+// ============================================================================
+// UNIFIED SERVICE
+// ============================================================================
+
 export class UnifiedSolanaTokenDeploymentService {
+  private modernSPLService: ModernSPLTokenDeploymentService;
+  private token2022Service: Token2022DeploymentService;
+
+  constructor() {
+    this.modernSPLService = new ModernSPLTokenDeploymentService();
+    this.token2022Service = new Token2022DeploymentService();
+  }
+
   /**
    * Deploy Solana token with automatic strategy selection
    * Chooses between SPL (simple) and Token-2022 (with extensions) based on config
@@ -76,10 +103,9 @@ export class UnifiedSolanaTokenDeploymentService {
 
       // Step 4: Deploy based on strategy
       if (strategy === 'SPL') {
-        return await this.deploySPL(tokenData, userId, projectId, network, walletPrivateKey);
+        return await this.deploySPL(tokenData, userId, projectId, network, walletPrivateKey, complexity);
       } else {
-        // Token-2022 deployment with extensions
-        return await this.deployToken2022(tokenData, userId, projectId, network, walletPrivateKey);
+        return await this.deployToken2022(tokenData, userId, projectId, network, walletPrivateKey, complexity);
       }
 
     } catch (error) {
@@ -97,39 +123,44 @@ export class UnifiedSolanaTokenDeploymentService {
   }
 
   /**
-   * Deploy SPL token
+   * Deploy SPL token using Modern service
    */
   private async deploySPL(
     tokenData: any,
     userId: string,
     projectId: string,
     network: 'mainnet-beta' | 'devnet' | 'testnet',
-    walletPrivateKey: string
+    walletPrivateKey: string,
+    complexity: any
   ): Promise<UnifiedSolanaDeploymentResult> {
-    const config: SolanaSPLTokenConfig = {
+    const config: ModernSPLTokenConfig = {
       name: tokenData.name,
       symbol: tokenData.symbol,
       uri: tokenData.metadata?.uri || `https://arweave.net/${tokenData.symbol}.json`,
       decimals: tokenData.decimals || 9,
-      initialSupply: parseInt(tokenData.total_supply || '1000000'),
+      initialSupply: BigInt(parseInt(tokenData.total_supply || '1000000')),
       mintAuthority: tokenData.metadata?.mint_authority || null,
-      freezeAuthority: tokenData.metadata?.freeze_authority || null,
-      updateAuthority: tokenData.metadata?.update_authority || null,
-      isMutable: tokenData.metadata?.is_mutable !== false
+      freezeAuthority: tokenData.metadata?.freeze_authority || null
     };
 
-    const options: SolanaTokenDeploymentOptions = {
+    const options: ModernSPLDeploymentOptions = {
       network,
       projectId,
       userId,
       walletPrivateKey
     };
 
-    const result = await solanaTokenDeploymentService.deploySPLToken(config, options);
+    const result = await this.modernSPLService.deploySPLToken(config, options);
 
     return {
-      ...result,
-      deploymentStrategy: 'SPL'
+      success: result.success,
+      tokenAddress: result.tokenAddress,
+      transactionHash: result.transactionHash,
+      deploymentStrategy: 'SPL',
+      networkUsed: `solana-${network}`,
+      complexity,
+      errors: result.errors,
+      warnings: result.warnings
     };
   }
 
@@ -141,80 +172,49 @@ export class UnifiedSolanaTokenDeploymentService {
     userId: string,
     projectId: string,
     network: 'mainnet-beta' | 'devnet' | 'testnet',
-    walletPrivateKey: string
+    walletPrivateKey: string,
+    complexity: any
   ): Promise<UnifiedSolanaDeploymentResult> {
-    // Parse extensions from token metadata
-    const extensions: any = {};
+    // Build extension configs
+    const metadata = tokenData.metadata?.on_chain_metadata !== false
+      ? {
+          name: tokenData.name,
+          symbol: tokenData.symbol,
+          uri: tokenData.metadata?.uri || `https://arweave.net/${tokenData.symbol}.json`,
+          additionalMetadata: this.parseAdditionalMetadata(tokenData.metadata?.additional_metadata)
+        }
+      : undefined;
 
-    // Metadata extension
-    if (tokenData.metadata?.on_chain_metadata !== false) {
-      extensions.metadata = {
-        name: tokenData.name,
-        symbol: tokenData.symbol,
-        uri: tokenData.metadata?.uri || `https://arweave.net/${tokenData.symbol}.json`,
-        additionalMetadata: tokenData.metadata?.additional_metadata || []
-      };
-    }
+    const transferFee = tokenData.metadata?.transfer_fee
+      ? {
+          feeBasisPoints: tokenData.metadata.transfer_fee.fee_basis_points || 50,
+          maxFee: BigInt(tokenData.metadata.transfer_fee.max_fee || '5000'),
+          transferFeeAuthority: tokenData.metadata.transfer_fee.transfer_fee_authority,
+          withdrawWithheldAuthority: tokenData.metadata.transfer_fee.withdraw_withheld_authority
+        }
+      : undefined;
 
-    // Transfer fee extension
-    if (tokenData.metadata?.transfer_fee) {
-      extensions.transferFee = {
-        feeBasisPoints: tokenData.metadata.transfer_fee.fee_basis_points || 50,
-        maxFee: BigInt(tokenData.metadata.transfer_fee.max_fee || '5000')
-      };
-    }
-
-    // Transfer hook extension
-    if (tokenData.metadata?.transfer_hook) {
-      extensions.transferHook = {
-        authority: new PublicKey(tokenData.metadata.transfer_hook.authority),
-        programId: new PublicKey(tokenData.metadata.transfer_hook.program_id)
-      };
-    }
-
-    // Mint close authority extension
-    if (tokenData.metadata?.mint_close_authority) {
-      extensions.mintCloseAuthority = {
-        closeAuthority: new PublicKey(tokenData.metadata.mint_close_authority)
-      };
-    }
-
-    // Non-transferable extension
-    if (tokenData.metadata?.non_transferable === true) {
-      extensions.nonTransferable = true;
-    }
-
-    // Permanent delegate extension
-    if (tokenData.metadata?.permanent_delegate) {
-      extensions.permanentDelegate = {
-        delegate: new PublicKey(tokenData.metadata.permanent_delegate)
-      };
-    }
-
-    // Interest-bearing extension
-    if (tokenData.metadata?.interest_bearing) {
-      extensions.interestBearing = {
-        rateAuthority: new PublicKey(tokenData.metadata.interest_bearing.rate_authority),
-        rate: tokenData.metadata.interest_bearing.rate || 10
-      };
-    }
-
-    // Default account state extension
-    if (tokenData.metadata?.default_account_state) {
-      extensions.defaultAccountState = {
-        state: tokenData.metadata.default_account_state.state || 'initialized'
-      };
-    }
-
-    const config: SolanaToken2022Config = {
+    const config: Token2022Config = {
       name: tokenData.name,
       symbol: tokenData.symbol,
+      uri: tokenData.metadata?.uri || `https://arweave.net/${tokenData.symbol}.json`,
       decimals: tokenData.decimals || 9,
       initialSupply: parseInt(tokenData.total_supply || '1000000'),
+      
+      // Authorities
       mintAuthority: tokenData.metadata?.mint_authority || null,
       freezeAuthority: tokenData.metadata?.freeze_authority || null,
       updateAuthority: tokenData.metadata?.update_authority || null,
-      extensions
+      
+      // Extensions
+      enableMetadata: !!metadata,
+      enableTransferFee: !!transferFee,
+      enableMintCloseAuthority: !!tokenData.metadata?.mint_close_authority,
+      enableDefaultAccountState: tokenData.metadata?.default_account_state?.state,
+      
+      // Extension configs
+      metadata,
+      transferFee
     };
 
     const options: Token2022DeploymentOptions = {
@@ -224,11 +224,19 @@ export class UnifiedSolanaTokenDeploymentService {
       walletPrivateKey
     };
 
-    const result = await solanaToken2022Service.deployToken2022(config, options);
+    const result = await this.token2022Service.deployToken2022(config, options);
 
     return {
-      ...result,
-      deploymentStrategy: 'Token2022'
+      success: result.success,
+      tokenAddress: result.tokenAddress,
+      transactionHash: result.transactionHash,
+      deploymentStrategy: 'Token2022',
+      networkUsed: `solana-${network}`,
+      extensionsEnabled: result.extensions,
+      complexity,
+      errors: result.errors,
+      warnings: result.warnings,
+      deploymentTimeMs: result.deploymentTimeMs
     };
   }
 
@@ -268,6 +276,8 @@ export class UnifiedSolanaTokenDeploymentService {
     if (tokenData.metadata?.non_transferable) extensionCount++;
     if (tokenData.metadata?.permanent_delegate) extensionCount++;
     if (tokenData.metadata?.on_chain_metadata) extensionCount++;
+    if (tokenData.metadata?.mint_close_authority) extensionCount++;
+    if (tokenData.metadata?.default_account_state) extensionCount++;
 
     const requiresExtensions = extensionCount > 0;
     const level = requiresExtensions 
@@ -280,7 +290,35 @@ export class UnifiedSolanaTokenDeploymentService {
       extensionCount
     };
   }
+
+  /**
+   * Parse additional metadata from various formats
+   */
+  private parseAdditionalMetadata(metadata: any): Map<string, string> | undefined {
+    if (!metadata) return undefined;
+
+    const map = new Map<string, string>();
+
+    if (Array.isArray(metadata)) {
+      // Array of key-value pairs
+      metadata.forEach(item => {
+        if (item.key && item.value) {
+          map.set(item.key, item.value);
+        }
+      });
+    } else if (typeof metadata === 'object') {
+      // Object format
+      Object.entries(metadata).forEach(([key, value]) => {
+        map.set(key, String(value));
+      });
+    }
+
+    return map.size > 0 ? map : undefined;
+  }
 }
 
-// Export singleton instance
+// ============================================================================
+// SINGLETON EXPORT
+// ============================================================================
+
 export const unifiedSolanaTokenDeploymentService = new UnifiedSolanaTokenDeploymentService();

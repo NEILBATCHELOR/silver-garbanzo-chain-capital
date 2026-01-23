@@ -27,7 +27,7 @@ import {
   MsgCancelSpotOrder,
   MsgExecuteContract,
   TxRaw,
-  TxGrpcApi
+  TxGrpcApi,
 } from '@injectivelabs/sdk-ts';
 
 // Network imports
@@ -39,7 +39,7 @@ import {
 import { Buffer } from 'buffer';
 
 // Utility imports
-import { BigNumberInBase, DEFAULT_STD_FEE } from '@injectivelabs/utils';
+import { BigNumberInBase } from '@injectivelabs/utils';
 import { generateMnemonic, mnemonicToSeedSync } from 'bip39';
 import { HDKey } from '@scure/bip32';
 import { ethers } from 'ethers';
@@ -47,6 +47,17 @@ import { ethers } from 'ethers';
 // Local imports
 import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
 import { rpcManager } from '@/infrastructure/web3/rpc/RPCConnectionManager';
+
+// Define DEFAULT_STD_FEE since it's not exported in this version
+const DEFAULT_STD_FEE = {
+  amount: [
+    {
+      amount: '500000000000000',
+      denom: 'inj',
+    },
+  ],
+  gas: '200000',
+};
 
 // ============================================================================
 // TYPE DEFINITIONS

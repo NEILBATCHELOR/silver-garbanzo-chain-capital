@@ -30,7 +30,7 @@ import {
   ChainGrpcBankApi,
   ChainRestAuthApi,
   PrivateKey,
-  TxRaw  // Import TxRaw directly
+  TxRaw,  // Import TxRaw directly
 } from '@injectivelabs/sdk-ts';
 
 // Network imports
@@ -41,11 +41,21 @@ import {
 } from '@injectivelabs/networks';
 
 // Utility imports
-import { DEFAULT_STD_FEE } from '@injectivelabs/utils';
 import { Buffer } from 'buffer';
 
 // Local imports
 import { keyVaultClient } from '@/infrastructure/keyVault/keyVaultClient';
+
+// Define DEFAULT_STD_FEE since it's not exported in this version
+const DEFAULT_STD_FEE = {
+  amount: [
+    {
+      amount: '500000000000000',
+      denom: 'inj',
+    },
+  ],
+  gas: '200000',
+};
 
 // ============================================================================
 // TYPE DEFINITIONS

@@ -1,370 +1,448 @@
 /**
- * Chain Configuration
- * Maps chain names to their environments and chain IDs
+ * Chain configuration and utilities
+ * Centralized management of blockchain network configurations
  */
 
-import { 
-  CHAIN_IDS, 
-  CHAIN_INFO, 
-  getChainInfo as getChainInfoUtil,
-  isTestnet as isTestnetUtil,
-  ChainInfo 
-} from '@/infrastructure/web3/utils/chainIds';
-
-export interface ChainEnvironment {
-  name: string; // 'mainnet' or 'testnet'
-  chainId: string | null; // null for non-EVM chains
-  displayName: string;
-  isTestnet: boolean;
-  explorerUrl?: string;
-  rpcUrl?: string;
-  isNonEvm?: boolean; // Flag for non-EVM chains
-}
-
-export interface ChainConfig {
-  name: string; // Network identifier (e.g., 'ethereum', 'polygon', 'ripple')
-  network: string; // Same as name for compatibility
-  displayName: string;
-  label: string; // Human-readable label
-  icon?: string; // Icon or emoji
-  environments: ChainEnvironment[];
-  isNonEvm?: boolean; // Flag for non-EVM chains
-}
-
-export type NetworkEnvironment = 'mainnet' | 'testnet' | 'devnet';
+import type { Address } from '@solana/kit';
+import { getRpcUrl } from '@/infrastructure/web3/rpc/rpc-config';
 
 /**
- * Network to environment mapping
+ * Network environment type
  */
-const NETWORK_ENVIRONMENTS: Record<string, Record<string, ChainEnvironment>> = {
+export type NetworkEnvironment = 'mainnet' | 'testnet';
+
+/**
+ * Chain configuration interface
+ */
+export interface ChainConfig {
+  id: string | number;
+  name: string;
+  displayName: string;
+  rpcUrl: string;
+  nativeCurrency: {
+    name: string;
+    symbol: string;
+    decimals: number;
+  };
+  blockExplorer?: string;
+  isTestnet?: boolean;
+  isNonEvm?: boolean;
+  cosmosChainId?: string; // For Cosmos-based chains like Injective
+}
+
+/**
+ * Chain environment configuration
+ */
+export interface ChainEnvironmentConfig {
+  chainId: string;
+  name: string;
+  rpcUrl: string;
+  net?: string; // For non-EVM networks
+}
+
+/**
+ * Environment option for UI selection
+ */
+export interface EnvironmentOption {
+  name: NetworkEnvironment;
+  displayName: string;
+  isTestnet: boolean;
+  chainId?: string;
+}
+
+/**
+ * Resolve chain and environment from a chain ID or network identifier
+ */
+export interface ResolvedChainEnvironment {
+  network: string;
+  environment: NetworkEnvironment;
+  chainId?: string;
+  nonEvmNetwork?: string;
+}
+
+/**
+ * Supported chains configuration
+ * Maps network names to their configurations
+ */
+export const chains: Record<string, ChainConfig> = {
   ethereum: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.ethereum.toString(),
-      displayName: 'Ethereum Mainnet',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.ethereum]?.explorer,
-    },
-    sepolia: {
-      name: 'sepolia',
-      chainId: CHAIN_IDS.sepolia.toString(),
-      displayName: 'Sepolia Testnet',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.sepolia]?.explorer,
-    },
-    holesky: {
-      name: 'holesky',
-      chainId: CHAIN_IDS.holesky.toString(),
-      displayName: 'Holesky Testnet',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.holesky]?.explorer,
-    },
-    hoodi: {
-      name: 'hoodi',
-      chainId: CHAIN_IDS.hoodi.toString(),
-      displayName: 'Hoodi Testnet',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.hoodi]?.explorer,
-    },
+    id: 1,
+    name: 'Ethereum',
+    displayName: 'Ethereum Mainnet',
+    rpcUrl: import.meta.env.VITE_ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://etherscan.io',
+  },
+  sepolia: {
+    id: 11155111,
+    name: 'Sepolia',
+    displayName: 'Sepolia Testnet',
+    rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+    nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://sepolia.etherscan.io',
+    isTestnet: true,
+  },
+  holesky: {
+    id: 17000,
+    name: 'Holesky',
+    displayName: 'Holesky Testnet',
+    rpcUrl: import.meta.env.VITE_HOLESKY_RPC_URL || 'https://ethereum-holesky-rpc.publicnode.com',
+    nativeCurrency: { name: 'Holesky Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://holesky.etherscan.io',
+    isTestnet: true,
   },
   polygon: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.polygon.toString(),
-      displayName: 'Polygon Mainnet',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.polygon]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.polygonAmoy.toString(),
-      displayName: 'Polygon Amoy',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.polygonAmoy]?.explorer,
-    },
+    id: 137,
+    name: 'Polygon',
+    displayName: 'Polygon Mainnet',
+    rpcUrl: import.meta.env.VITE_POLYGON_RPC_URL || 'https://polygon-rpc.com',
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+    blockExplorer: 'https://polygonscan.com',
+  },
+  amoy: {
+    id: 80002,
+    name: 'Amoy',
+    displayName: 'Polygon Amoy Testnet',
+    rpcUrl: import.meta.env.VITE_AMOY_RPC_URL || 'https://rpc-amoy.polygon.technology',
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+    blockExplorer: 'https://amoy.polygonscan.com',
+    isTestnet: true,
   },
   arbitrum: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.arbitrumOne.toString(),
-      displayName: 'Arbitrum One',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.arbitrumOne]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.arbitrumSepolia.toString(),
-      displayName: 'Arbitrum Sepolia',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.arbitrumSepolia]?.explorer,
-    },
+    id: 42161,
+    name: 'Arbitrum',
+    displayName: 'Arbitrum One',
+    rpcUrl: import.meta.env.VITE_ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://arbiscan.io',
   },
-  base: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.base.toString(),
-      displayName: 'Base Mainnet',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.base]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.baseSepolia.toString(),
-      displayName: 'Base Sepolia',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.baseSepolia]?.explorer,
-    },
-  },
-  optimism: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.optimism.toString(),
-      displayName: 'OP Mainnet',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.optimism]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.optimismSepolia.toString(),
-      displayName: 'OP Sepolia',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.optimismSepolia]?.explorer,
-    },
+  'arbitrum-sepolia': {
+    id: 421614,
+    name: 'Arbitrum Sepolia',
+    displayName: 'Arbitrum Sepolia Testnet',
+    rpcUrl: import.meta.env.VITE_ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://sepolia.arbiscan.io',
+    isTestnet: true,
   },
   avalanche: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.avalanche.toString(),
-      displayName: 'Avalanche C-Chain',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.avalanche]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.avalancheFuji.toString(),
-      displayName: 'Avalanche Fuji',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.avalancheFuji]?.explorer,
-    },
+    id: 43114,
+    name: 'Avalanche',
+    displayName: 'Avalanche C-Chain',
+    rpcUrl: import.meta.env.VITE_AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc',
+    nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+    blockExplorer: 'https://snowtrace.io',
+  },
+  'avalanche-testnet': {
+    id: 43113,
+    name: 'Avalanche Testnet',
+    displayName: 'Avalanche Fuji Testnet',
+    rpcUrl: import.meta.env.VITE_AVALANCHE_TESTNET_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc',
+    nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
+    blockExplorer: 'https://testnet.snowtrace.io',
+    isTestnet: true,
+  },
+  optimism: {
+    id: 10,
+    name: 'Optimism',
+    displayName: 'Optimism Mainnet',
+    rpcUrl: import.meta.env.VITE_OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://optimistic.etherscan.io',
+  },
+  'optimism-sepolia': {
+    id: 11155420,
+    name: 'Optimism Sepolia',
+    displayName: 'Optimism Sepolia Testnet',
+    rpcUrl: import.meta.env.VITE_OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://sepolia-optimism.etherscan.io',
+    isTestnet: true,
+  },
+  base: {
+    id: 8453,
+    name: 'Base',
+    displayName: 'Base Mainnet',
+    rpcUrl: import.meta.env.VITE_BASE_RPC_URL || 'https://mainnet.base.org',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://basescan.org',
+  },
+  'base-sepolia': {
+    id: 84532,
+    name: 'Base Sepolia',
+    displayName: 'Base Sepolia Testnet',
+    rpcUrl: import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://sepolia.basescan.org',
+    isTestnet: true,
   },
   bsc: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.bnb.toString(),
-      displayName: 'BNB Smart Chain',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.bnb]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.bnbTestnet.toString(),
-      displayName: 'BNB Testnet',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.bnbTestnet]?.explorer,
-    },
+    id: 56,
+    name: 'BSC',
+    displayName: 'BNB Smart Chain',
+    rpcUrl: import.meta.env.VITE_BSC_RPC_URL || 'https://bsc-dataseed.binance.org',
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+    blockExplorer: 'https://bscscan.com',
+  },
+  'bsc-testnet': {
+    id: 97,
+    name: 'BSC Testnet',
+    displayName: 'BNB Smart Chain Testnet',
+    rpcUrl: import.meta.env.VITE_BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545',
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+    blockExplorer: 'https://testnet.bscscan.com',
+    isTestnet: true,
   },
   zksync: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.zkSync.toString(),
-      displayName: 'zkSync Era',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.zkSync]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.zkSyncSepolia.toString(),
-      displayName: 'zkSync Sepolia',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.zkSyncSepolia]?.explorer,
-    },
+    id: 324,
+    name: 'zkSync',
+    displayName: 'zkSync Era Mainnet',
+    rpcUrl: import.meta.env.VITE_ZKSYNC_RPC_URL || 'https://mainnet.era.zksync.io',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://explorer.zksync.io',
+  },
+  'zksync-sepolia': {
+    id: 300,
+    name: 'zkSync Sepolia',
+    displayName: 'zkSync Era Sepolia Testnet',
+    rpcUrl: import.meta.env.VITE_ZKSYNC_SEPOLIA_RPC_URL || 'https://sepolia.era.zksync.dev',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://sepolia.explorer.zksync.io',
+    isTestnet: true,
+  },
+  hoodi: {
+    id: 560048,
+    name: 'Hoodi',
+    displayName: 'Hoodi Testnet',
+    rpcUrl: import.meta.env.VITE_HOODI_RPC_URL || 'https://rpc.hoodi.io',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    blockExplorer: 'https://explorer.hoodi.io',
+    isTestnet: true,
   },
   injective: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: CHAIN_IDS.injective.toString(),
-      displayName: 'Injective Mainnet',
-      isTestnet: false,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.injective]?.explorer,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: CHAIN_IDS.injectiveTestnet.toString(),
-      displayName: 'Injective Testnet',
-      isTestnet: true,
-      explorerUrl: CHAIN_INFO[CHAIN_IDS.injectiveTestnet]?.explorer,
-    },
+    id: 'injective-1', // Cosmos chain ID
+    name: 'Injective',
+    displayName: 'Injective Mainnet',
+    rpcUrl: import.meta.env.VITE_INJECTIVE_RPC_URL || 'https://sentry.tm.injective.network:443',
+    nativeCurrency: { name: 'INJ', symbol: 'INJ', decimals: 18 },
+    blockExplorer: 'https://explorer.injective.network',
+    isNonEvm: true,
+    cosmosChainId: 'injective-1',
   },
-  // Non-EVM Chains
+  'injective-testnet': {
+    id: 'injective-888', // Cosmos chain ID
+    name: 'Injective Testnet',
+    displayName: 'Injective Testnet',
+    rpcUrl: import.meta.env.VITE_INJECTIVE_TESTNET_RPC_URL || 'https://testnet.sentry.tm.injective.network:443',
+    nativeCurrency: { name: 'INJ', symbol: 'INJ', decimals: 18 },
+    blockExplorer: 'https://testnet.explorer.injective.network',
+    isTestnet: true,
+    isNonEvm: true,
+    cosmosChainId: 'injective-888',
+  },
+  // Non-EVM networks
+  bitcoin: {
+    id: 'bitcoin',
+    name: 'Bitcoin',
+    displayName: 'Bitcoin Mainnet',
+    rpcUrl: '',
+    nativeCurrency: { name: 'Bitcoin', symbol: 'BTC', decimals: 8 },
+    blockExplorer: 'https://blockchain.info',
+    isNonEvm: true,
+  },
+  'bitcoin-testnet': {
+    id: 'bitcoin-testnet',
+    name: 'Bitcoin Testnet',
+    displayName: 'Bitcoin Testnet',
+    rpcUrl: '',
+    nativeCurrency: { name: 'Bitcoin', symbol: 'BTC', decimals: 8 },
+    blockExplorer: 'https://blockstream.info/testnet',
+    isTestnet: true,
+    isNonEvm: true,
+  },
+  solana: {
+    id: 'solana',
+    name: 'Solana',
+    displayName: 'Solana Mainnet',
+    rpcUrl: getRpcUrl('solana', 'mainnet'),
+    nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
+    blockExplorer: 'https://explorer.solana.com',
+    isNonEvm: true,
+  },
+  'solana-devnet': {
+    id: 'solana-devnet',
+    name: 'Solana Devnet',
+    displayName: 'Solana Devnet',
+    rpcUrl: getRpcUrl('solana', 'devnet'),
+    nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
+    blockExplorer: 'https://explorer.solana.com?cluster=devnet',
+    isTestnet: true,
+    isNonEvm: true,
+  },
+  'solana-testnet': {
+    id: 'solana-testnet',
+    name: 'Solana Testnet',
+    displayName: 'Solana Testnet',
+    rpcUrl: getRpcUrl('solana', 'testnet'),
+    nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
+    blockExplorer: 'https://explorer.solana.com?cluster=testnet',
+    isTestnet: true,
+    isNonEvm: true,
+  },
   ripple: {
-    mainnet: {
-      name: 'mainnet',
-      chainId: null,
-      displayName: 'XRP Mainnet',
-      isTestnet: false,
-      explorerUrl: 'https://livenet.xrpl.org',
-      isNonEvm: true,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: null,
-      displayName: 'XRP Testnet',
-      isTestnet: true,
-      explorerUrl: 'https://testnet.xrpl.org',
-      isNonEvm: true,
-    },
-    devnet: {
-      name: 'devnet',
-      chainId: null,
-      displayName: 'XRP Devnet',
-      isTestnet: true,
-      explorerUrl: 'https://devnet.xrpl.org',
-      isNonEvm: true,
-    },
+    id: 'ripple',
+    name: 'Ripple',
+    displayName: 'XRPL Mainnet',
+    rpcUrl: 'https://s1.ripple.com:51234/',
+    nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 6 },
+    blockExplorer: 'https://livenet.xrpl.org',
+    isNonEvm: true,
   },
-  // XRPL EVM (Future Support - EVM-compatible sidechain)
-  'xrpl-evm': {
-    mainnet: {
-      name: 'mainnet',
-      chainId: '1440002', // XRPL EVM Mainnet Chain ID
-      displayName: 'XRPL EVM Mainnet',
-      isTestnet: false,
-      explorerUrl: 'https://explorer.xrplevm.org',
-      isNonEvm: false,
-    },
-    testnet: {
-      name: 'testnet',
-      chainId: '1440001', // XRPL EVM Testnet Chain ID
-      displayName: 'XRPL EVM Testnet',
-      isTestnet: true,
-      explorerUrl: 'https://explorer.testnet.xrplevm.org',
-      isNonEvm: false,
-    },
+  'ripple-testnet': {
+    id: 'ripple-testnet',
+    name: 'Ripple Testnet',
+    displayName: 'XRPL Testnet',
+    rpcUrl: 'https://s.altnet.rippletest.net:51234/',
+    nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 6 },
+    blockExplorer: 'https://testnet.xrpl.org',
+    isTestnet: true,
+    isNonEvm: true,
   },
 };
 
 /**
- * Get all available chains with their configurations
+ * Get chain configuration by name or ID
  */
-export function getAllChains(): ChainConfig[] {
-  return Object.entries(NETWORK_ENVIRONMENTS).map(([network, environments]) => {
-    const displayName = getNetworkDisplayName(network);
-    const isNonEvm = Object.values(environments).some(env => env.isNonEvm);
-    return {
-      name: network,
-      network,
-      displayName,
-      label: displayName,
-      icon: getNetworkIcon(network),
-      environments: Object.values(environments),
-      isNonEvm,
-    };
-  });
-}
-
-/**
- * Get available environments for a specific network
- */
-export function getChainEnvironments(network: string): ChainEnvironment[] {
-  return Object.values(NETWORK_ENVIRONMENTS[network] || {});
-}
-
-/**
- * Get chain configuration for a specific network
- */
-export function getChainConfig(network: string): ChainConfig | undefined {
-  const environments = NETWORK_ENVIRONMENTS[network];
-  if (!environments) return undefined;
+export function getChainConfig(networkOrId: string | number): ChainConfig | undefined {
+  // If it's a number or numeric string, search by ID
+  const numericId = typeof networkOrId === 'number' ? networkOrId : parseInt(networkOrId);
+  if (!isNaN(numericId)) {
+    return Object.values(chains).find(c => c.id === numericId);
+  }
   
-  const displayName = getNetworkDisplayName(network);
-  const isNonEvm = Object.values(environments).some(env => env.isNonEvm);
-  return {
-    name: network,
-    network,
-    displayName,
-    label: displayName,
-    icon: getNetworkIcon(network),
-    environments: Object.values(environments),
-    isNonEvm,
-  };
+  // Otherwise search by name (case-insensitive)
+  const normalizedNetwork = String(networkOrId).toLowerCase();
+  return chains[normalizedNetwork] || Object.values(chains).find(
+    c => c.name.toLowerCase() === normalizedNetwork
+  );
 }
 
 /**
- * Get display name for a network
- */
-function getNetworkDisplayName(network: string): string {
-  const displayNames: Record<string, string> = {
-    ethereum: 'Ethereum',
-    polygon: 'Polygon',
-    arbitrum: 'Arbitrum',
-    base: 'Base',
-    optimism: 'Optimism',
-    avalanche: 'Avalanche',
-    bsc: 'BNB Smart Chain',
-    zksync: 'zkSync',
-    injective: 'Injective',
-    ripple: 'XRP Ledger (XRP)',
-    'xrpl-evm': 'XRPL EVM',
-  };
-  return displayNames[network] || network;
-}
-
-/**
- * Get icon/emoji for a network
- */
-function getNetworkIcon(network: string): string {
-  const icons: Record<string, string> = {
-    ethereum: 'Ξ',
-    polygon: '⬡',
-    arbitrum: '🔷',
-    base: '🔵',
-    optimism: '🔴',
-    avalanche: '🔺',
-    bsc: '🟡',
-    zksync: '⚡',
-    injective: '💉',
-    ripple: '💧',
-    'xrpl-evm': '⚡💧',
-  };
-  return icons[network] || '🔗';
-}
-
-/**
- * Get chain environment for a network and environment type
+ * Get chain environment configuration
  */
 export function getChainEnvironment(
   network: string,
-  environmentType: string
-): ChainEnvironment | undefined {
-  return NETWORK_ENVIRONMENTS[network]?.[environmentType];
-}
-
-/**
- * Resolve chain and environment from chain ID
- */
-export function resolveChainAndEnvironment(
-  chainId: string
-): { network: string; environment: ChainEnvironment } | undefined {
-  const chainIdNum = parseInt(chainId, 10);
+  environment: 'mainnet' | 'testnet' = 'testnet'
+): ChainEnvironmentConfig | null {
+  const normalizedNetwork = network.toLowerCase();
   
-  for (const [network, environments] of Object.entries(NETWORK_ENVIRONMENTS)) {
-    for (const [envType, env] of Object.entries(environments)) {
-      if (env.chainId === chainId) {
-        return { network, environment: env };
-      }
+  // For testnets, try network-testnet variant first
+  if (environment === 'testnet') {
+    const testnetKey = `${normalizedNetwork}-testnet`;
+    const testnetConfig = chains[testnetKey];
+    if (testnetConfig) {
+      return {
+        chainId: String(testnetConfig.id),
+        name: environment,
+        rpcUrl: testnetConfig.rpcUrl,
+        net: testnetConfig.isNonEvm ? normalizedNetwork : undefined,
+      };
+    }
+    
+    // Special cases for networks where testnet has different naming
+    if (normalizedNetwork === 'polygon') {
+      const amoyConfig = chains['amoy'];
+      return {
+        chainId: String(amoyConfig.id),
+        name: environment,
+        rpcUrl: amoyConfig.rpcUrl,
+      };
     }
   }
   
-  return undefined;
+  // For mainnet or if testnet variant doesn't exist
+  const mainnetConfig = chains[normalizedNetwork];
+  if (mainnetConfig && (environment === 'mainnet' || !mainnetConfig.isTestnet)) {
+    return {
+      chainId: String(mainnetConfig.id),
+      name: environment,
+      rpcUrl: mainnetConfig.rpcUrl,
+      net: mainnetConfig.isNonEvm ? normalizedNetwork : undefined,
+    };
+  }
+  
+  return null;
 }
 
 /**
- * Get explorer URL for a chain ID
+ * Resolve chain and environment from a chain ID or network identifier
  */
-export function getExplorerUrl(chainId: string | number): string | undefined {
-  if (chainId === null) return undefined;
-  const chainIdNum = typeof chainId === 'string' ? parseInt(chainId, 10) : chainId;
-  return CHAIN_INFO[chainIdNum]?.explorer;
+export function resolveChainAndEnvironment(chainIdOrNetwork: string): ResolvedChainEnvironment | null {
+  // Try to parse as numeric chain ID
+  const numericChainId = parseInt(chainIdOrNetwork, 10);
+  if (!isNaN(numericChainId)) {
+    const config = getChainConfig(numericChainId);
+    if (config) {
+      return {
+        network: config.name.toLowerCase(),
+        environment: config.isTestnet ? 'testnet' : 'mainnet',
+        chainId: String(config.id),
+        nonEvmNetwork: config.isNonEvm ? config.name.toLowerCase() : undefined,
+      };
+    }
+  }
+  
+  // Try as Cosmos chain ID format (e.g., 'injective-888')
+  if (chainIdOrNetwork.includes('-')) {
+    const config = Object.values(chains).find(c => c.cosmosChainId === chainIdOrNetwork);
+    if (config) {
+      return {
+        network: config.name.toLowerCase(),
+        environment: config.isTestnet ? 'testnet' : 'mainnet',
+        chainId: chainIdOrNetwork,
+        nonEvmNetwork: config.isNonEvm ? config.name.toLowerCase().replace('-testnet', '') : undefined,
+      };
+    }
+  }
+  
+  // Try as network name
+  const config = getChainConfig(chainIdOrNetwork);
+  if (config) {
+    return {
+      network: config.name.toLowerCase(),
+      environment: config.isTestnet ? 'testnet' : 'mainnet',
+      chainId: config.isNonEvm ? undefined : String(config.id),
+      nonEvmNetwork: config.isNonEvm ? config.name.toLowerCase().replace('-testnet', '') : undefined,
+    };
+  }
+  
+  return null;
+}
+
+/**
+ * Get explorer URL for a transaction, address, or token
+ */
+export function getExplorerUrl(
+  networkOrChainId: string | number,
+  type: 'tx' | 'address' | 'token',
+  value: string
+): string {
+  const config = getChainConfig(networkOrChainId);
+  if (!config?.blockExplorer) {
+    return '#';
+  }
+  
+  const base = config.blockExplorer;
+  switch (type) {
+    case 'tx':
+      return `${base}/tx/${value}`;
+    case 'address':
+      return `${base}/address/${value}`;
+    case 'token':
+      return `${base}/token/${value}`;
+    default:
+      return base;
+  }
 }
 
 /**
@@ -376,16 +454,28 @@ export function isNonEvmNetwork(network: string): boolean {
 }
 
 /**
- * Derive wallet type from chain ID or non-EVM network
+ * Derive wallet type from chain ID, non-EVM network, or wallet_type column
+ * FIXED: Now checks wallet_type as a fallback
  */
-export function deriveWalletType(chainId?: string | null, nonEvmNetwork?: string | null): string {
+export function deriveWalletType(
+  chainId?: string | null, 
+  nonEvmNetwork?: string | null,
+  walletType?: string | null
+): string {
+  // First check non-EVM network
   if (nonEvmNetwork) {
     return nonEvmNetwork.toLowerCase();
   }
   
+  // Then check chain ID
   if (chainId) {
     const resolved = resolveChainAndEnvironment(chainId);
     return resolved?.network || 'unknown';
+  }
+  
+  // NEW: Check wallet_type column as fallback
+  if (walletType) {
+    return walletType.toLowerCase();
   }
   
   return 'unknown';
@@ -397,4 +487,110 @@ export function deriveWalletType(chainId?: string | null, nonEvmNetwork?: string
 export function getNetworkEnvironment(chainId: string): 'mainnet' | 'testnet' {
   const chainIdNum = parseInt(chainId, 10);
   return isTestnetUtil(chainIdNum) ? 'testnet' : 'mainnet';
+}
+
+/**
+ * Check if a chain ID is a testnet (utility function)
+ */
+function isTestnetUtil(chainId: number): boolean {
+  const testnetChainIds = [
+    11155111, // Sepolia
+    17000,    // Holesky
+    80002,    // Amoy
+    421614,   // Arbitrum Sepolia
+    43113,    // Avalanche Fuji
+    11155420, // Optimism Sepolia
+    84532,    // Base Sepolia
+    97,       // BSC Testnet
+    300,      // zkSync Sepolia
+    560048,   // Hoodi Testnet
+    1439,     // Injective EVM Testnet
+  ];
+  return testnetChainIds.includes(chainId);
+}
+
+/**
+ * Get all chain configurations
+ */
+export function getAllChains(): ChainConfig[] {
+  return Object.values(chains);
+}
+
+/**
+ * Get available environments for a network
+ * Returns array of environment options with display info
+ */
+export function getChainEnvironments(network: string): EnvironmentOption[] {
+  const normalizedNetwork = network.toLowerCase();
+  const environments: EnvironmentOption[] = [];
+  
+  // Check for mainnet
+  const mainnetConfig = chains[normalizedNetwork];
+  if (mainnetConfig && !mainnetConfig.isTestnet) {
+    environments.push({
+      name: 'mainnet',
+      displayName: mainnetConfig.displayName,
+      isTestnet: false,
+      chainId: String(mainnetConfig.id)
+    });
+  }
+  
+  // Check for testnet variants
+  const testnetVariants = [
+    normalizedNetwork + '-testnet',
+    normalizedNetwork + '-devnet',
+    // Special cases
+    normalizedNetwork === 'polygon' ? 'amoy' : null,
+    normalizedNetwork === 'ethereum' ? 'sepolia' : null,
+    normalizedNetwork === 'ethereum' ? 'holesky' : null,
+  ].filter(Boolean) as string[];
+  
+  for (const variant of testnetVariants) {
+    const testnetConfig = chains[variant];
+    if (testnetConfig?.isTestnet) {
+      environments.push({
+        name: 'testnet',
+        displayName: testnetConfig.displayName,
+        isTestnet: true,
+        chainId: String(testnetConfig.id)
+      });
+      break; // Only add first testnet variant
+    }
+  }
+  
+  return environments;
+}
+
+/**
+ * Get display name for network with environment
+ */
+export function getNetworkDisplayName(
+  network: string, 
+  environment?: NetworkEnvironment | string
+): string {
+  const config = getChainConfig(network);
+  if (!config) return network;
+  
+  // If no environment specified, return base display name
+  if (!environment) {
+    return config.displayName;
+  }
+  
+  // For testnet, try to get specific testnet config
+  if (environment === 'testnet') {
+    const testnetKey = network.toLowerCase() + '-testnet';
+    const testnetConfig = chains[testnetKey];
+    if (testnetConfig) {
+      return testnetConfig.displayName;
+    }
+    
+    // Special cases
+    if (network.toLowerCase() === 'polygon') {
+      return chains['amoy']?.displayName || 'Polygon Testnet';
+    }
+    
+    return `${config.displayName} Testnet`;
+  }
+  
+  return config.displayName;
 }

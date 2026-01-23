@@ -1,28 +1,30 @@
 /**
- * Solana Token-2022 Deployment Service
+ * Solana Token-2022 Deployment Service - FULLY MODERN
+ * 
+ * MIGRATION STATUS: ✅ FULLY MIGRATED to @solana/kit
+ * - Uses ModernSolanaRpc instead of legacy Connection
+ * - Uses KeyPairSigner instead of legacy Keypair
+ * - Uses Address type instead of PublicKey
+ * - Uses modern transaction pipeline
+ * - All extension logic using @solana-program/token-2022
  * 
  * Handles deployment of Token-2022 tokens with extensions
- * Uses native @solana-program/token-2022 library
  * Based on official Solana documentation and examples
  */
 
 import {
-  Connection,
-  Keypair,
-  PublicKey,
-  Transaction,
-  sendAndConfirmTransaction,
-} from '@solana/web3.js';
-import {
-  createSolanaRpc,
   generateKeyPairSigner,
-  pipe,
   createTransactionMessage,
   setTransactionMessageFeePayerSigner,
   setTransactionMessageLifetimeUsingBlockhash,
   appendTransactionMessageInstructions,
   signTransactionMessageWithSigners,
-  Address
+  getBase64EncodedWireTransaction,
+  getSignatureFromTransaction,
+  pipe,
+  address,
+  type Address,
+  type KeyPairSigner
 } from '@solana/kit';
 import {
   extension,
@@ -39,7 +41,12 @@ import {
 import { getCreateAccountInstruction } from '@solana-program/system';
 import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
-import bs58 from 'bs58';
+import { ModernSolanaRpc, createModernRpc } from '@/infrastructure/web3/solana/ModernSolanaRpc';
+import { 
+  createSignerFromPrivateKey,
+  toAddress
+} from '@/infrastructure/web3/solana/ModernSolanaUtils';
+import type { ModernInstruction } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 
 // ===========================
 // Types
@@ -110,7 +117,7 @@ export interface Token2022DeploymentResult {
 
 export class Token2022DeploymentService {
   /**
-   * Deploy Token-2022 with extensions
+   * Deploy Token-2022 with extensions - FULLY MODERN
    */
   async deployToken2022(
     config: Token2022Config,
@@ -137,50 +144,70 @@ export class Token2022DeploymentService {
         throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
       }
 
-      // Step 2: Setup connection and keypair
-      const rpcUrl = options.rpcUrl || this.getDefaultRpcUrl(options.network);
-      const connection = new Connection(rpcUrl, 'confirmed');
-      const payer = this.getKeypairFromPrivateKey(options.walletPrivateKey);
+      // Step 2: Setup RPC and signer (MODERN)
+      const rpc = options.rpcUrl 
+        ? new ModernSolanaRpc({ endpoint: options.rpcUrl })
+        : createModernRpc(options.network);
+      
+      const payer = await createSignerFromPrivateKey(options.walletPrivateKey);
 
-      // Step 3: Generate mint keypair
-      const mintKeypair = Keypair.generate();
-      const mint = mintKeypair.publicKey;
+      // Step 3: Generate mint signer (MODERN)
+      const mintSigner = await generateKeyPairSigner();
+      const mintAddress = mintSigner.address;
 
       // Step 4: Build extensions
-      const extensions = this.buildExtensions(config, payer.publicKey, mint);
+      const extensions = this.buildExtensions(config, payer.address, mintAddress);
       
       // Step 5: Calculate space and rent
       const { spaceWithoutMetadata, spaceWithMetadata } = this.calculateSpace(extensions);
-      const lamports = await connection.getMinimumBalanceForRentExemption(Number(spaceWithMetadata));
+      const lamports = await rpc.getRpc().getMinimumBalanceForRentExemption(spaceWithMetadata).send();
 
       // Step 6: Build instructions
       const instructions = await this.buildInstructions(
         config,
         payer,
-        mintKeypair,
+        mintSigner,
         extensions,
         lamports,
-        Number(spaceWithoutMetadata)
+        spaceWithoutMetadata
       );
 
-      // Step 7: Create and send transaction
-      const signature = await sendAndConfirmTransaction(
-        connection,
-        new Transaction().add(...instructions),
-        [payer, mintKeypair],
-        { commitment: 'confirmed' }
+      // Step 7: Create and send transaction (MODERN)
+      const { value: latestBlockhash } = await rpc.getRpc().getLatestBlockhash().send();
+
+      const transactionMessage = pipe(
+        createTransactionMessage({ version: 0 }),
+        tx => setTransactionMessageFeePayerSigner(payer, tx),
+        tx => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+        tx => appendTransactionMessageInstructions(instructions, tx)
       );
+
+      // Sign with all signers
+      const signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
+
+      // Get signature for tracking
+      const signature = getSignatureFromTransaction(signedTransaction);
+      
+      // Encode and send transaction (MODERN)
+      const encodedTransaction = getBase64EncodedWireTransaction(signedTransaction);
+      await rpc.sendRawTransaction(encodedTransaction, { skipPreflight: false });
+      
+      // Wait for confirmation (MODERN)
+      const confirmed = await rpc.waitForConfirmation(signature, 'confirmed');
+      if (!confirmed) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       // Step 8: Save to database
       const tokenId = await this.saveDeploymentToDatabase({
         projectId: options.projectId,
         userId: options.userId,
         network: `solana-${options.network}`,
-        contractAddress: mint.toBase58(),
+        contractAddress: mintAddress,
         transactionHash: signature,
         config,
         extensions: this.getEnabledExtensions(config),
-        deploymentData: this.buildDeploymentData(config, payer.publicKey, mint)
+        deploymentData: this.buildDeploymentData(config, payer.address, mintAddress)
       });
 
       const deploymentTimeMs = Date.now() - startTime;
@@ -190,7 +217,7 @@ export class Token2022DeploymentService {
         entity_type: 'token',
         entity_id: tokenId,
         details: {
-          tokenAddress: mint.toBase58(),
+          tokenAddress: mintAddress,
           transactionHash: signature,
           extensions: this.getEnabledExtensions(config),
           deploymentTimeMs
@@ -199,8 +226,8 @@ export class Token2022DeploymentService {
 
       return {
         success: true,
-        tokenAddress: mint.toBase58(),
-        mint: mint.toBase58(),
+        tokenAddress: mintAddress,
+        mint: mintAddress,
         transactionHash: signature,
         deploymentStrategy: 'Token2022',
         networkUsed: `solana-${options.network}`,
@@ -241,12 +268,12 @@ export class Token2022DeploymentService {
   // ===========================
 
   /**
-   * Build all enabled extensions
+   * Build all enabled extensions - Using modern Address types
    */
   private buildExtensions(
     config: Token2022Config,
-    authorityPubKey: PublicKey,
-    mint: PublicKey
+    authorityAddress: Address,
+    mintAddress: Address
   ): any[] {
     const extensions: any[] = [];
 
@@ -254,21 +281,22 @@ export class Token2022DeploymentService {
     if (config.enableMetadata) {
       extensions.push(
         extension('MetadataPointer', {
-          authority: authorityPubKey.toBase58() as Address,
-          metadataAddress: mint.toBase58() as Address,
+          authority: authorityAddress,
+          metadataAddress: mintAddress,
         })
       );
     }
 
     // Token Metadata
     if (config.enableMetadata && config.metadata) {
+      const updateAuthority = config.updateAuthority 
+        ? toAddress(config.updateAuthority)
+        : authorityAddress;
+        
       extensions.push(
         extension('TokenMetadata', {
-          updateAuthority: (config.updateAuthority 
-            ? new PublicKey(config.updateAuthority) 
-            : authorityPubKey
-          ).toBase58() as Address,
-          mint: mint.toBase58() as Address,
+          updateAuthority,
+          mint: mintAddress,
           name: config.metadata.name,
           symbol: config.metadata.symbol,
           uri: config.metadata.uri,
@@ -280,16 +308,17 @@ export class Token2022DeploymentService {
     // Transfer Fee
     if (config.enableTransferFee && config.transferFee) {
       const feeConfig = config.transferFee;
+      const transferFeeAuthority = feeConfig.transferFeeAuthority
+        ? toAddress(feeConfig.transferFeeAuthority)
+        : authorityAddress;
+      const withdrawAuthority = feeConfig.withdrawWithheldAuthority
+        ? toAddress(feeConfig.withdrawWithheldAuthority)
+        : authorityAddress;
+        
       extensions.push(
         extension('TransferFeeConfig', {
-          transferFeeConfigAuthority: (feeConfig.transferFeeAuthority 
-            ? new PublicKey(feeConfig.transferFeeAuthority)
-            : authorityPubKey
-          ).toBase58() as Address,
-          withdrawWithheldAuthority: (feeConfig.withdrawWithheldAuthority
-            ? new PublicKey(feeConfig.withdrawWithheldAuthority)
-            : authorityPubKey
-          ).toBase58() as Address,
+          transferFeeConfigAuthority: transferFeeAuthority,
+          withdrawWithheldAuthority: withdrawAuthority,
           withheldAmount: BigInt(0),
           olderTransferFee: {
             epoch: BigInt(0),
@@ -309,7 +338,7 @@ export class Token2022DeploymentService {
     if (config.enableMintCloseAuthority) {
       extensions.push(
         extension('MintCloseAuthority', {
-          closeAuthority: authorityPubKey.toBase58() as Address,
+          closeAuthority: authorityAddress,
         })
       );
     }
@@ -348,34 +377,34 @@ export class Token2022DeploymentService {
   }
 
   /**
-   * Build all instructions in correct order
+   * Build all instructions in correct order - MODERN
    */
   private async buildInstructions(
     config: Token2022Config,
-    payer: Keypair,
-    mintKeypair: Keypair,
+    payer: KeyPairSigner,
+    mintSigner: KeyPairSigner,
     extensions: any[],
-    lamports: number,
-    space: number
+    lamports: bigint,
+    space: bigint
   ): Promise<any[]> {
     const instructions: any[] = [];
-    const mint = mintKeypair.publicKey;
+    const mintAddress = mintSigner.address;
 
-    // Parse authorities
+    // Parse authorities (MODERN - using Address type)
     const mintAuthority = config.mintAuthority 
-      ? new PublicKey(config.mintAuthority)
-      : payer.publicKey;
+      ? toAddress(config.mintAuthority)
+      : payer.address;
     const freezeAuthority = config.freezeAuthority
-      ? new PublicKey(config.freezeAuthority)
-      : payer.publicKey;
+      ? toAddress(config.freezeAuthority)
+      : payer.address;
 
     // 1. Create Account
     instructions.push(
       getCreateAccountInstruction({
-        payer: { address: payer.publicKey.toBase58() as Address } as any,
-        newAccount: { address: mint.toBase58() as Address } as any,
-        lamports: BigInt(lamports),
-        space: BigInt(space),
+        payer,
+        newAccount: mintSigner,
+        lamports,
+        space,
         programAddress: TOKEN_2022_PROGRAM_ADDRESS,
       })
     );
@@ -384,9 +413,9 @@ export class Token2022DeploymentService {
     if (config.enableMetadata) {
       instructions.push(
         getInitializeMetadataPointerInstruction({
-          mint: mint.toBase58() as Address,
-          authority: payer.publicKey.toBase58() as Address,
-          metadataAddress: mint.toBase58() as Address,
+          mint: mintAddress,
+          authority: payer.address,
+          metadataAddress: mintAddress,
         })
       );
     }
@@ -394,17 +423,18 @@ export class Token2022DeploymentService {
     // 3. Initialize Transfer Fee (BEFORE initialize mint)
     if (config.enableTransferFee && config.transferFee) {
       const feeConfig = config.transferFee;
+      const transferFeeAuthority = feeConfig.transferFeeAuthority
+        ? toAddress(feeConfig.transferFeeAuthority)
+        : payer.address;
+      const withdrawAuthority = feeConfig.withdrawWithheldAuthority
+        ? toAddress(feeConfig.withdrawWithheldAuthority)
+        : payer.address;
+        
       instructions.push(
         getInitializeTransferFeeConfigInstruction({
-          mint: mint.toBase58() as Address,
-          transferFeeConfigAuthority: (feeConfig.transferFeeAuthority
-            ? new PublicKey(feeConfig.transferFeeAuthority)
-            : payer.publicKey
-          ).toBase58() as Address,
-          withdrawWithheldAuthority: (feeConfig.withdrawWithheldAuthority
-            ? new PublicKey(feeConfig.withdrawWithheldAuthority)
-            : payer.publicKey
-          ).toBase58() as Address,
+          mint: mintAddress,
+          transferFeeConfigAuthority: transferFeeAuthority,
+          withdrawWithheldAuthority: withdrawAuthority,
           transferFeeBasisPoints: feeConfig.feeBasisPoints,
           maximumFee: feeConfig.maxFee,
         })
@@ -414,24 +444,25 @@ export class Token2022DeploymentService {
     // 4. Initialize Mint
     instructions.push(
       getInitializeMintInstruction({
-        mint: mint.toBase58() as Address,
+        mint: mintAddress,
         decimals: config.decimals,
-        mintAuthority: mintAuthority.toBase58() as Address,
-        freezeAuthority: freezeAuthority.toBase58() as Address,
+        mintAuthority,
+        freezeAuthority,
       })
     );
 
     // 5. Initialize Token Metadata (AFTER initialize mint)
     if (config.enableMetadata && config.metadata) {
+      const updateAuthority = config.updateAuthority
+        ? toAddress(config.updateAuthority)
+        : payer.address;
+        
       instructions.push(
         getInitializeTokenMetadataInstruction({
-          metadata: mint.toBase58() as Address,
-          updateAuthority: (config.updateAuthority
-            ? new PublicKey(config.updateAuthority)
-            : payer.publicKey
-          ).toBase58() as Address,
-          mint: mint.toBase58() as Address,
-          mintAuthority: { address: mintAuthority.toBase58() as Address } as any,
+          metadata: mintAddress,
+          updateAuthority,
+          mint: mintAddress,
+          mintAuthority: payer,  // Use the payer signer directly
           name: config.metadata.name,
           symbol: config.metadata.symbol,
           uri: config.metadata.uri,
@@ -443,8 +474,8 @@ export class Token2022DeploymentService {
         for (const [key, value] of config.metadata.additionalMetadata.entries()) {
           instructions.push(
             getUpdateTokenMetadataFieldInstruction({
-              metadata: mint.toBase58() as Address,
-              updateAuthority: { address: payer.publicKey.toBase58() as Address } as any,
+              metadata: mintAddress,
+              updateAuthority: payer,  // Use the payer signer directly
               field: tokenMetadataField('Key', [key]),
               value: value,
             })
@@ -531,27 +562,28 @@ export class Token2022DeploymentService {
   }
 
   /**
-   * Build deployment data for database storage
+   * Build deployment data for database storage - Using modern Address
    */
   private buildDeploymentData(
     config: Token2022Config,
-    authorityPubKey: PublicKey,
-    mint: PublicKey
+    authorityAddress: Address,
+    mintAddress: Address
   ): any {
+    const mintAuthority = config.mintAuthority 
+      ? toAddress(config.mintAuthority)
+      : authorityAddress;
+    const freezeAuthority = config.freezeAuthority
+      ? toAddress(config.freezeAuthority)
+      : authorityAddress;
+    const updateAuthority = config.updateAuthority
+      ? toAddress(config.updateAuthority)
+      : authorityAddress;
+      
     return {
       solana_specific: {
-        mint_authority: (config.mintAuthority 
-          ? new PublicKey(config.mintAuthority)
-          : authorityPubKey
-        ).toBase58(),
-        freeze_authority: (config.freezeAuthority
-          ? new PublicKey(config.freezeAuthority)
-          : authorityPubKey
-        ).toBase58(),
-        update_authority: (config.updateAuthority
-          ? new PublicKey(config.updateAuthority)
-          : authorityPubKey
-        ).toBase58(),
+        mint_authority: mintAuthority,
+        freeze_authority: freezeAuthority,
+        update_authority: updateAuthority,
         metadata_uri: config.uri,
         decimals: config.decimals,
         initial_supply: config.initialSupply,
@@ -661,35 +693,17 @@ export class Token2022DeploymentService {
   }
 
   /**
-   * Convert private key to Keypair
-   */
-  private getKeypairFromPrivateKey(privateKey: string): Keypair {
-    try {
-      let secretKey: Uint8Array;
-      
-      if (privateKey.length === 128) {
-        secretKey = new Uint8Array(Buffer.from(privateKey, 'hex'));
-      } else {
-        secretKey = bs58.decode(privateKey);
-      }
-
-      return Keypair.fromSecretKey(secretKey);
-    } catch (error) {
-      throw new Error(`Invalid Solana private key format: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Get default RPC URL
+   * Get default RPC URL from .env ONLY
    */
   private getDefaultRpcUrl(network: 'mainnet-beta' | 'devnet' | 'testnet'): string {
-    const rpcUrls = {
-      'mainnet-beta': process.env.VITE_SOLANA_MAINNET_RPC_URL || 'https://api.mainnet-beta.solana.com',
-      'devnet': process.env.VITE_SOLANA_DEVNET_RPC_URL || 'https://api.devnet.solana.com',
-      'testnet': process.env.VITE_SOLANA_TESTNET_RPC_URL || 'https://api.testnet.solana.com'
+    const networkMap: Record<string, 'mainnet' | 'devnet' | 'testnet'> = {
+      'mainnet-beta': 'mainnet',
+      'devnet': 'devnet',
+      'testnet': 'testnet'
     };
-
-    return rpcUrls[network];
+    
+    const { getRpcUrl } = require('@/infrastructure/web3/rpc/rpc-config');
+    return getRpcUrl('solana', networkMap[network]);
   }
 
   // ===========================

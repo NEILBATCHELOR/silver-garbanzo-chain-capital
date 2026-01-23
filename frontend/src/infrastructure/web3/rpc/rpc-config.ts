@@ -46,10 +46,11 @@ export const RPC_CONFIG = {
     testnet: `https://zksync-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
   },
   
-  // Solana Networks
+  // Solana Networks - NO FALLBACKS, must use .env
   solana: {
-    mainnet: `https://solana-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`,
-    testnet: `https://solana-devnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}`
+    mainnet: import.meta.env.VITE_SOLANA_RPC_URL || '',
+    devnet: import.meta.env.VITE_SOLANA_DEVNET_RPC_URL || '',
+    testnet: import.meta.env.VITE_SOLANA_TESTNET_RPC_URL || ''
   },
   
   // Bitcoin Networks
@@ -123,9 +124,23 @@ export const FACTORY_ADDRESSES = {
 };
 
 /**
- * Get RPC URL from environment variables or fallback to default
+ * Get RPC URL from environment variables ONLY - no fallbacks
+ * For Solana, supports 'mainnet', 'devnet', and 'testnet'
  */
-export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string => {
+export const getRpcUrl = (blockchain: string, network: 'mainnet' | 'devnet' | 'testnet' = 'devnet'): string => {
+  // For Solana, handle all three networks
+  if (blockchain === 'solana') {
+    if (network === 'mainnet') {
+      return import.meta.env.VITE_SOLANA_RPC_URL || '';
+    } else if (network === 'devnet') {
+      return import.meta.env.VITE_SOLANA_DEVNET_RPC_URL || '';
+    } else if (network === 'testnet') {
+      return import.meta.env.VITE_SOLANA_TESTNET_RPC_URL || '';
+    }
+  }
+  
+  // For other blockchains, use isTestnet boolean for compatibility
+  const isTestnet = network !== 'mainnet';
   const environment = isTestnet ? 'testnet' : 'mainnet';
   
   // Try to get URL from environment variables first
@@ -140,7 +155,7 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
       arbitrum: 'VITE_ARBITRUM_SEPOLIA_RPC_URL',
       base: 'VITE_BASE_SEPOLIA_RPC_URL',
       zksync: 'VITE_ZKSYNC_SEPOLIA_RPC_URL',
-      solana: 'VITE_SOLANA_DEVNET_RPC_URL',
+      // Solana handled above
       bitcoin: 'VITE_BITCOIN_TESTNET_RPC_URL',
       aptos: 'VITE_APTOS_TESTNET_RPC_URL',
       sui: 'VITE_SUI_TESTNET_RPC_URL',
@@ -171,7 +186,7 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
       arbitrum: 'VITE_ARBITRUM_RPC_URL',
       base: 'VITE_BASE_RPC_URL',
       zksync: 'VITE_ZKSYNC_RPC_URL',
-      solana: 'VITE_SOLANA_RPC_URL',
+      // Solana handled above
       bitcoin: 'VITE_BITCOIN_RPC_URL',
       aptos: 'VITE_APTOS_RPC_URL',
       sui: 'VITE_SUI_RPC_URL',
@@ -192,10 +207,18 @@ export const getRpcUrl = (blockchain: string, isTestnet: boolean = true): string
     }
   }
   
-  // Return env URL if available, otherwise fallback to config
+  // Return env URL if available
   if (envUrl) return envUrl;
   
-  // Fallback to hardcoded config
+  // For Solana, NEVER use fallback - must be in .env
+  if (blockchain === 'solana') {
+    throw new Error(
+      `Solana RPC URL for ${network} not configured. ` +
+      `Add VITE_SOLANA_${network.toUpperCase()}_RPC_URL to your .env file.`
+    );
+  }
+  
+  // Fallback to hardcoded config for non-Solana chains only
   return RPC_CONFIG[blockchain]?.[environment] || '';
 };
 

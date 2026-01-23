@@ -36,7 +36,7 @@ import {
 } from '@injectivelabs/networks';
 
 // Utility imports
-import { DEFAULT_STD_FEE } from '@injectivelabs/utils';
+import { getDefaultStdFee } from '@injectivelabs/utils';
 
 // Node.js Buffer (already available in Node.js)
 import { Buffer } from 'buffer';
@@ -536,7 +536,7 @@ export class InjectiveNativeTokenService {
       const { signBytes, txRaw } = createTransaction({
         message: message,  // Single message
         memo: '',
-        fee: DEFAULT_STD_FEE,
+        fee: getDefaultStdFee(),
         pubKey: baseAccount.pub_key?.key || '',
         sequence: parseInt(baseAccount.sequence, 10),
         accountNumber: parseInt(baseAccount.account_number, 10),

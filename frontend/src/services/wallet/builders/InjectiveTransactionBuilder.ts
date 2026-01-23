@@ -31,13 +31,23 @@ import {
 import {
   BigNumberInBase,
   BigNumberInWei,
-  DEFAULT_STD_FEE,
 } from '@injectivelabs/utils';
 
 import { rpcManager } from '../../../infrastructure/web3/rpc/RPCConnectionManager';
 import type { SupportedChain, NetworkType } from '../../../infrastructure/web3/adapters/IBlockchainAdapter';
 import { ChainType } from '../AddressUtils';
 import { addressUtils } from '../AddressUtils';
+
+// Define DEFAULT_STD_FEE since it's not exported in this version
+const DEFAULT_STD_FEE = {
+  amount: [
+    {
+      amount: '500000000000000',
+      denom: 'inj',
+    },
+  ],
+  gas: '200000',
+};
 
 // ============================================================================
 // INJECTIVE-SPECIFIC INTERFACES

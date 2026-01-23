@@ -334,6 +334,16 @@ CREATE TYPE public.project_duration AS ENUM (
 
 
 --
+-- Name: solana_token_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.solana_token_type AS ENUM (
+    'SPL',
+    'Token2022'
+);
+
+
+--
 -- Name: stablecoin_collateral_type; Type: TYPE; Schema: public; Owner: -
 --
 
@@ -366,6 +376,30 @@ CREATE TYPE public.token_config_mode_enum AS ENUM (
     'max',
     'basic',
     'advanced'
+);
+
+
+--
+-- Name: token_extension_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.token_extension_type AS ENUM (
+    'MintCloseAuthority',
+    'TransferFee',
+    'TransferHook',
+    'Metadata',
+    'DefaultAccountState',
+    'ImmutableOwner',
+    'NonTransferable',
+    'InterestBearing',
+    'PermanentDelegate',
+    'CpiGuard',
+    'MetadataPointer',
+    'GroupPointer',
+    'Group',
+    'MemberPointer',
+    'Member',
+    'ConfidentialTransfer'
 );
 
 
@@ -2641,6 +2675,24 @@ COMMENT ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shares
 
 
 --
+-- Name: decrement_token_supply(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.decrement_token_supply(p_denom text, p_amount text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  UPDATE injective_native_tokens
+  SET 
+    total_supply = GREATEST((COALESCE(total_supply::NUMERIC, 0) - p_amount::NUMERIC), 0)::TEXT,
+    circulating_supply = GREATEST((COALESCE(circulating_supply::NUMERIC, 0) - p_amount::NUMERIC), 0)::TEXT,
+    updated_at = NOW()
+  WHERE denom = p_denom;
+END;
+$$;
+
+
+--
 -- Name: delete_project_cascade(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -4722,6 +4774,24 @@ $$;
 --
 
 COMMENT ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) IS 'Safely increments shares_outstanding with project validation';
+
+
+--
+-- Name: increment_token_supply(text, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.increment_token_supply(p_denom text, p_amount text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  UPDATE injective_native_tokens
+  SET 
+    total_supply = (COALESCE(total_supply::NUMERIC, 0) + p_amount::NUMERIC)::TEXT,
+    circulating_supply = (COALESCE(circulating_supply::NUMERIC, 0) + p_amount::NUMERIC)::TEXT,
+    updated_at = NOW()
+  WHERE denom = p_denom;
+END;
+$$;
 
 
 --
@@ -7509,6 +7579,20 @@ CREATE FUNCTION public.update_smart_contract_wallet_updated_at() RETURNS trigger
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_solana_token_transactions_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_solana_token_transactions_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 
@@ -12538,6 +12622,222 @@ CREATE TABLE public.deployment_rate_limits (
 
 
 --
+-- Name: derivative_funding_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.derivative_funding_payments (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    market_id text NOT NULL,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    position_id uuid,
+    user_address text NOT NULL,
+    subaccount_id text,
+    funding_rate numeric(78,18) NOT NULL,
+    payment_amount numeric(78,18) NOT NULL,
+    position_size numeric(78,18) NOT NULL,
+    payment_timestamp timestamp with time zone DEFAULT now(),
+    tx_hash text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT derivative_funding_payments_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text])))
+);
+
+
+--
+-- Name: TABLE derivative_funding_payments; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.derivative_funding_payments IS 'Funding payment history for perpetual positions';
+
+
+--
+-- Name: derivative_liquidations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.derivative_liquidations (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    market_id text NOT NULL,
+    position_id uuid,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    user_address text NOT NULL,
+    subaccount_id text,
+    liquidator_address text,
+    is_long boolean NOT NULL,
+    position_size numeric(78,18) NOT NULL,
+    entry_price numeric(78,18) NOT NULL,
+    liquidation_price numeric(78,18) NOT NULL,
+    final_pnl numeric(78,18),
+    liquidated_at timestamp with time zone DEFAULT now(),
+    tx_hash text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT derivative_liquidations_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text])))
+);
+
+
+--
+-- Name: TABLE derivative_liquidations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.derivative_liquidations IS 'Liquidation event history';
+
+
+--
+-- Name: derivative_markets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.derivative_markets (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    market_id text NOT NULL,
+    market_type text NOT NULL,
+    ticker text NOT NULL,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    project_id uuid,
+    product_id uuid,
+    product_type text,
+    base_denom text,
+    quote_denom text NOT NULL,
+    oracle_base text,
+    oracle_quote text,
+    oracle_type text,
+    oracle_scale_factor integer DEFAULT 6,
+    initial_margin_ratio numeric(78,18) NOT NULL,
+    maintenance_margin_ratio numeric(78,18) NOT NULL,
+    maker_fee_rate numeric(78,18),
+    taker_fee_rate numeric(78,18),
+    min_price_tick_size numeric(78,18),
+    min_quantity_tick_size numeric(78,18),
+    min_notional numeric(78,18),
+    funding_interval bigint,
+    next_funding_timestamp timestamp with time zone,
+    last_funding_rate numeric(78,18),
+    expiry_timestamp timestamp with time zone,
+    settlement_price numeric(78,18),
+    settled_at timestamp with time zone,
+    total_volume numeric(78,18) DEFAULT 0,
+    total_positions_opened bigint DEFAULT 0,
+    total_liquidations bigint DEFAULT 0,
+    open_interest numeric(78,18) DEFAULT 0,
+    status text DEFAULT 'active'::text,
+    launched_at timestamp with time zone DEFAULT now(),
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT derivative_markets_market_type_check CHECK ((market_type = ANY (ARRAY['perpetual'::text, 'expiry_future'::text, 'binary_option'::text, 'index_perpetual'::text, 'election_perpetual'::text, 'pre_launch_future'::text]))),
+    CONSTRAINT derivative_markets_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text]))),
+    CONSTRAINT derivative_markets_status_check CHECK ((status = ANY (ARRAY['active'::text, 'paused'::text, 'settled'::text, 'expired'::text])))
+);
+
+
+--
+-- Name: TABLE derivative_markets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.derivative_markets IS 'Derivative markets (perpetuals, futures, options) across all chains';
+
+
+--
+-- Name: derivative_orders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.derivative_orders (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    order_hash text,
+    market_id text NOT NULL,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    user_address text NOT NULL,
+    subaccount_id text,
+    project_id uuid,
+    product_id uuid,
+    order_type text NOT NULL,
+    order_side text NOT NULL,
+    quantity numeric(78,18) NOT NULL,
+    price numeric(78,18),
+    trigger_price numeric(78,18),
+    filled_quantity numeric(78,18) DEFAULT 0,
+    average_fill_price numeric(78,18),
+    maker_fee numeric(78,18) DEFAULT 0,
+    taker_fee numeric(78,18) DEFAULT 0,
+    status text DEFAULT 'pending'::text,
+    placed_at timestamp with time zone DEFAULT now(),
+    filled_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    expires_at timestamp with time zone,
+    tx_hash text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT derivative_orders_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text]))),
+    CONSTRAINT derivative_orders_order_side_check CHECK ((order_side = ANY (ARRAY['buy'::text, 'sell'::text]))),
+    CONSTRAINT derivative_orders_order_type_check CHECK ((order_type = ANY (ARRAY['market'::text, 'limit'::text, 'stop_market'::text, 'stop_limit'::text, 'take_profit'::text]))),
+    CONSTRAINT derivative_orders_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'filled'::text, 'partially_filled'::text, 'cancelled'::text, 'expired'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: TABLE derivative_orders; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.derivative_orders IS 'Orders in derivative markets';
+
+
+--
+-- Name: derivative_positions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.derivative_positions (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    position_id text,
+    market_id text,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    user_address text NOT NULL,
+    user_id uuid,
+    subaccount_id text,
+    project_id uuid,
+    product_id uuid,
+    is_long boolean NOT NULL,
+    quantity numeric(78,18) NOT NULL,
+    leverage integer,
+    entry_price numeric(78,18) NOT NULL,
+    current_price numeric(78,18),
+    liquidation_price numeric(78,18),
+    margin numeric(78,18) NOT NULL,
+    available_margin numeric(78,18),
+    unrealized_pnl numeric(78,18) DEFAULT 0,
+    realized_pnl numeric(78,18) DEFAULT 0,
+    total_funding_paid numeric(78,18) DEFAULT 0,
+    total_fees_paid numeric(78,18) DEFAULT 0,
+    opened_at timestamp with time zone DEFAULT now(),
+    last_updated_at timestamp with time zone DEFAULT now(),
+    closed_at timestamp with time zone,
+    close_price numeric(78,18),
+    close_pnl numeric(78,18),
+    status text DEFAULT 'open'::text,
+    open_tx_hash text,
+    close_tx_hash text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT derivative_positions_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text]))),
+    CONSTRAINT derivative_positions_status_check CHECK ((status = ANY (ARRAY['open'::text, 'closed'::text, 'liquidated'::text])))
+);
+
+
+--
+-- Name: TABLE derivative_positions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.derivative_positions IS 'User positions in derivative markets';
+
+
+--
 -- Name: dfns_activity_logs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15045,6 +15345,47 @@ COMMENT ON TABLE public.etf_tracking_error_history IS 'Performance tracking vs b
 
 
 --
+-- Name: exchange_contracts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.exchange_contracts (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    contract_type text NOT NULL,
+    contract_name text NOT NULL,
+    contract_address text NOT NULL,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    deployer_address text NOT NULL,
+    deployment_tx_hash text,
+    deployment_block_number bigint,
+    deployment_timestamp timestamp with time zone,
+    backend_oracle_address text,
+    backend_service_address text,
+    fund_manager_address text,
+    project_id uuid,
+    product_id uuid,
+    product_type text,
+    abi_json jsonb,
+    is_active boolean DEFAULT true,
+    verified boolean DEFAULT false,
+    verification_url text,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT exchange_contracts_contract_type_check CHECK ((contract_type = ANY (ARRAY['market_maker'::text, 'redemption'::text, 'vault'::text]))),
+    CONSTRAINT exchange_contracts_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text])))
+);
+
+
+--
+-- Name: TABLE exchange_contracts; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.exchange_contracts IS 'Multi-chain exchange contracts (market makers, redemption, vaults)';
+
+
+--
 -- Name: exchange_rate_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -15898,6 +16239,196 @@ CREATE TABLE public.infrastructure_products (
 
 
 --
+-- Name: injective_markets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_markets (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    project_id uuid,
+    market_id text NOT NULL,
+    ticker text NOT NULL,
+    market_type text NOT NULL,
+    base_denom text NOT NULL,
+    quote_denom text NOT NULL,
+    min_price_tick_size numeric(78,18),
+    min_quantity_tick_size numeric(78,18),
+    maker_fee_rate numeric(10,6),
+    taker_fee_rate numeric(10,6),
+    oracle_config jsonb,
+    status text DEFAULT 'active'::text NOT NULL,
+    volume_24h numeric(78,18) DEFAULT 0,
+    volume_total numeric(78,18) DEFAULT 0,
+    high_24h numeric(78,18),
+    low_24h numeric(78,18),
+    last_price numeric(78,18),
+    network text DEFAULT 'mainnet'::text NOT NULL,
+    chain_id text NOT NULL,
+    launch_tx_hash text,
+    launch_block_height bigint,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE injective_markets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.injective_markets IS 'Tracks Injective DEX spot and derivative markets';
+
+
+--
+-- Name: injective_native_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_native_tokens (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    project_id uuid,
+    denom text NOT NULL,
+    subdenom text NOT NULL,
+    creator_address text NOT NULL,
+    total_supply numeric(78,0) DEFAULT 0,
+    circulating_supply numeric(78,0) DEFAULT 0,
+    name text NOT NULL,
+    symbol text NOT NULL,
+    decimals integer DEFAULT 6 NOT NULL,
+    description text,
+    display_denom text,
+    admin_address text NOT NULL,
+    is_mintable boolean DEFAULT true,
+    is_burnable boolean DEFAULT true,
+    permissions_enabled boolean DEFAULT false,
+    namespace_id text,
+    network text DEFAULT 'mainnet'::text NOT NULL,
+    chain_id text NOT NULL,
+    creation_tx_hash text,
+    creation_block_height bigint,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE injective_native_tokens; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.injective_native_tokens IS 'Tracks Injective Native TokenFactory tokens (Cosmos SDK-based)';
+
+
+--
+-- Name: injective_oracle_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_oracle_prices (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    oracle_id uuid,
+    price numeric(78,18) NOT NULL,
+    relayer_address text NOT NULL,
+    network text DEFAULT 'mainnet'::text NOT NULL,
+    tx_hash text,
+    block_height bigint,
+    "timestamp" timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE injective_oracle_prices; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.injective_oracle_prices IS 'Historical price updates from custom oracle providers';
+
+
+--
+-- Name: injective_oracles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_oracles (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    provider_name text NOT NULL,
+    symbol text NOT NULL,
+    relayer_addresses text[] NOT NULL,
+    current_price numeric(78,18),
+    last_update timestamp with time zone,
+    network text DEFAULT 'mainnet'::text NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    registration_tx_hash text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE injective_oracles; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.injective_oracles IS 'Tracks custom oracle providers for Injective markets';
+
+
+--
+-- Name: injective_permissions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_permissions (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    denom text,
+    address text NOT NULL,
+    roles text[] DEFAULT '{}'::text[],
+    permissions integer NOT NULL,
+    assigned_by text,
+    assigned_at timestamp with time zone DEFAULT now(),
+    revoked_at timestamp with time zone,
+    network text DEFAULT 'mainnet'::text NOT NULL,
+    assignment_tx_hash text,
+    revocation_tx_hash text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE injective_permissions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.injective_permissions IS 'Tracks role-based permissions for Injective TokenFactory tokens';
+
+
+--
+-- Name: injective_trades; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_trades (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    market_id text,
+    order_hash text NOT NULL,
+    trader_address text NOT NULL,
+    subaccount_id text,
+    side text NOT NULL,
+    order_type text NOT NULL,
+    price numeric(78,18) NOT NULL,
+    quantity numeric(78,18) NOT NULL,
+    maker_fee numeric(78,18) DEFAULT 0,
+    taker_fee numeric(78,18) DEFAULT 0,
+    total_fee numeric(78,18) DEFAULT 0,
+    execution_type text,
+    trade_id text,
+    network text DEFAULT 'mainnet'::text NOT NULL,
+    tx_hash text,
+    block_height bigint,
+    "timestamp" timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE injective_trades; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.injective_trades IS 'Tracks executed trades on Injective DEX';
+
+
+--
 -- Name: investor_approvals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -16728,6 +17259,39 @@ CREATE TABLE public.market_indices (
 --
 
 COMMENT ON TABLE public.market_indices IS 'Market indices for beta calculations and benchmarking';
+
+
+--
+-- Name: market_maker_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.market_maker_operations (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    market_id text,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    project_id uuid,
+    product_id uuid,
+    contract_address text,
+    operation_type text NOT NULL,
+    parameters jsonb,
+    executed_at timestamp with time zone DEFAULT now(),
+    executor text NOT NULL,
+    transaction_hash text,
+    success boolean DEFAULT true,
+    error_message text,
+    created_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT market_maker_operations_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text]))),
+    CONSTRAINT market_maker_operations_operation_type_check CHECK ((operation_type = ANY (ARRAY['create'::text, 'update_spread'::text, 'update_size'::text, 'pause'::text, 'resume'::text, 'cancel_order'::text])))
+);
+
+
+--
+-- Name: TABLE market_maker_operations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.market_maker_operations IS 'Multi-chain audit trail for market making operations';
 
 
 --
@@ -19911,6 +20475,8 @@ CREATE TABLE public.token_deployments (
     initialization_block_numbers bigint[],
     total_deployment_transactions integer DEFAULT 1,
     deployment_sequence jsonb,
+    solana_token_type public.solana_token_type,
+    solana_extensions public.token_extension_type[],
     CONSTRAINT chk_init_arrays_length CHECK ((COALESCE(array_length(initialization_tx_hashes, 1), 0) = COALESCE(array_length(initialization_block_numbers, 1), 0)))
 );
 
@@ -19920,6 +20486,39 @@ CREATE TABLE public.token_deployments (
 --
 
 COMMENT ON TABLE public.token_deployments IS 'Bridge table linking token configurations to deployed contracts. Tracks deployment status and initialization state.';
+
+
+--
+-- Name: COLUMN token_deployments.deployment_data; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.token_deployments.deployment_data IS 'JSONB field containing deployment-specific data. For Solana deployments, includes:
+{
+  "solana_specific": {
+    "mint_authority": "address",
+    "freeze_authority": "address",
+    "update_authority": "address",
+    "metadata_uri": "url",
+    "decimals": number,
+    "extensions": [
+      {
+        "type": "TransferFee",
+        "config": {
+          "feeBasisPoints": number,
+          "maxFee": number
+        }
+      },
+      {
+        "type": "Metadata",
+        "config": {
+          "name": "string",
+          "symbol": "string",
+          "uri": "string"
+        }
+      }
+    ]
+  }
+}';
 
 
 --
@@ -20055,6 +20654,45 @@ COMMENT ON COLUMN public.product_lifecycle_events.event_type IS 'Type of event (
 --
 
 COMMENT ON COLUMN public.product_lifecycle_events.status IS 'Status of the event (e.g., Pending, Success, Failed)';
+
+
+--
+-- Name: product_markets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.product_markets (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    project_id uuid,
+    product_id uuid,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    market_id text,
+    market_maker_contract text,
+    spread_bps integer,
+    order_size numeric(78,18),
+    min_order_size numeric(78,18),
+    max_order_size numeric(78,18),
+    use_nav_pricing boolean DEFAULT false,
+    oracle_config jsonb,
+    is_active boolean DEFAULT true,
+    configured_at timestamp with time zone DEFAULT now(),
+    last_order_at timestamp with time zone,
+    total_orders_placed integer DEFAULT 0,
+    total_volume numeric(78,18) DEFAULT 0,
+    notes text,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT product_markets_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text]))),
+    CONSTRAINT product_markets_spread_bps_check CHECK ((spread_bps >= 0))
+);
+
+
+--
+-- Name: TABLE product_markets; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.product_markets IS 'Multi-chain product-to-market linkage with market maker config';
 
 
 --
@@ -20382,7 +21020,8 @@ CREATE TABLE public.project_wallets (
     bitcoin_network_type text,
     wallet_type text,
     evm_address text,
-    evm_chain_id text
+    evm_chain_id text,
+    net text
 );
 
 
@@ -23578,6 +24217,80 @@ CREATE TABLE public.smart_contract_wallets (
     created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
+
+
+--
+-- Name: solana_token_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.solana_token_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid NOT NULL,
+    token_address text NOT NULL,
+    token_symbol text NOT NULL,
+    decimals integer NOT NULL,
+    from_address text NOT NULL,
+    to_address text NOT NULL,
+    amount text NOT NULL,
+    transaction_hash text NOT NULL,
+    network text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    block_number bigint,
+    project_id uuid NOT NULL,
+    user_id text,
+    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE solana_token_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.solana_token_transactions IS 'Tracks all Solana SPL and Token-2022 transfer transactions';
+
+
+--
+-- Name: COLUMN solana_token_transactions.token_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.solana_token_transactions.token_id IS 'Reference to the token being transferred';
+
+
+--
+-- Name: COLUMN solana_token_transactions.token_address; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.solana_token_transactions.token_address IS 'Solana mint address of the token';
+
+
+--
+-- Name: COLUMN solana_token_transactions.amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.solana_token_transactions.amount IS 'Transfer amount in smallest unit (lamports), stored as string';
+
+
+--
+-- Name: COLUMN solana_token_transactions.transaction_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.solana_token_transactions.transaction_hash IS 'Solana transaction signature';
+
+
+--
+-- Name: COLUMN solana_token_transactions.network; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.solana_token_transactions.network IS 'Solana network: devnet, testnet, or mainnet-beta';
+
+
+--
+-- Name: COLUMN solana_token_transactions.status; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.solana_token_transactions.status IS 'Transaction status: pending, confirmed, or failed';
 
 
 --
@@ -28243,6 +28956,44 @@ COMMENT ON COLUMN public.valuation_price_history.sources IS 'Array of data sourc
 
 
 --
+-- Name: vault_positions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vault_positions (
+    id uuid DEFAULT extensions.uuid_generate_v4() NOT NULL,
+    vault_contract text NOT NULL,
+    blockchain text NOT NULL,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    project_id uuid,
+    product_id uuid,
+    user_address text NOT NULL,
+    user_id uuid,
+    shares numeric(78,18) DEFAULT 0 NOT NULL,
+    underlying_value numeric(78,18) DEFAULT 0 NOT NULL,
+    exchange_rate numeric(78,18) DEFAULT 0 NOT NULL,
+    total_deposited numeric(78,18) DEFAULT 0,
+    total_withdrawn numeric(78,18) DEFAULT 0,
+    deposit_count integer DEFAULT 0,
+    withdrawal_count integer DEFAULT 0,
+    first_deposit_at timestamp with time zone,
+    last_deposit_at timestamp with time zone,
+    last_withdrawal_at timestamp with time zone,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    CONSTRAINT vault_positions_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text, 'devnet'::text])))
+);
+
+
+--
+-- Name: TABLE vault_positions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.vault_positions IS 'Multi-chain user positions in yield-bearing vaults';
+
+
+--
 -- Name: violation_patterns; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -31485,6 +32236,70 @@ ALTER TABLE ONLY public.deployment_rate_limits
 
 
 --
+-- Name: derivative_funding_payments derivative_funding_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_funding_payments
+    ADD CONSTRAINT derivative_funding_payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: derivative_liquidations derivative_liquidations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_liquidations
+    ADD CONSTRAINT derivative_liquidations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: derivative_markets derivative_markets_market_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_markets
+    ADD CONSTRAINT derivative_markets_market_id_key UNIQUE (market_id);
+
+
+--
+-- Name: derivative_markets derivative_markets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_markets
+    ADD CONSTRAINT derivative_markets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: derivative_orders derivative_orders_order_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_orders
+    ADD CONSTRAINT derivative_orders_order_hash_key UNIQUE (order_hash);
+
+
+--
+-- Name: derivative_orders derivative_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_orders
+    ADD CONSTRAINT derivative_orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: derivative_positions derivative_positions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_positions
+    ADD CONSTRAINT derivative_positions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: derivative_positions derivative_positions_position_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.derivative_positions
+    ADD CONSTRAINT derivative_positions_position_id_key UNIQUE (position_id);
+
+
+--
 -- Name: dfns_activity_logs dfns_activity_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32570,6 +33385,30 @@ ALTER TABLE ONLY public.etf_tracking_error_history
 
 
 --
+-- Name: exchange_contracts exchange_contracts_address_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exchange_contracts
+    ADD CONSTRAINT exchange_contracts_address_unique UNIQUE (contract_address);
+
+
+--
+-- Name: exchange_contracts exchange_contracts_blockchain_network_contract_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exchange_contracts
+    ADD CONSTRAINT exchange_contracts_blockchain_network_contract_address_key UNIQUE (blockchain, network, contract_address);
+
+
+--
+-- Name: exchange_contracts exchange_contracts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exchange_contracts
+    ADD CONSTRAINT exchange_contracts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: exchange_rate_history exchange_rate_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -32841,6 +33680,86 @@ COMMENT ON CONSTRAINT infrastructure_products_project_id_key ON public.infrastru
 
 
 --
+-- Name: injective_markets injective_markets_market_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_markets
+    ADD CONSTRAINT injective_markets_market_id_key UNIQUE (market_id);
+
+
+--
+-- Name: injective_markets injective_markets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_markets
+    ADD CONSTRAINT injective_markets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: injective_native_tokens injective_native_tokens_denom_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_native_tokens
+    ADD CONSTRAINT injective_native_tokens_denom_key UNIQUE (denom);
+
+
+--
+-- Name: injective_native_tokens injective_native_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_native_tokens
+    ADD CONSTRAINT injective_native_tokens_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: injective_oracle_prices injective_oracle_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_oracle_prices
+    ADD CONSTRAINT injective_oracle_prices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: injective_oracles injective_oracles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_oracles
+    ADD CONSTRAINT injective_oracles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: injective_oracles injective_oracles_provider_name_symbol_network_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_oracles
+    ADD CONSTRAINT injective_oracles_provider_name_symbol_network_key UNIQUE (provider_name, symbol, network);
+
+
+--
+-- Name: injective_permissions injective_permissions_denom_address_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_permissions
+    ADD CONSTRAINT injective_permissions_denom_address_key UNIQUE (denom, address);
+
+
+--
+-- Name: injective_permissions injective_permissions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_permissions
+    ADD CONSTRAINT injective_permissions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: injective_trades injective_trades_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_trades
+    ADD CONSTRAINT injective_trades_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: investor_approvals investor_approvals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -33094,6 +34013,14 @@ ALTER TABLE ONLY public.market_indices
 
 ALTER TABLE ONLY public.market_indices
     ADD CONSTRAINT market_indices_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: market_maker_operations market_maker_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_maker_operations
+    ADD CONSTRAINT market_maker_operations_pkey PRIMARY KEY (id);
 
 
 --
@@ -34255,6 +35182,22 @@ ALTER TABLE ONLY public.product_lifecycle_events
 
 
 --
+-- Name: product_markets product_markets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.product_markets
+    ADD CONSTRAINT product_markets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: product_markets product_markets_product_id_blockchain_network_market_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.product_markets
+    ADD CONSTRAINT product_markets_product_id_blockchain_network_market_id_key UNIQUE (product_id, blockchain, network, market_id);
+
+
+--
 -- Name: production_data production_data_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -35250,6 +36193,22 @@ ALTER TABLE ONLY public.signer_keys
 
 ALTER TABLE ONLY public.smart_contract_wallets
     ADD CONSTRAINT smart_contract_wallets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: solana_token_transactions solana_token_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solana_token_transactions
+    ADD CONSTRAINT solana_token_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: solana_token_transactions solana_token_transactions_transaction_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solana_token_transactions
+    ADD CONSTRAINT solana_token_transactions_transaction_hash_key UNIQUE (transaction_hash);
 
 
 --
@@ -36944,6 +37903,22 @@ ALTER TABLE ONLY public.valuation_price_history
 
 ALTER TABLE ONLY public.valuation_price_history
     ADD CONSTRAINT valuation_price_history_token_id_period_start_key UNIQUE (token_id, period_start);
+
+
+--
+-- Name: vault_positions vault_positions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vault_positions
+    ADD CONSTRAINT vault_positions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: vault_positions vault_positions_vault_contract_blockchain_network_user_addr_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vault_positions
+    ADD CONSTRAINT vault_positions_vault_contract_blockchain_network_user_addr_key UNIQUE (vault_contract, blockchain, network, user_address);
 
 
 --
@@ -39937,6 +40912,223 @@ CREATE INDEX idx_deployment_rate_limits_user_project ON public.deployment_rate_l
 
 
 --
+-- Name: idx_derivative_funding_market; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_funding_market ON public.derivative_funding_payments USING btree (market_id);
+
+
+--
+-- Name: idx_derivative_funding_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_funding_position ON public.derivative_funding_payments USING btree (position_id);
+
+
+--
+-- Name: idx_derivative_funding_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_funding_timestamp ON public.derivative_funding_payments USING btree (payment_timestamp);
+
+
+--
+-- Name: idx_derivative_funding_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_funding_user ON public.derivative_funding_payments USING btree (user_address);
+
+
+--
+-- Name: idx_derivative_liquidations_liquidator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_liquidations_liquidator ON public.derivative_liquidations USING btree (liquidator_address);
+
+
+--
+-- Name: idx_derivative_liquidations_market; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_liquidations_market ON public.derivative_liquidations USING btree (market_id);
+
+
+--
+-- Name: idx_derivative_liquidations_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_liquidations_timestamp ON public.derivative_liquidations USING btree (liquidated_at);
+
+
+--
+-- Name: idx_derivative_liquidations_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_liquidations_user ON public.derivative_liquidations USING btree (user_address);
+
+
+--
+-- Name: idx_derivative_markets_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_blockchain ON public.derivative_markets USING btree (blockchain, network);
+
+
+--
+-- Name: idx_derivative_markets_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_chain_id ON public.derivative_markets USING btree (chain_id);
+
+
+--
+-- Name: idx_derivative_markets_expiry; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_expiry ON public.derivative_markets USING btree (expiry_timestamp) WHERE (expiry_timestamp IS NOT NULL);
+
+
+--
+-- Name: idx_derivative_markets_market_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_market_id ON public.derivative_markets USING btree (market_id);
+
+
+--
+-- Name: idx_derivative_markets_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_product ON public.derivative_markets USING btree (product_id);
+
+
+--
+-- Name: idx_derivative_markets_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_project ON public.derivative_markets USING btree (project_id);
+
+
+--
+-- Name: idx_derivative_markets_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_status ON public.derivative_markets USING btree (status);
+
+
+--
+-- Name: idx_derivative_markets_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_markets_type ON public.derivative_markets USING btree (market_type);
+
+
+--
+-- Name: idx_derivative_orders_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_orders_blockchain ON public.derivative_orders USING btree (blockchain, network);
+
+
+--
+-- Name: idx_derivative_orders_market; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_orders_market ON public.derivative_orders USING btree (market_id);
+
+
+--
+-- Name: idx_derivative_orders_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_orders_status ON public.derivative_orders USING btree (status);
+
+
+--
+-- Name: idx_derivative_orders_subaccount; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_orders_subaccount ON public.derivative_orders USING btree (subaccount_id);
+
+
+--
+-- Name: idx_derivative_orders_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_orders_user ON public.derivative_orders USING btree (user_address);
+
+
+--
+-- Name: idx_derivative_orders_user_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_orders_user_status ON public.derivative_orders USING btree (user_address, status);
+
+
+--
+-- Name: idx_derivative_positions_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_blockchain ON public.derivative_positions USING btree (blockchain, network);
+
+
+--
+-- Name: idx_derivative_positions_market; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_market ON public.derivative_positions USING btree (market_id);
+
+
+--
+-- Name: idx_derivative_positions_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_product ON public.derivative_positions USING btree (product_id);
+
+
+--
+-- Name: idx_derivative_positions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_project ON public.derivative_positions USING btree (project_id);
+
+
+--
+-- Name: idx_derivative_positions_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_status ON public.derivative_positions USING btree (status);
+
+
+--
+-- Name: idx_derivative_positions_subaccount; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_subaccount ON public.derivative_positions USING btree (subaccount_id);
+
+
+--
+-- Name: idx_derivative_positions_unique; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX idx_derivative_positions_unique ON public.derivative_positions USING btree (market_id, user_address, subaccount_id) WHERE (status = 'open'::text);
+
+
+--
+-- Name: idx_derivative_positions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_user ON public.derivative_positions USING btree (user_address);
+
+
+--
+-- Name: idx_derivative_positions_user_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_derivative_positions_user_status ON public.derivative_positions USING btree (user_address, status);
+
+
+--
 -- Name: idx_dfns_activity_logs_activity_type; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -41575,6 +42767,62 @@ CREATE INDEX idx_etf_tracking_period ON public.etf_tracking_error_history USING 
 
 
 --
+-- Name: idx_exchange_contracts_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_active ON public.exchange_contracts USING btree (is_active);
+
+
+--
+-- Name: idx_exchange_contracts_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_address ON public.exchange_contracts USING btree (contract_address);
+
+
+--
+-- Name: idx_exchange_contracts_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_blockchain ON public.exchange_contracts USING btree (blockchain);
+
+
+--
+-- Name: idx_exchange_contracts_chain_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_chain_id ON public.exchange_contracts USING btree (chain_id);
+
+
+--
+-- Name: idx_exchange_contracts_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_network ON public.exchange_contracts USING btree (network);
+
+
+--
+-- Name: idx_exchange_contracts_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_product ON public.exchange_contracts USING btree (product_id);
+
+
+--
+-- Name: idx_exchange_contracts_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_project ON public.exchange_contracts USING btree (project_id);
+
+
+--
+-- Name: idx_exchange_contracts_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_exchange_contracts_type ON public.exchange_contracts USING btree (contract_type);
+
+
+--
 -- Name: idx_exchange_rate_token_currency; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42219,6 +43467,223 @@ CREATE UNIQUE INDEX idx_infrastructure_products_project_id_unique ON public.infr
 
 
 --
+-- Name: idx_injective_markets_base_denom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_base_denom ON public.injective_markets USING btree (base_denom);
+
+
+--
+-- Name: idx_injective_markets_market_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_market_id ON public.injective_markets USING btree (market_id);
+
+
+--
+-- Name: idx_injective_markets_market_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_market_type ON public.injective_markets USING btree (market_type);
+
+
+--
+-- Name: idx_injective_markets_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_network ON public.injective_markets USING btree (network);
+
+
+--
+-- Name: idx_injective_markets_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_project_id ON public.injective_markets USING btree (project_id);
+
+
+--
+-- Name: idx_injective_markets_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_status ON public.injective_markets USING btree (status);
+
+
+--
+-- Name: idx_injective_markets_ticker; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_markets_ticker ON public.injective_markets USING btree (ticker);
+
+
+--
+-- Name: idx_injective_native_tokens_creator; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_native_tokens_creator ON public.injective_native_tokens USING btree (creator_address);
+
+
+--
+-- Name: idx_injective_native_tokens_denom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_native_tokens_denom ON public.injective_native_tokens USING btree (denom);
+
+
+--
+-- Name: idx_injective_native_tokens_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_native_tokens_network ON public.injective_native_tokens USING btree (network);
+
+
+--
+-- Name: idx_injective_native_tokens_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_native_tokens_project_id ON public.injective_native_tokens USING btree (project_id);
+
+
+--
+-- Name: idx_injective_native_tokens_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_native_tokens_status ON public.injective_native_tokens USING btree (status);
+
+
+--
+-- Name: idx_injective_native_tokens_subdenom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_native_tokens_subdenom ON public.injective_native_tokens USING btree (subdenom);
+
+
+--
+-- Name: idx_injective_oracle_prices_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracle_prices_network ON public.injective_oracle_prices USING btree (network);
+
+
+--
+-- Name: idx_injective_oracle_prices_oracle_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracle_prices_oracle_id ON public.injective_oracle_prices USING btree (oracle_id);
+
+
+--
+-- Name: idx_injective_oracle_prices_relayer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracle_prices_relayer ON public.injective_oracle_prices USING btree (relayer_address);
+
+
+--
+-- Name: idx_injective_oracle_prices_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracle_prices_timestamp ON public.injective_oracle_prices USING btree ("timestamp" DESC);
+
+
+--
+-- Name: idx_injective_oracles_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracles_network ON public.injective_oracles USING btree (network);
+
+
+--
+-- Name: idx_injective_oracles_provider; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracles_provider ON public.injective_oracles USING btree (provider_name);
+
+
+--
+-- Name: idx_injective_oracles_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracles_status ON public.injective_oracles USING btree (status);
+
+
+--
+-- Name: idx_injective_oracles_symbol; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_oracles_symbol ON public.injective_oracles USING btree (symbol);
+
+
+--
+-- Name: idx_injective_permissions_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_permissions_address ON public.injective_permissions USING btree (address);
+
+
+--
+-- Name: idx_injective_permissions_denom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_permissions_denom ON public.injective_permissions USING btree (denom);
+
+
+--
+-- Name: idx_injective_permissions_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_permissions_network ON public.injective_permissions USING btree (network);
+
+
+--
+-- Name: idx_injective_permissions_roles; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_permissions_roles ON public.injective_permissions USING gin (roles);
+
+
+--
+-- Name: idx_injective_trades_market_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_trades_market_id ON public.injective_trades USING btree (market_id);
+
+
+--
+-- Name: idx_injective_trades_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_trades_network ON public.injective_trades USING btree (network);
+
+
+--
+-- Name: idx_injective_trades_order_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_trades_order_hash ON public.injective_trades USING btree (order_hash);
+
+
+--
+-- Name: idx_injective_trades_side; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_trades_side ON public.injective_trades USING btree (side);
+
+
+--
+-- Name: idx_injective_trades_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_trades_timestamp ON public.injective_trades USING btree ("timestamp" DESC);
+
+
+--
+-- Name: idx_injective_trades_trader; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_trades_trader ON public.injective_trades USING btree (trader_address);
+
+
+--
 -- Name: idx_insurance_claims_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -42790,6 +44255,55 @@ CREATE INDEX idx_market_rent_data_type ON public.market_rent_data USING btree (p
 --
 
 CREATE INDEX idx_metrics_date ON public.compliance_metrics USING btree (metric_date);
+
+
+--
+-- Name: idx_mm_operations_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_blockchain ON public.market_maker_operations USING btree (blockchain);
+
+
+--
+-- Name: idx_mm_operations_market; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_market ON public.market_maker_operations USING btree (market_id);
+
+
+--
+-- Name: idx_mm_operations_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_network ON public.market_maker_operations USING btree (network);
+
+
+--
+-- Name: idx_mm_operations_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_product ON public.market_maker_operations USING btree (product_id);
+
+
+--
+-- Name: idx_mm_operations_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_project ON public.market_maker_operations USING btree (project_id);
+
+
+--
+-- Name: idx_mm_operations_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_time ON public.market_maker_operations USING btree (executed_at DESC);
+
+
+--
+-- Name: idx_mm_operations_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mm_operations_type ON public.market_maker_operations USING btree (operation_type);
 
 
 --
@@ -44820,6 +46334,55 @@ CREATE INDEX idx_product_lifecycle_events_product_id ON public.product_lifecycle
 --
 
 CREATE INDEX idx_product_lifecycle_events_product_type ON public.product_lifecycle_events USING btree (product_type);
+
+
+--
+-- Name: idx_product_markets_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_active ON public.product_markets USING btree (is_active);
+
+
+--
+-- Name: idx_product_markets_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_blockchain ON public.product_markets USING btree (blockchain);
+
+
+--
+-- Name: idx_product_markets_contract; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_contract ON public.product_markets USING btree (market_maker_contract);
+
+
+--
+-- Name: idx_product_markets_market; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_market ON public.product_markets USING btree (market_id);
+
+
+--
+-- Name: idx_product_markets_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_network ON public.product_markets USING btree (network);
+
+
+--
+-- Name: idx_product_markets_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_product ON public.product_markets USING btree (product_id);
+
+
+--
+-- Name: idx_product_markets_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_product_markets_project ON public.product_markets USING btree (project_id);
 
 
 --
@@ -47028,6 +48591,76 @@ CREATE INDEX idx_snapshots_timestamp ON public.trade_finance_rewards_snapshots U
 
 
 --
+-- Name: idx_solana_token_tx_from_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_from_address ON public.solana_token_transactions USING btree (from_address);
+
+
+--
+-- Name: idx_solana_token_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_hash ON public.solana_token_transactions USING btree (transaction_hash);
+
+
+--
+-- Name: idx_solana_token_tx_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_network ON public.solana_token_transactions USING btree (network);
+
+
+--
+-- Name: idx_solana_token_tx_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_project_id ON public.solana_token_transactions USING btree (project_id);
+
+
+--
+-- Name: idx_solana_token_tx_project_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_project_status ON public.solana_token_transactions USING btree (project_id, status);
+
+
+--
+-- Name: idx_solana_token_tx_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_status ON public.solana_token_transactions USING btree (status);
+
+
+--
+-- Name: idx_solana_token_tx_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_timestamp ON public.solana_token_transactions USING btree ("timestamp" DESC);
+
+
+--
+-- Name: idx_solana_token_tx_to_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_to_address ON public.solana_token_transactions USING btree (to_address);
+
+
+--
+-- Name: idx_solana_token_tx_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_token_id ON public.solana_token_transactions USING btree (token_id);
+
+
+--
+-- Name: idx_solana_token_tx_token_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_solana_token_tx_token_status ON public.solana_token_transactions USING btree (token_id, status);
+
+
+--
 -- Name: idx_sp_barrier_events_breach; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -47459,6 +49092,20 @@ CREATE INDEX idx_token_deployment_history_token_id ON public.token_deployment_hi
 --
 
 CREATE INDEX idx_token_deployments_init_txs ON public.token_deployments USING gin (initialization_tx_hashes) WHERE (initialization_tx_hashes IS NOT NULL);
+
+
+--
+-- Name: idx_token_deployments_solana_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_deployments_solana_network ON public.token_deployments USING btree (network) WHERE (network = ANY (ARRAY['solana-mainnet'::text, 'solana-devnet'::text, 'solana-testnet'::text]));
+
+
+--
+-- Name: idx_token_deployments_solana_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_token_deployments_solana_type ON public.token_deployments USING btree (solana_token_type) WHERE (solana_token_type IS NOT NULL);
 
 
 --
@@ -48222,6 +49869,55 @@ CREATE INDEX idx_validations_from ON public.transaction_validations USING btree 
 --
 
 CREATE INDEX idx_valuation_token_period ON public.valuation_price_history USING btree (token_id, period_start DESC);
+
+
+--
+-- Name: idx_vault_positions_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_active ON public.vault_positions USING btree (is_active);
+
+
+--
+-- Name: idx_vault_positions_blockchain; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_blockchain ON public.vault_positions USING btree (blockchain);
+
+
+--
+-- Name: idx_vault_positions_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_network ON public.vault_positions USING btree (network);
+
+
+--
+-- Name: idx_vault_positions_product; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_product ON public.vault_positions USING btree (product_id);
+
+
+--
+-- Name: idx_vault_positions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_project ON public.vault_positions USING btree (project_id);
+
+
+--
+-- Name: idx_vault_positions_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_user ON public.vault_positions USING btree (user_address);
+
+
+--
+-- Name: idx_vault_positions_vault; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_vault_positions_vault ON public.vault_positions USING btree (vault_contract);
 
 
 --
@@ -50601,6 +52297,13 @@ CREATE TRIGGER trigger_update_signature_count AFTER INSERT OR DELETE OR UPDATE O
 
 
 --
+-- Name: solana_token_transactions trigger_update_solana_token_transactions_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_solana_token_transactions_updated_at BEFORE UPDATE ON public.solana_token_transactions FOR EACH ROW EXECUTE FUNCTION public.update_solana_token_transactions_updated_at();
+
+
+--
 -- Name: asset_holdings trigger_update_total_assets; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -50776,6 +52479,27 @@ CREATE TRIGGER update_contract_role_assignments_updated_at BEFORE UPDATE ON publ
 
 
 --
+-- Name: derivative_markets update_derivative_markets_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_derivative_markets_updated_at BEFORE UPDATE ON public.derivative_markets FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: derivative_orders update_derivative_orders_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_derivative_orders_updated_at BEFORE UPDATE ON public.derivative_orders FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: derivative_positions update_derivative_positions_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_derivative_positions_updated_at BEFORE UPDATE ON public.derivative_positions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: dfns_policies update_dfns_policies_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -50832,6 +52556,13 @@ CREATE TRIGGER update_equity_products_updated_at BEFORE UPDATE ON public.equity_
 
 
 --
+-- Name: exchange_contracts update_exchange_contracts_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_exchange_contracts_updated_at BEFORE UPDATE ON public.exchange_contracts FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
 -- Name: fund_products update_fund_products_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -50850,6 +52581,34 @@ CREATE TRIGGER update_individual_documents_updated_at BEFORE UPDATE ON public.in
 --
 
 CREATE TRIGGER update_infrastructure_products_updated_at BEFORE UPDATE ON public.infrastructure_products FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: injective_markets update_injective_markets_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_injective_markets_updated_at BEFORE UPDATE ON public.injective_markets FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: injective_native_tokens update_injective_native_tokens_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_injective_native_tokens_updated_at BEFORE UPDATE ON public.injective_native_tokens FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: injective_oracles update_injective_oracles_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_injective_oracles_updated_at BEFORE UPDATE ON public.injective_oracles FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: injective_permissions update_injective_permissions_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_injective_permissions_updated_at BEFORE UPDATE ON public.injective_permissions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -50941,6 +52700,13 @@ CREATE TRIGGER update_private_equity_products_updated_at BEFORE UPDATE ON public
 --
 
 CREATE TRIGGER update_product_lifecycle_events_updated_at BEFORE UPDATE ON public.product_lifecycle_events FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: product_markets update_product_markets_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_product_markets_updated_at BEFORE UPDATE ON public.product_markets FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -51256,6 +53022,13 @@ CREATE TRIGGER update_user_sidebar_preferences_updated_at BEFORE UPDATE ON publi
 --
 
 CREATE TRIGGER update_user_verifications_updated_at BEFORE UPDATE ON public.user_verifications FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: vault_positions update_vault_positions_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_vault_positions_updated_at BEFORE UPDATE ON public.vault_positions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 
 --
@@ -53376,6 +55149,14 @@ ALTER TABLE ONLY public.lease_agreements
 
 
 --
+-- Name: market_maker_operations market_maker_operations_contract_address_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.market_maker_operations
+    ADD CONSTRAINT market_maker_operations_contract_address_fkey FOREIGN KEY (contract_address) REFERENCES public.exchange_contracts(contract_address) ON DELETE SET NULL;
+
+
+--
 -- Name: mmf_allocation_history mmf_allocation_history_fund_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -53884,6 +55665,14 @@ ALTER TABLE ONLY public.policy_violations
 
 ALTER TABLE ONLY public.policy_violations
     ADD CONSTRAINT policy_violations_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.users(id);
+
+
+--
+-- Name: product_markets product_markets_market_maker_contract_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.product_markets
+    ADD CONSTRAINT product_markets_market_maker_contract_fkey FOREIGN KEY (market_maker_contract) REFERENCES public.exchange_contracts(contract_address) ON DELETE SET NULL;
 
 
 --
@@ -54687,6 +56476,22 @@ ALTER TABLE ONLY public.smart_contract_wallets
 
 
 --
+-- Name: solana_token_transactions solana_token_transactions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solana_token_transactions
+    ADD CONSTRAINT solana_token_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: solana_token_transactions solana_token_transactions_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.solana_token_transactions
+    ADD CONSTRAINT solana_token_transactions_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
 -- Name: sp_barrier_events sp_barrier_events_structured_product_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -55435,6 +57240,14 @@ ALTER TABLE ONLY public.validation_alerts
 
 ALTER TABLE ONLY public.valuation_price_history
     ADD CONSTRAINT valuation_price_history_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
+
+
+--
+-- Name: vault_positions vault_positions_vault_contract_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vault_positions
+    ADD CONSTRAINT vault_positions_vault_contract_fkey FOREIGN KEY (vault_contract) REFERENCES public.exchange_contracts(contract_address) ON DELETE CASCADE;
 
 
 --
@@ -56541,6 +58354,16 @@ GRANT ALL ON FUNCTION public.decrement_shares_outstanding(p_fund_id uuid, p_shar
 
 
 --
+-- Name: FUNCTION decrement_token_supply(p_denom text, p_amount text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.decrement_token_supply(p_denom text, p_amount text) TO anon;
+GRANT ALL ON FUNCTION public.decrement_token_supply(p_denom text, p_amount text) TO authenticated;
+GRANT ALL ON FUNCTION public.decrement_token_supply(p_denom text, p_amount text) TO service_role;
+GRANT ALL ON FUNCTION public.decrement_token_supply(p_denom text, p_amount text) TO prisma;
+
+
+--
 -- Name: FUNCTION delete_project_cascade(project_id uuid); Type: ACL; Schema: public; Owner: -
 --
 
@@ -57138,6 +58961,16 @@ GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shar
 GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO authenticated;
 GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO service_role;
 GRANT ALL ON FUNCTION public.increment_shares_outstanding(p_fund_id uuid, p_shares numeric, p_project_id uuid) TO prisma;
+
+
+--
+-- Name: FUNCTION increment_token_supply(p_denom text, p_amount text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.increment_token_supply(p_denom text, p_amount text) TO anon;
+GRANT ALL ON FUNCTION public.increment_token_supply(p_denom text, p_amount text) TO authenticated;
+GRANT ALL ON FUNCTION public.increment_token_supply(p_denom text, p_amount text) TO service_role;
+GRANT ALL ON FUNCTION public.increment_token_supply(p_denom text, p_amount text) TO prisma;
 
 
 --
@@ -58018,6 +59851,16 @@ GRANT ALL ON FUNCTION public.update_smart_contract_wallet_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_smart_contract_wallet_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_smart_contract_wallet_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_smart_contract_wallet_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_solana_token_transactions_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_solana_token_transactions_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_solana_token_transactions_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_solana_token_transactions_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_solana_token_transactions_updated_at() TO prisma;
 
 
 --
@@ -59771,6 +61614,56 @@ GRANT ALL ON TABLE public.deployment_rate_limits TO prisma;
 
 
 --
+-- Name: TABLE derivative_funding_payments; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.derivative_funding_payments TO anon;
+GRANT ALL ON TABLE public.derivative_funding_payments TO authenticated;
+GRANT ALL ON TABLE public.derivative_funding_payments TO service_role;
+GRANT ALL ON TABLE public.derivative_funding_payments TO prisma;
+
+
+--
+-- Name: TABLE derivative_liquidations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.derivative_liquidations TO anon;
+GRANT ALL ON TABLE public.derivative_liquidations TO authenticated;
+GRANT ALL ON TABLE public.derivative_liquidations TO service_role;
+GRANT ALL ON TABLE public.derivative_liquidations TO prisma;
+
+
+--
+-- Name: TABLE derivative_markets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.derivative_markets TO anon;
+GRANT ALL ON TABLE public.derivative_markets TO authenticated;
+GRANT ALL ON TABLE public.derivative_markets TO service_role;
+GRANT ALL ON TABLE public.derivative_markets TO prisma;
+
+
+--
+-- Name: TABLE derivative_orders; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.derivative_orders TO anon;
+GRANT ALL ON TABLE public.derivative_orders TO authenticated;
+GRANT ALL ON TABLE public.derivative_orders TO service_role;
+GRANT ALL ON TABLE public.derivative_orders TO prisma;
+
+
+--
+-- Name: TABLE derivative_positions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.derivative_positions TO anon;
+GRANT ALL ON TABLE public.derivative_positions TO authenticated;
+GRANT ALL ON TABLE public.derivative_positions TO service_role;
+GRANT ALL ON TABLE public.derivative_positions TO prisma;
+
+
+--
 -- Name: TABLE dfns_activity_logs; Type: ACL; Schema: public; Owner: -
 --
 
@@ -60491,6 +62384,16 @@ GRANT ALL ON TABLE public.etf_tracking_error_history TO prisma;
 
 
 --
+-- Name: TABLE exchange_contracts; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.exchange_contracts TO anon;
+GRANT ALL ON TABLE public.exchange_contracts TO authenticated;
+GRANT ALL ON TABLE public.exchange_contracts TO service_role;
+GRANT ALL ON TABLE public.exchange_contracts TO prisma;
+
+
+--
 -- Name: TABLE exchange_rate_history; Type: ACL; Schema: public; Owner: -
 --
 
@@ -60708,6 +62611,66 @@ GRANT ALL ON TABLE public.infrastructure_products TO anon;
 GRANT ALL ON TABLE public.infrastructure_products TO authenticated;
 GRANT ALL ON TABLE public.infrastructure_products TO service_role;
 GRANT ALL ON TABLE public.infrastructure_products TO prisma;
+
+
+--
+-- Name: TABLE injective_markets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_markets TO anon;
+GRANT ALL ON TABLE public.injective_markets TO authenticated;
+GRANT ALL ON TABLE public.injective_markets TO service_role;
+GRANT ALL ON TABLE public.injective_markets TO prisma;
+
+
+--
+-- Name: TABLE injective_native_tokens; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_native_tokens TO anon;
+GRANT ALL ON TABLE public.injective_native_tokens TO authenticated;
+GRANT ALL ON TABLE public.injective_native_tokens TO service_role;
+GRANT ALL ON TABLE public.injective_native_tokens TO prisma;
+
+
+--
+-- Name: TABLE injective_oracle_prices; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_oracle_prices TO anon;
+GRANT ALL ON TABLE public.injective_oracle_prices TO authenticated;
+GRANT ALL ON TABLE public.injective_oracle_prices TO service_role;
+GRANT ALL ON TABLE public.injective_oracle_prices TO prisma;
+
+
+--
+-- Name: TABLE injective_oracles; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_oracles TO anon;
+GRANT ALL ON TABLE public.injective_oracles TO authenticated;
+GRANT ALL ON TABLE public.injective_oracles TO service_role;
+GRANT ALL ON TABLE public.injective_oracles TO prisma;
+
+
+--
+-- Name: TABLE injective_permissions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_permissions TO anon;
+GRANT ALL ON TABLE public.injective_permissions TO authenticated;
+GRANT ALL ON TABLE public.injective_permissions TO service_role;
+GRANT ALL ON TABLE public.injective_permissions TO prisma;
+
+
+--
+-- Name: TABLE injective_trades; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_trades TO anon;
+GRANT ALL ON TABLE public.injective_trades TO authenticated;
+GRANT ALL ON TABLE public.injective_trades TO service_role;
+GRANT ALL ON TABLE public.injective_trades TO prisma;
 
 
 --
@@ -60968,6 +62931,16 @@ GRANT ALL ON TABLE public.market_indices TO anon;
 GRANT ALL ON TABLE public.market_indices TO authenticated;
 GRANT ALL ON TABLE public.market_indices TO service_role;
 GRANT ALL ON TABLE public.market_indices TO prisma;
+
+
+--
+-- Name: TABLE market_maker_operations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.market_maker_operations TO anon;
+GRANT ALL ON TABLE public.market_maker_operations TO authenticated;
+GRANT ALL ON TABLE public.market_maker_operations TO service_role;
+GRANT ALL ON TABLE public.market_maker_operations TO prisma;
 
 
 --
@@ -62021,6 +63994,16 @@ GRANT ALL ON TABLE public.product_lifecycle_events TO prisma;
 
 
 --
+-- Name: TABLE product_markets; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.product_markets TO anon;
+GRANT ALL ON TABLE public.product_markets TO authenticated;
+GRANT ALL ON TABLE public.product_markets TO service_role;
+GRANT ALL ON TABLE public.product_markets TO prisma;
+
+
+--
 -- Name: TABLE production_data; Type: ACL; Schema: public; Owner: -
 --
 
@@ -62978,6 +64961,16 @@ GRANT ALL ON TABLE public.smart_contract_wallets TO anon;
 GRANT ALL ON TABLE public.smart_contract_wallets TO authenticated;
 GRANT ALL ON TABLE public.smart_contract_wallets TO service_role;
 GRANT ALL ON TABLE public.smart_contract_wallets TO prisma;
+
+
+--
+-- Name: TABLE solana_token_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.solana_token_transactions TO anon;
+GRANT ALL ON TABLE public.solana_token_transactions TO authenticated;
+GRANT ALL ON TABLE public.solana_token_transactions TO service_role;
+GRANT ALL ON TABLE public.solana_token_transactions TO prisma;
 
 
 --
@@ -64288,6 +66281,16 @@ GRANT ALL ON TABLE public.valuation_price_history TO anon;
 GRANT ALL ON TABLE public.valuation_price_history TO authenticated;
 GRANT ALL ON TABLE public.valuation_price_history TO service_role;
 GRANT ALL ON TABLE public.valuation_price_history TO prisma;
+
+
+--
+-- Name: TABLE vault_positions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.vault_positions TO anon;
+GRANT ALL ON TABLE public.vault_positions TO authenticated;
+GRANT ALL ON TABLE public.vault_positions TO service_role;
+GRANT ALL ON TABLE public.vault_positions TO prisma;
 
 
 --

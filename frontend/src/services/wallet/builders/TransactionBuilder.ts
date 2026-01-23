@@ -5,7 +5,7 @@
  * EVM: Ethereum, Polygon, Optimism, Arbitrum, Base, BSC, ZkSync, Avalanche + testnets
  * Non-EVM: Bitcoin, Solana, Aptos, Sui, NEAR, Injective + testnets
  * 
- * Uses real libraries: ethers.js, bitcoinjs-lib, @solana
+ * Uses real libraries: ethers.js, bitcoinjs-lib, @solana 
  */
 
 import { ethers } from 'ethers';
@@ -782,7 +782,9 @@ export class UniversalTransactionBuilderService {
           builder = getBitcoinTransactionBuilder(networkType as 'mainnet' | 'testnet');
           break;
         case ChainType.SOLANA:
-          builder = getSolanaTransactionBuilder(networkType as 'mainnet' | 'devnet');
+          // Map 'mainnet' to 'mainnet-beta' for Solana
+          const solanaNetwork = networkType === 'mainnet' ? 'mainnet-beta' : (networkType as 'devnet' | 'testnet');
+          builder = getSolanaTransactionBuilder(solanaNetwork);
           break;
         case ChainType.APTOS:
           builder = getAptosTransactionBuilder(networkType as 'mainnet' | 'testnet');

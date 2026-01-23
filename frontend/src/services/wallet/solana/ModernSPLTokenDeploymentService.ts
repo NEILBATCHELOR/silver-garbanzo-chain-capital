@@ -18,7 +18,8 @@ import {
   setTransactionMessageLifetimeUsingBlockhash,
   appendTransactionMessageInstructions,
   signTransactionMessageWithSigners,
-  sendAndConfirmTransactionFactory,
+  getBase64EncodedWireTransaction,
+  getSignatureFromTransaction,
   getBase58Encoder,
   getBase58Decoder,
   address,
@@ -189,15 +190,18 @@ export class ModernSPLTokenDeploymentService {
       // Sign the transaction with all embedded signers
       const signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
 
-      // Send using factory method
-      const sendAndConfirm = sendAndConfirmTransactionFactory({
-        rpc: rpc.getRpc() as any,
-        rpcSubscriptions: undefined as any
-      });
+      // Get signature for tracking (MODERN)
+      const signature = getSignatureFromTransaction(signedTransaction);
       
-      const signature = (await sendAndConfirm(signedTransaction as any, {
-        commitment: 'confirmed'
-      })) as unknown as string;
+      // Encode and send transaction (MODERN)
+      const encodedTransaction = getBase64EncodedWireTransaction(signedTransaction);
+      await rpc.sendRawTransaction(encodedTransaction, { skipPreflight: false });
+      
+      // Wait for confirmation (MODERN)
+      const confirmed = await rpc.waitForConfirmation(signature, 'confirmed');
+      if (!confirmed) {
+        throw new Error('Transaction failed to confirm');
+      }
 
       // Step 8: Save to database
       const tokenId = await this.saveSPLDeployment({

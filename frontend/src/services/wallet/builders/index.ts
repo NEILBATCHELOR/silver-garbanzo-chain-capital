@@ -9,7 +9,7 @@
  * - Sui
  * - NEAR
  * - Injective
- * - Cosmos Ecosystem (Cosmos Hub, Osmosis, Juno, Secret, etc.)
+ * - Cosmos Ecosystem (Cosmos Hub, Osmosis, Juno, Secret, etc.) 
  */
 
 // ============================================================================

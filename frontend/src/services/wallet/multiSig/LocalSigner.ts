@@ -3,11 +3,14 @@
  * Handles secure local signing without exposing private keys
  * Supports hardware wallets, encrypted keys, and key vault integration
  * Production-ready with comprehensive error handling and security
+ * 
+ * MIGRATION STATUS: ✅ MODERN (Phase 4 - Multi-Sig Migration Complete)
+ * - Updated to use modern @solana/kit for Solana signing
+ * - Uses ModernSolanaUtils for keypair creation and signing
  */
 
 import { ethers } from 'ethers';
 import * as bitcoin from 'bitcoinjs-lib';
-import { Keypair } from '@solana/web3.js';
 import { 
   Account, 
   Ed25519PrivateKey,
@@ -21,6 +24,9 @@ import { keyVaultClient } from '../../../infrastructure/keyVault/keyVaultClient'
 import { ChainType } from '../AddressUtils';
 import * as nacl from 'tweetnacl';
 import * as secp256k1 from 'secp256k1';
+
+// Modern Solana imports
+import { createSignerFromPrivateKey } from '../../../infrastructure/web3/solana/ModernSolanaUtils';
 
 // Note: ECPair now requires separate installation: npm install ecpair tiny-secp256k1
 // For now, we'll implement Bitcoin signing without ECPair or use a simple fallback
@@ -448,10 +454,27 @@ export class LocalSigner {
     return Buffer.from(signature.signature).toString('hex');
   }
 
-  private signSolana(message: string, privateKey: string): string {
-    const keypair = Keypair.fromSecretKey(Buffer.from(privateKey, 'hex'));
+  private async signSolana(message: string, privateKey: string): Promise<string> {
+    // Create modern signer from private key (handles both hex and base58)
+    const signer = await createSignerFromPrivateKey(privateKey);
+    
+    // Sign message using nacl (Ed25519)
     const messageBytes = Buffer.from(message);
-    const signature = nacl.sign.detached(messageBytes, keypair.secretKey);
+    
+    // Export the private key bytes for signing
+    const exportedPrivateKey = await crypto.subtle.exportKey('pkcs8', signer.keyPair.privateKey);
+    const privateKeyBytes = new Uint8Array(exportedPrivateKey, exportedPrivateKey.byteLength - 32, 32);
+    
+    // Export public key bytes
+    const publicKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', signer.keyPair.publicKey));
+    
+    // Create 64-byte secret key (Ed25519 format: private + public)
+    const secretKey = new Uint8Array(64);
+    secretKey.set(privateKeyBytes, 0);
+    secretKey.set(publicKeyBytes, 32);
+    
+    // Sign with nacl
+    const signature = nacl.sign.detached(messageBytes, secretKey);
     return Buffer.from(signature).toString('hex');
   }
 

@@ -77,15 +77,17 @@ export class ModernSolanaWalletService {
   }
 
   /**
-   * Get default RPC endpoint for network
+   * Get default RPC endpoint for network from .env ONLY
    */
   private getDefaultEndpoint(network: 'mainnet-beta' | 'devnet' | 'testnet'): string {
-    const endpoints = {
-      'mainnet-beta': process.env.VITE_SOLANA_MAINNET_RPC_URL || 'https://api.mainnet-beta.solana.com',
-      'devnet': process.env.VITE_SOLANA_DEVNET_RPC_URL || 'https://api.devnet.solana.com',
-      'testnet': process.env.VITE_SOLANA_TESTNET_RPC_URL || 'https://api.testnet.solana.com'
+    const networkMap: Record<string, 'mainnet' | 'devnet' | 'testnet'> = {
+      'mainnet-beta': 'mainnet',
+      'devnet': 'devnet',
+      'testnet': 'testnet'
     };
-    return endpoints[network];
+    
+    const { getRpcUrl } = require('@/infrastructure/web3/rpc/rpc-config');
+    return getRpcUrl('solana', networkMap[network]);
   }
 
   // ============================================================================

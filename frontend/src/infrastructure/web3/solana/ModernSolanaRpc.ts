@@ -172,6 +172,18 @@ export class ModernSolanaRpc {
     return this.rpc.getBlockTime(slot).send();
   }
 
+  /**
+   * Get block data
+   */
+  async getBlock(slot: bigint, commitment?: Commitment) {
+    return this.rpc.getBlock(slot, {
+      commitment: commitment || this.commitment,
+      maxSupportedTransactionVersion: 0,
+      transactionDetails: 'full',
+      rewards: true
+    }).send();
+  }
+
   // ===========================
   // Transaction Operations
   // ===========================
@@ -376,17 +388,31 @@ export class ModernSolanaRpc {
 // Network Helpers
 // ===========================
 
+import { getRpcUrl } from '@/infrastructure/web3/rpc/rpc-config';
+
 /**
- * Get default RPC endpoint for network
+ * Get default RPC endpoint for network from .env ONLY
+ * NO FALLBACKS - must be configured in .env
  */
 export function getDefaultEndpoint(network: 'mainnet-beta' | 'devnet' | 'testnet'): string {
-  const endpoints = {
-    'mainnet-beta': process.env.VITE_SOLANA_MAINNET_RPC_URL || 'https://api.mainnet-beta.solana.com',
-    'devnet': process.env.VITE_SOLANA_DEVNET_RPC_URL || 'https://api.devnet.solana.com',
-    'testnet': process.env.VITE_SOLANA_TESTNET_RPC_URL || 'https://api.testnet.solana.com'
+  // Map Solana network names to getRpcUrl network parameter
+  const networkMap: Record<string, 'mainnet' | 'devnet' | 'testnet'> = {
+    'mainnet-beta': 'mainnet',
+    'devnet': 'devnet',
+    'testnet': 'testnet'
   };
 
-  return endpoints[network];
+  const rpcNetwork = networkMap[network];
+  const url = getRpcUrl('solana', rpcNetwork);
+  
+  if (!url) {
+    throw new Error(
+      `Solana ${network} RPC URL not configured. ` +
+      `Add VITE_SOLANA_${rpcNetwork.toUpperCase()}_RPC_URL to your .env file.`
+    );
+  }
+  
+  return url;
 }
 
 /**

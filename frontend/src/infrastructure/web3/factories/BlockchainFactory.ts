@@ -7,6 +7,7 @@
 
 import type { IBlockchainAdapter, SupportedChain, NetworkType, ConnectionConfig } from '../adapters/IBlockchainAdapter';
 import { rpcManager } from '../rpc/RPCConnectionManager';
+import { getRpcUrl } from '../rpc/rpc-config';
 
 // Import adapters
 import { EthereumAdapter } from '../adapters/evm/EthereumAdapter';
@@ -166,7 +167,7 @@ const LEGACY_FALLBACK_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'solana',
       networkType: 'mainnet',
-      rpcUrl: 'https://api.mainnet-beta.solana.com',
+      rpcUrl: getRpcUrl('solana', 'mainnet'),
       explorerUrl: 'https://explorer.solana.com',
       chainId: 'solana-mainnet',
       nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 }
@@ -174,9 +175,17 @@ const LEGACY_FALLBACK_CONFIGS: Record<SupportedChain, ChainConfig[]> = {
     {
       chain: 'solana',
       networkType: 'devnet',
-      rpcUrl: 'https://api.devnet.solana.com',
+      rpcUrl: getRpcUrl('solana', 'devnet'),
       explorerUrl: 'https://explorer.solana.com',
       chainId: 'solana-devnet',
+      nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 }
+    },
+    {
+      chain: 'solana',
+      networkType: 'testnet',
+      rpcUrl: getRpcUrl('solana', 'testnet'),
+      explorerUrl: 'https://explorer.solana.com',
+      chainId: 'solana-testnet',
       nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 }
     }
   ],

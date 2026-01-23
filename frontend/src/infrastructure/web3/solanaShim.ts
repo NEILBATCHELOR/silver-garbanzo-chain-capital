@@ -143,15 +143,17 @@ export const MICRO_LAMPORTS_PER_LAMPORT = 1_000_000;
 export function legacyPublicKeyToAddress(pubkey: LegacyPublicKey): string {
   return pubkey.toString();
 }
+import { getRpcUrl } from '@/infrastructure/web3/rpc/rpc-config';
 
 /**
- * Get network endpoint
+ * Get network endpoint from .env ONLY - NO FALLBACKS
  */
 export function getNetworkEndpoint(network: 'mainnet-beta' | 'devnet' | 'testnet'): string {
-  const endpoints = {
-    'mainnet-beta': import.meta.env.VITE_SOLANA_MAINNET_RPC_URL || 'https://api.mainnet-beta.solana.com',
-    'devnet': import.meta.env.VITE_SOLANA_DEVNET_RPC_URL || 'https://api.devnet.solana.com',
-    'testnet': import.meta.env.VITE_SOLANA_TESTNET_RPC_URL || 'https://api.testnet.solana.com'
+  const networkMap: Record<string, 'mainnet' | 'devnet' | 'testnet'> = {
+    'mainnet-beta': 'mainnet',
+    'devnet': 'devnet',
+    'testnet': 'testnet'
   };
-  return endpoints[network];
+  
+  return getRpcUrl('solana', networkMap[network]);
 }

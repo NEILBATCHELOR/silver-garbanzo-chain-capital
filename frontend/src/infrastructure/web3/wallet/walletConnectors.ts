@@ -38,7 +38,9 @@ export const metaMaskConnector = metaMask({
 export const coinbaseConnector = coinbaseWallet({
   appName: 'Chain Capital',
   appLogoUrl: 'https://chaincapital.com/favicon.ico',
-  preference: 'smartWalletOnly', // Use Coinbase Smart Wallet by default
+  preference: { 
+    options: 'smartWalletOnly'  // Use Coinbase Smart Wallet by default
+  },
 })
 
 /**

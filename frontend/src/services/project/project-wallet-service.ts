@@ -36,6 +36,7 @@ export interface ProjectWalletData {
   chain_id?: string | null;
   non_evm_network?: string | null;
   bitcoin_network_type?: string | null;
+  net?: string | null; // Network environment (mainnet/testnet/devnet)
   project_wallet_name?: string | null;
   created_at?: string;
   updated_at?: string;
@@ -241,6 +242,17 @@ export const enhancedProjectWalletService = {
       let finalChainId = chainId;
       let finalNonEvmNetwork = nonEvmNetwork;
 
+      // CRITICAL FIX: Set non_evm_network for ALL non-EVM blockchains
+      const nonEvmNetworks = ['solana', 'solana-devnet', 'solana-testnet', 'ripple', 'ripple-testnet', 'bitcoin', 'bitcoin-testnet'];
+      
+      if (nonEvmNetworks.some(net => network.toLowerCase().includes(net.split('-')[0]))) {
+        // Extract base network name (e.g., 'solana' from 'solana-devnet')
+        const baseNetwork = network.toLowerCase().split('-')[0];
+        finalNonEvmNetwork = baseNetwork;
+        
+        console.log(`[ProjectWalletService] Non-EVM network detected - setting non_evm_network to '${finalNonEvmNetwork}'`);
+      }
+
       // Special handling for Injective - use Cosmos chain ID format
       if (network === 'injective' || network === 'injective-testnet') {
         // Use official Cosmos chain ID format ('injective-888' for testnet, 'injective-1' for mainnet)
@@ -428,6 +440,7 @@ export const enhancedProjectWalletService = {
         mnemonic_vault_id: mnemonicVaultId, // FK to mnemonic record
         chain_id: finalChainId,
         non_evm_network: finalNonEvmNetwork,
+        net: networkEnvironment, // ✅ FIX: Store network environment (mainnet/testnet/devnet)
         // Store encrypted data for backward compatibility
         private_key: encryptedPrivateKey,
         mnemonic: encryptedMnemonic,
