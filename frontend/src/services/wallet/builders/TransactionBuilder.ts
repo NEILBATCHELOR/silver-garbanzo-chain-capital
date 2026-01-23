@@ -5,7 +5,7 @@
  * EVM: Ethereum, Polygon, Optimism, Arbitrum, Base, BSC, ZkSync, Avalanche + testnets
  * Non-EVM: Bitcoin, Solana, Aptos, Sui, NEAR, Injective + testnets
  * 
- * Uses real libraries: ethers.js, bitcoinjs-lib, @solana/web3.js, etc.
+ * Uses real libraries: ethers.js, bitcoinjs-lib, @solana
  */
 
 import { ethers } from 'ethers';

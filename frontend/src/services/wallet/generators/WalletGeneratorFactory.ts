@@ -4,7 +4,7 @@ import { BTCWalletGenerator } from './BTCWalletGenerator';
 import { XRPWalletGenerator } from './XRPWalletGenerator';
 import { XRPLEvmWalletGenerator } from './XRPLEvmWalletGenerator';
 import { PolygonWalletGenerator } from './PolygonWalletGenerator';
-import { SolanaWalletGenerator } from './SolanaWalletGenerator';
+import { ModernSolanaWalletGenerator } from './ModernSolanaWalletGenerator';
 import { AptosWalletGenerator } from './AptosWalletGenerator';
 import { SuiWalletGenerator } from './SuiWalletGenerator';
 import { NEARWalletGenerator } from './NEARWalletGenerator';
@@ -15,6 +15,8 @@ import { BaseWalletGenerator } from './BaseWalletGenerator';
 /**
  * Factory to create the appropriate wallet generator for a blockchain
  * Updated with all enhanced wallet services using real SDKs
+ * 
+ * MIGRATION STATUS: ✅ Solana using ModernSolanaWalletGenerator (@solana/kit)
  */
 export class WalletGeneratorFactory {
   private static generators: Record<string, WalletGenerator> = {};
@@ -52,7 +54,7 @@ export class WalletGeneratorFactory {
       case 'polygon':
         return new PolygonWalletGenerator();
       case 'solana':
-        return new SolanaWalletGenerator();
+        return new ModernSolanaWalletGenerator();
       case 'aptos':
         return new AptosWalletGenerator();
       case 'sui':
@@ -163,8 +165,8 @@ export class WalletGeneratorFactory {
         features: ['HD Wallets', 'Multiple Address Types', 'BIP32/39/44', 'Segwit', 'Taproot']
       },
       solana: {
-        sdk: '@solana/web3.js',
-        features: ['HD Wallets', 'SPL Tokens', 'Network Operations', 'Balance Queries']
+        sdk: '@solana/kit + @solana/client',
+        features: ['HD Wallets', 'SPL Tokens', 'Token-2022', 'Modern RPC', 'Network Operations', 'Balance Queries']
       },
       aptos: {
         sdk: '@aptos-labs/ts-sdk',
