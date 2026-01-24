@@ -30,9 +30,12 @@ import {
   InjectiveNativeTokenDeployment,
   InjectiveMarketLaunch,
   InjectiveMTSTransfer,
-  InjectiveTokenManager
+  InjectiveTokenManager,
+  InjectiveWalletManager,
+  InjectiveTransactions
 } from '@/components/injective'
 import { DerivativesProjectWrapper } from '@/components/injective/derivatives'
+import { InjectiveNavigation } from '@/components/injective/shared'
 
 interface Project {
   id: string
@@ -217,15 +220,22 @@ export function InjectiveProjectWrapper() {
         </div>
       </div>
 
+      {/* Horizontal Navigation - Persistent across all pages */}
+      <InjectiveNavigation projectId={currentProject.id} />
+
       {/* Injective Routes with Project Context */}
-      <Routes>
+      <div className="p-6">
+        <Routes>
         <Route index element={<InjectiveDashboard projectId={currentProject.id} />} />
+        <Route path="wallet" element={<InjectiveWalletManager projectId={currentProject.id} />} />
         <Route path="deploy" element={<InjectiveNativeTokenDeployment projectId={currentProject.id} />} />
         <Route path="market" element={<InjectiveMarketLaunch projectId={currentProject.id} />} />
         <Route path="derivatives/*" element={<DerivativesProjectWrapper />} />
         <Route path="mts-transfer" element={<InjectiveMTSTransfer projectId={currentProject.id} />} />
         <Route path="manage" element={<InjectiveTokenManager projectId={currentProject.id} />} />
+        <Route path="transactions" element={<InjectiveTransactions projectId={currentProject.id} />} />
       </Routes>
+      </div>
     </div>
   )
 }

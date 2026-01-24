@@ -153,7 +153,6 @@ export function XRPLMasterPage({ projectId }: XRPLMasterPageProps) {
         walletBalance={walletBalance}
         onRefresh={handleRefresh}
         onNetworkChange={handleNetworkChange}
-        onConnectWallet={handleConnectWallet}
         isLoading={isLoading}
         showMPT={true}
         showNFT={true}

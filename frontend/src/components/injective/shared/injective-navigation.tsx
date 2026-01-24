@@ -48,12 +48,6 @@ export const InjectiveNavigation: React.FC<InjectiveNavigationProps> = ({ projec
       active: currentPath === getPath("") || currentPath === `/injective`,
     },
     {
-      icon: <Wallet className="h-4 w-4" />,
-      label: "Wallet",
-      href: getPath("/wallet"),
-      active: isActive("/wallet"),
-    },
-    {
       icon: <Coins className="h-4 w-4" />,
       label: "Deploy Token",
       href: getPath("/deploy"),

@@ -85,12 +85,14 @@ export function getNetworkConfig(network: string): {
   }
 
   // Get RPC URL
-  const isTestnet = chainInfo.type === 'testnet';
-  const rpcUrl = getRpcUrl(network, isTestnet);
+  const rpcUrl = getRpcUrl(network);
 
   // Construct explorer API URL from explorer URL
   const explorerUrl = chainInfo.explorer || '';
   const explorerApiUrl = explorerUrl ? `${explorerUrl}/api` : '';
+
+  // Determine if network is testnet
+  const isTestnet = chainInfo.type === 'testnet';
 
   return {
     chainId,

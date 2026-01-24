@@ -25,10 +25,11 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Network } from '@injectivelabs/networks';
-import { InjectiveNavigation, InjectiveStats } from './shared/injective-navigation';
+import { InjectiveStats } from './shared/injective-navigation';
 import { InjectiveWalletService } from '@/services/wallet/injective';
 import { supabase } from '@/infrastructure/database/client';
 import { cn } from '@/utils/utils';
+import { ethers } from 'ethers';
 
 // Import market making components
 import { 
@@ -36,6 +37,33 @@ import {
   ActiveMarketsList, 
   MarketMakerControl 
 } from './markets';
+
+/**
+ * Format token balance from wei to human-readable format
+ * @param rawBalance - Balance in smallest unit (wei)
+ * @param decimals - Token decimals (default 18 for INJ)
+ * @returns Formatted balance string
+ */
+const formatBalance = (rawBalance: string, decimals: number = 18): string => {
+  try {
+    if (!rawBalance || rawBalance === '0') return '0';
+    
+    // Convert from wei to decimal format
+    const formatted = ethers.formatUnits(rawBalance, decimals);
+    
+    // Parse and format with commas
+    const num = parseFloat(formatted);
+    
+    // Format with up to 4 decimal places, removing trailing zeros
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4
+    });
+  } catch (error) {
+    console.error('Error formatting balance:', error);
+    return '0';
+  }
+};
 
 interface DashboardStats {
   walletBalance: string;
@@ -75,18 +103,14 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const walletData = localStorage.getItem('injective_wallet');
-      let parsed: { address: string; network?: string } | null = null;
+      // Check for selected wallet from InjectiveWalletManager
+      const walletAddress = localStorage.getItem('injective_wallet_address');
       
-      if (walletData) {
-        parsed = JSON.parse(walletData);
-        const networkValue = parsed.network || 'testnet';
+      if (walletAddress) {
         setWallet({
           connected: true,
-          address: parsed.address,
-          network: (networkValue === 'mainnet' || networkValue === 'testnet') 
-            ? networkValue 
-            : 'testnet'
+          address: walletAddress,
+          network: 'testnet' // Default to testnet, can be enhanced later
         });
       }
 
@@ -94,7 +118,7 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
         let tokensQuery = supabase
           .from('injective_native_tokens')
           .select('id')
-          .eq('creator_address', parsed?.address || '');
+          .eq('creator_address', walletAddress || '');
         
         if (projectId) {
           tokensQuery = tokensQuery.eq('project_id', projectId);
@@ -115,7 +139,7 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
         let tradesQuery = supabase
           .from('injective_trades')
           .select('id')
-          .eq('trader_address', parsed?.address || '');
+          .eq('trader_address', walletAddress || '');
         
         if (projectId) {
           tradesQuery = tradesQuery.eq('project_id', projectId);
@@ -124,13 +148,15 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
         const { data: trades } = await tradesQuery;
 
         let walletBalance = '0';
-        if (parsed?.address) {
+        if (walletAddress) {
           try {
             const walletService = new InjectiveWalletService(
-              parsed.network === 'mainnet' ? Network.Mainnet : Network.Testnet
+              Network.Testnet // Default to testnet for now
             );
-            const balance = await walletService.getBalance(parsed.address);
-            walletBalance = typeof balance === 'string' ? balance : balance.amount || '0';
+            const balance = await walletService.getBalance(walletAddress);
+            const rawBalance = typeof balance === 'string' ? balance : balance.amount || '0';
+            // Format balance from wei (18 decimals) to human-readable
+            walletBalance = formatBalance(rawBalance, 18);
           } catch (balanceError) {
             console.error('Failed to load balance:', balanceError);
           }
@@ -219,12 +245,7 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* HORIZONTAL NAVIGATION */}
-      <InjectiveNavigation projectId={projectId} />
-
-      {/* MAIN CONTENT */}
-      <div className="container mx-auto p-6 space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -240,16 +261,16 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
 
         {/* Wallet Status */}
         {!wallet.connected ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Wallet Not Connected</AlertTitle>
+          <Alert>
+            <Wallet className="h-4 w-4" />
+            <AlertTitle>Select Injective Wallet</AlertTitle>
             <AlertDescription>
               <div className="space-y-2">
-                <p>Connect your Injective wallet to access TokenFactory features.</p>
+                <p>Choose a wallet from your project to use Injective TokenFactory features.</p>
                 <Button asChild size="sm">
                   <Link to={projectId ? `/projects/${projectId}/injective/wallet` : '/injective/wallet'}>
                     <Wallet className="mr-2 h-4 w-4" />
-                    Connect Wallet
+                    Select Wallet
                   </Link>
                 </Button>
               </div>
@@ -413,7 +434,6 @@ export const InjectiveDashboard: React.FC<InjectiveDashboardProps> = ({ projectI
           </div>
         </div>
       </div>
-    </div>
   );
 };
 

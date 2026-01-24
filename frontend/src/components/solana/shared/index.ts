@@ -15,12 +15,8 @@ export {
 } from './solana-navigation';
 
 // Header components
-export {
-  SolanaDashboardHeader,
-  SolanaPageHeader,
-  type SolanaDashboardHeaderProps,
-  type SolanaPageHeaderProps
-} from './solana-dashboard-header';
+export { SolanaDashboardHeader } from './solana-dashboard-header';
+export type { SolanaDashboardHeaderProps } from './solana-dashboard-header';
 
 // Project wrapper
 export { SolanaProjectWrapper } from './SolanaProjectWrapper';

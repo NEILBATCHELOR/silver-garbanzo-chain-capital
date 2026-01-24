@@ -213,12 +213,16 @@ export function SolanaProjectWrapper() {
       {/* Dashboard Header */}
       <SolanaDashboardHeader
         title={`${currentProject.name} - Solana Token Launchpad`}
-        description="Deploy and manage SPL and Token-2022 tokens"
-        showDeployButton={true}
-        showRefreshButton={true}
-        isRefreshing={isLoading}
+        subtitle="Deploy and manage SPL and Token-2022 tokens"
+        network="DEVNET"
+        projectId={currentProject.id}
+        showDeploy={true}
+        showManage={true}
+        isLoading={isLoading}
         onDeploy={() => navigate(`/projects/${currentProject.id}/solana/deploy`)}
+        onManage={() => navigate(`/projects/${currentProject.id}/solana/list`)}
         onRefresh={handleRefresh}
+        onProjectChange={handleProjectChange}
       />
 
       {/* Main Content Area with Sidebar Navigation */}

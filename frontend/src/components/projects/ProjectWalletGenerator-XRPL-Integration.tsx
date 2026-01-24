@@ -33,8 +33,7 @@ import {
   getChainEnvironment,
   isNonEvmNetwork,
   type ChainConfig,
-  type NetworkEnvironment,
-  type ChainEnvironment
+  type NetworkEnvironment
 } from '@/config/chains';
 
 // Import XRPL wallet generator for non-EVM chain support
@@ -160,8 +159,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                     {allChains.map((chain) => (
                       <SelectItem key={chain.name} value={chain.name}>
                         <span className="flex items-center gap-2">
-                          <span>{chain.icon}</span>
-                          <span>{chain.label}</span>
+                          <span>{chain.displayName}</span>
                           {chain.isNonEvm && (
                             <Badge variant="outline" className="ml-2">Non-EVM</Badge>
                           )}

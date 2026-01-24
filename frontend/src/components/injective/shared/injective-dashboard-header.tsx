@@ -5,7 +5,7 @@
  * Features:
  * - Project selector for multi-tenancy
  * - Network selector (Mainnet/Testnet/Devnet)
- * - Wallet connection status
+ * - Wallet selector with project filtering and auto-decryption
  * - Action buttons (MPT, NFT, Payment features)
  * - Refresh functionality
  * - Real-time badge
@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
   RefreshCw, 
-  Wallet,
   Coins,
   Image,
   Send,
@@ -30,10 +29,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { WalletSelector } from '@/components/shared/WalletSelector'
 import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import { useEffect } from 'react'
+import type { ProjectWalletData } from '@/services/project/project-wallet-service'
 
-interface InjectiveDashboardHeaderProps {
+export interface InjectiveDashboardHeaderProps {
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
   walletAddress?: string
   walletBalance?: string
@@ -43,7 +44,7 @@ interface InjectiveDashboardHeaderProps {
   onRefresh?: () => void
   onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
   onProjectChange?: (projectId: string) => void
-  onConnectWallet?: () => void
+  onWalletSelect?: (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => void
   actions?: React.ReactNode
   isLoading?: boolean
   showMPT?: boolean
@@ -59,12 +60,12 @@ export function InjectiveDashboardHeader({
   walletAddress,
   walletBalance,
   title = 'Injective Integration',
-  subtitle = 'XRP Ledger blockchain integration and asset management',
+  subtitle = 'Injective blockchain integration and asset management',
   projectId,
   onRefresh,
   onNetworkChange,
   onProjectChange,
-  onConnectWallet,
+  onWalletSelect,
   actions,
   isLoading = false,
   showMPT = true,
@@ -94,10 +95,6 @@ export function InjectiveDashboardHeader({
     }
   }
 
-  const formatAddress = (address: string) => {
-    return `${address.substring(0, 8)}...${address.substring(address.length - 6)}`
-  }
-
   return (
     <div className="bg-white border-b">
       <div className="px-6 py-4">
@@ -114,7 +111,7 @@ export function InjectiveDashboardHeader({
               {getNetworkBadge(network)}
               {walletAddress && walletBalance && (
                 <Badge variant="outline" className="text-xs font-mono">
-                  {walletBalance} XRP
+                  {walletBalance} INJ
                 </Badge>
               )}
               {primaryProject && (
@@ -159,25 +156,17 @@ export function InjectiveDashboardHeader({
               </SelectContent>
             </Select>
 
-            {/* Wallet Connection */}
-            {walletAddress ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="font-mono"
-              >
-                <Wallet className="h-4 w-4 mr-2" />
-                {formatAddress(walletAddress)}
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onConnectWallet}
-              >
-                <Wallet className="h-4 w-4 mr-2" />
-                Connect Wallet
-              </Button>
+            {/* Wallet Selector */}
+            {projectId && (
+              <WalletSelector
+                projectId={projectId}
+                blockchain="injective"
+                network={network.toLowerCase() as 'mainnet' | 'testnet' | 'all'}
+                onWalletSelect={onWalletSelect}
+                placeholder="Select wallet"
+                showBalance={true}
+                autoDecrypt={true}
+              />
             )}
 
             {/* Refresh Button */}
@@ -247,7 +236,7 @@ export function InjectiveDashboardHeader({
           <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <span className="text-sm text-amber-800">
-              Connect your Injective wallet to access all features
+              Select an Injective wallet to access all features
             </span>
           </div>
         )}

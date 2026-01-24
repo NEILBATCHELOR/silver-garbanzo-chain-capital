@@ -28,15 +28,14 @@ import { ProjectWalletResult, enhancedProjectWalletService } from '@/services/pr
 import { MultiSigWalletService } from '@/services/wallet/multiSig';
 import { 
   getAllChains, 
+  getUniqueNetworks,
   getChainConfig, 
   getChainEnvironments, 
   getChainEnvironment,
   getNetworkDisplayName,
   isNonEvmNetwork,
   type ChainConfig,
-  type NetworkEnvironment,
-  type ChainEnvironmentConfig,
-  type EnvironmentOption
+  type NetworkEnvironment
 } from '@/config/chains';
 
 // Import non-EVM wallet generators
@@ -90,8 +89,9 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
   const lastGenerationIdRef = useRef<string>('');
   const generationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Get all available chains
-  const allChains = getAllChains();
+  // Get unique base networks (no testnet duplicates)
+  const uniqueNetworks = getUniqueNetworks();
+  const allChains = getAllChains(); // Keep for multi-network selection
   
   // Check if selected network is non-EVM (like XRPL or Solana)
   const isXrplSelected = selectedNetwork === 'ripple';
@@ -107,7 +107,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     if (availableEnvironments.length > 0) {
       // Default to first testnet if available, otherwise first environment
       const defaultEnv = availableEnvironments.find(env => env.isTestnet) || availableEnvironments[0];
-      setSelectedEnvironment(defaultEnv.name);
+      setSelectedEnvironment(defaultEnv.net); // ✅ FIX: Use .net instead of .name for proper environment matching
     } else {
       setSelectedEnvironment('');
     }
@@ -280,14 +280,21 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     try {
       console.log(`[WalletGenerator] Generating single wallet for ${selectedNetwork}/${selectedEnvironment}, request: ${requestId}`);
       
-      // Get the specific environment configuration
-      const environment = getChainEnvironment(selectedNetwork, selectedEnvironment as 'mainnet' | 'testnet');
+      // ✅ FIX: Get the environment by matching the selected net value
+      const environment = availableEnvironments.find(env => env.net === selectedEnvironment);
       if (!environment) {
         throw new Error(`Invalid environment: ${selectedNetwork}/${selectedEnvironment}`);
       }
       
-      // Determine network environment from selectedEnvironment
-      const networkEnvironment = selectedEnvironment === 'mainnet' ? 'mainnet' : 'testnet';
+      // ✅ FIX: Determine environment type - support mainnet, testnet, AND devnet
+      let networkEnvironment: 'mainnet' | 'testnet' | 'devnet';
+      if (environment.net === 'devnet' || environment.displayName.toLowerCase().includes('devnet')) {
+        networkEnvironment = 'devnet';
+      } else if (environment.isTestnet) {
+        networkEnvironment = 'testnet';
+      } else {
+        networkEnvironment = 'mainnet';
+      }
       
       const result = await enhancedProjectWalletService.generateWalletForProject({
         projectId,
@@ -309,10 +316,10 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
           onWalletGenerated(result);
         }
         
-        const displayName = getNetworkDisplayName(selectedNetwork, selectedEnvironment);
+        // ✅ FIX: Use environment.displayName directly since we already have the environment object
         toast({
           title: "Success",
-          description: `${displayName} wallet generated successfully`,
+          description: `${environment.displayName} wallet generated successfully`,
         });
       } else {
         toast({
@@ -331,7 +338,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedNetwork, selectedEnvironment, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user, hasRequiredPermissions]);
+  }, [selectedNetwork, selectedEnvironment, availableEnvironments, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user, hasRequiredPermissions]);
 
   const generateMultiNetworkWallets = useCallback(async (requestId: string) => {
     if (selectedNetworks.length === 0) {
@@ -636,7 +643,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                       <SelectValue placeholder="Choose a blockchain network" />
                     </SelectTrigger>
                     <SelectContent>
-                      {allChains.map((chain) => (
+                      {uniqueNetworks.map((chain) => (
                         <SelectItem key={chain.name} value={chain.name}>
                           <span className="flex items-center gap-2">
                             <span>{chain.displayName}</span>
@@ -755,7 +762,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                     <SelectValue placeholder="Choose a blockchain network" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allChains.map((chain) => (
+                    {uniqueNetworks.map((chain) => (
                       <SelectItem key={chain.name} value={chain.name}>
                         <span className="flex items-center gap-2">
                           <span>{chain.displayName}</span>
@@ -781,7 +788,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                   </SelectTrigger>
                   <SelectContent>
                     {availableEnvironments.map((env) => (
-                      <SelectItem key={env.name} value={env.name}>
+                      <SelectItem key={env.net} value={env.net}>
                         <div className="flex items-center justify-between w-full">
                           <span className="flex items-center gap-2">
                             {env.isTestnet ? '🟡' : '🟢'} {env.displayName}
@@ -796,7 +803,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
                     ))}
                   </SelectContent>
                 </Select>
-                {selectedEnvironment && selectedEnvironment === 'mainnet' && (
+                {selectedEnvironment && !availableEnvironments.find(e => e.net === selectedEnvironment)?.isTestnet && (
                   <Alert variant="destructive" className="mt-2">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
@@ -823,7 +830,7 @@ export const ProjectWalletGenerator: React.FC<ProjectWalletGeneratorProps> = ({
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Networks:</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {allChains.map((chain) => (
+                  {uniqueNetworks.map((chain) => (
                     <div key={chain.name} className="flex items-center space-x-2">
                       <Checkbox 
                         id={chain.name}

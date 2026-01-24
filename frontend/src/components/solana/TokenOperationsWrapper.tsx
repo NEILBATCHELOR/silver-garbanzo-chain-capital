@@ -17,10 +17,11 @@ interface TokenData {
   decimals: number;
   name: string;
   symbol: string;
+  project_id: string;
 }
 
 export function TokenOperationsWrapper() {
-  const { tokenId } = useParams<{ tokenId: string }>();
+  const { tokenId, projectId } = useParams<{ tokenId: string; projectId: string }>();
   const [tokenData, setTokenData] = useState<TokenData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,14 +39,38 @@ export function TokenOperationsWrapper() {
 
       const { data, error: fetchError } = await supabase
         .from('tokens')
-        .select('id, contract_address, network, decimals, name, symbol')
+        .select(`
+          id,
+          name,
+          symbol,
+          decimals,
+          project_id,
+          deployment:token_deployments!inner(
+            contract_address,
+            network
+          )
+        `)
         .eq('id', tokenId)
         .single();
 
       if (fetchError) throw fetchError;
       if (!data) throw new Error('Token not found');
 
-      setTokenData(data);
+      const deployment = Array.isArray(data.deployment) 
+        ? data.deployment[0] 
+        : data.deployment;
+
+      if (!deployment) throw new Error('Token deployment not found');
+
+      setTokenData({
+        id: data.id,
+        name: data.name,
+        symbol: data.symbol,
+        decimals: data.decimals,
+        project_id: data.project_id,
+        contract_address: deployment.contract_address,
+        network: deployment.network
+      });
     } catch (err: any) {
       console.error('Error loading token:', err);
       setError(err.message || 'Failed to load token');
@@ -86,8 +111,11 @@ export function TokenOperationsWrapper() {
         </p>
       </div>
       <TokenOperationsPanel
+        tokenId={tokenData.id}
+        projectId={tokenData.project_id || projectId || ''}
         mint={tokenData.contract_address}
         decimals={tokenData.decimals}
+        symbol={tokenData.symbol}
         network={network as any}
       />
     </div>

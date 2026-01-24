@@ -42,7 +42,7 @@ import { BalanceFormatter, balanceService } from "@/services/wallet/balances";
 import type { WalletBalance } from "@/services/wallet/balances";
 import { getExplorerUrl } from "@/config/chains";
 import { WalletEncryptionClient } from "@/services/security/walletEncryptionService";
-import { getChainInfo, getChainName, isTestnet } from '@/infrastructure/web3/utils/chainIds';
+import { getChainInfo, getChainName, isTestnet, detectNonEvmEnvironment } from '@/infrastructure/web3/utils/chainIds';
 import { deriveWalletType, getNetworkEnvironment } from '@/config/chains';
 import {
   AlertDialog,
@@ -235,6 +235,11 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
           '324': 'zksync',
           '300': 'zksync-sepolia',
 
+          // Solana networks (numeric chain IDs)
+          '101': 'solana',                 // Solana Mainnet Beta
+          '102': 'solana-testnet',         // Solana Testnet
+          '103': 'solana-devnet',          // Solana Devnet
+
           // Injective networks - Support both numeric EVM chain IDs and Cosmos chain IDs
           '888': 'injective-testnet',      // Injective Cosmos Testnet (numeric)
           'injective-888': 'injective-testnet',  // Injective Cosmos Testnet (Cosmos format)
@@ -247,8 +252,26 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
 
         // Use chain_id if available
         if (w.chain_id) {
-          const chainIdStr = String(w.chain_id);
-          if (chainIdToNetwork[chainIdStr]) {
+          const chainIdStr = String(w.chain_id).toLowerCase();
+          
+          // Check if chain_id is already a service key format (e.g., "solana-devnet", "ripple-testnet")
+          // These are string identifiers that can be used directly
+          const serviceKeyPatterns = [
+            'solana-devnet', 'solana-testnet', 'solana',
+            'ripple-testnet', 'ripple',
+            'bitcoin-testnet', 'bitcoin',
+            'injective-testnet', 'injective',
+            'aptos-testnet', 'aptos',
+            'sui-testnet', 'sui',
+            'near-testnet', 'near'
+          ];
+          
+          if (serviceKeyPatterns.includes(chainIdStr)) {
+            // Chain ID is already in service key format - use it directly
+            networkKey = chainIdStr;
+            console.log(`✅ Using chain_id as service key: ${networkKey}`);
+          } else if (chainIdToNetwork[chainIdStr]) {
+            // Chain ID is numeric - map it
             networkKey = chainIdToNetwork[chainIdStr];
             console.log(`🔗 Mapped chain ID ${chainIdStr} to network: ${networkKey}`);
           } else {
@@ -890,14 +913,21 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                   // Get chain info from chain_id - handle both numeric and Cosmos formats
                   let chainId: number | null = null;
                   let chainIdDisplay: string | null = wallet.chain_id || null;
+                  let isCosmosStyleChainId = false;
 
                   if (wallet.chain_id) {
-                    // Try parsing as number first
-                    const parsed = parseInt(wallet.chain_id, 10);
-                    if (!isNaN(parsed)) {
-                      chainId = parsed;
+                    // Check if this is a Cosmos-style chain ID (contains dash)
+                    isCosmosStyleChainId = wallet.chain_id.includes('-');
+                    
+                    if (!isCosmosStyleChainId) {
+                      // Pure numeric chain ID - parse it
+                      const parsed = parseInt(wallet.chain_id, 10);
+                      if (!isNaN(parsed)) {
+                        chainId = parsed;
+                      }
                     } else {
-                      // Handle Cosmos chain ID format (e.g., 'injective-888')
+                      // Cosmos-style ID - extract number for display purposes only
+                      // DO NOT use this for environment detection
                       const match = wallet.chain_id.match(/(\d+)$/);
                       if (match) {
                         chainId = parseInt(match[1], 10);
@@ -977,34 +1007,30 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
                         </Badge>
                         {/* Environment Badge - Show for ALL wallets */}
                         {(() => {
-                          // Determine environment based on network configuration
+                          // Read environment from database 'net' column (source of truth)
                           let environment: 'mainnet' | 'testnet' | 'devnet' | null = null;
                           
-                          // For EVM chains, use isTestnet check
-                          if (chainId && !isNaN(chainId)) {
-                            environment = isTestnetChain ? 'testnet' : 'mainnet';
+                          if (wallet.net) {
+                            const netLower = wallet.net.toLowerCase();
+                            
+                            // Direct environment values
+                            if (netLower === 'mainnet') environment = 'mainnet';
+                            else if (netLower === 'testnet') environment = 'testnet';
+                            else if (netLower === 'devnet') environment = 'devnet';
+                            // Handle specific network identifiers that indicate environment
+                            else if (netLower.includes('testnet') || netLower.includes('test')) environment = 'testnet';
+                            else if (netLower.includes('devnet') || netLower.includes('dev')) environment = 'devnet';
+                            else if (netLower.includes('mainnet') || netLower.includes('main')) environment = 'mainnet';
                           }
-                          // For non-EVM networks, detect from network name
-                          else if (wallet.non_evm_network) {
-                            const networkLower = wallet.non_evm_network.toLowerCase();
-                            if (networkLower.includes('testnet') || networkLower.includes('test')) {
-                              environment = 'testnet';
-                            } else if (networkLower.includes('devnet') || networkLower.includes('dev')) {
-                              environment = 'devnet';
-                            } else {
-                              environment = 'mainnet';
-                            }
-                          }
-                          // Fallback: Check wallet_type for environment hints
-                          else if (wallet.wallet_type) {
-                            const typeLower = wallet.wallet_type.toLowerCase();
-                            if (typeLower.includes('testnet') || typeLower.includes('test')) {
-                              environment = 'testnet';
-                            } else if (typeLower.includes('devnet') || typeLower.includes('dev')) {
-                              environment = 'devnet';
-                            } else if (typeLower === 'solana' || typeLower === 'ripple' || typeLower === 'bitcoin') {
-                              // Default non-EVM networks to mainnet if not specified
-                              environment = 'mainnet';
+                          
+                          // Fallback: Detect from chain_id/network for wallets without 'net' column
+                          if (!environment) {
+                            const hasNonEvmNetwork = wallet.non_evm_network && wallet.non_evm_network.trim() !== '';
+                            
+                            if (isCosmosStyleChainId || hasNonEvmNetwork) {
+                              environment = detectNonEvmEnvironment(wallet.chain_id, wallet.non_evm_network);
+                            } else if (chainId && !isNaN(chainId)) {
+                              environment = isTestnetChain ? 'testnet' : 'mainnet';
                             }
                           }
                           

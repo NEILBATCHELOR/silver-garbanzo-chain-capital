@@ -256,7 +256,6 @@ export const XRPLUnifiedDashboard: React.FC = () => {
           projectId={projectId}
           onNetworkChange={setNetwork}
           onProjectChange={setProjectId}
-          onConnectWallet={handleConnectWallet}
           onRefresh={loadDashboardData}
           isLoading={loading}
           onMPT={handleMPTClick}
@@ -282,7 +281,6 @@ export const XRPLUnifiedDashboard: React.FC = () => {
         projectId={projectId}
         onNetworkChange={setNetwork}
         onProjectChange={setProjectId}
-        onConnectWallet={handleConnectWallet}
         onRefresh={loadDashboardData}
         isLoading={loading}
         onMPT={handleMPTClick}

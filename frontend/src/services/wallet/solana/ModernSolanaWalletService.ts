@@ -13,6 +13,7 @@
 import { ModernSolanaRpc, type ModernRpcConfig } from '@/infrastructure/web3/solana/ModernSolanaRpc';
 import { ModernSolanaWalletGenerator } from '../generators/ModernSolanaWalletGenerator';
 import type { Wallet } from '../WalletGenerator';
+import { getRpcUrl } from '@/infrastructure/web3/rpc/rpc-config';
 
 // Re-export types for convenience
 export interface SolanaAccountInfo {
@@ -86,7 +87,6 @@ export class ModernSolanaWalletService {
       'testnet': 'testnet'
     };
     
-    const { getRpcUrl } = require('@/infrastructure/web3/rpc/rpc-config');
     return getRpcUrl('solana', networkMap[network]);
   }
 

@@ -205,7 +205,7 @@ export function NonceGapFixerWrapper({ projectId }: NonceGapFixerWrapperProps) {
       });
 
       // Get RPC URL for the blockchain
-      const rpcUrl = getRpcUrl(normalizedBlockchain, isTestnet);
+      const rpcUrl = getRpcUrl(normalizedBlockchain);
       
       console.log('🔧 [NonceGapFixerWrapper] RPC URL resolved:', rpcUrl);
       

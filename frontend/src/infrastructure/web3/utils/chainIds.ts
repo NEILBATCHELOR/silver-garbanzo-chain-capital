@@ -825,3 +825,83 @@ export function hasExplicitEIP1559Flag(chainId: number): boolean {
   const info = getChainInfo(chainId);
   return info?.eip1559 === true;
 }
+
+/**
+ * Detect network environment for non-EVM chains (Cosmos, Solana, etc.)
+ * @param chainId - Chain ID (can be numeric like 1776 or string like 'injective-888')
+ * @param nonEvmNetwork - Non-EVM network name (e.g., 'ripple', 'solana', 'injective')
+ * @returns Network environment type: 'mainnet', 'testnet', or 'devnet'
+ */
+export function detectNonEvmEnvironment(
+  chainId: string | null | undefined,
+  nonEvmNetwork: string | null | undefined
+): 'mainnet' | 'testnet' | 'devnet' | null {
+  // Try chain ID first (both numeric and Cosmos-style)
+  if (chainId) {
+    const chainIdLower = chainId.toLowerCase();
+    
+    // Solana chain IDs
+    if (chainIdLower === 'solana-devnet') return 'devnet';
+    if (chainIdLower === 'solana-testnet') return 'testnet';
+    if (chainIdLower === 'solana-mainnet' || chainIdLower === 'solana') return 'mainnet';
+    
+    // Injective Cosmos chain IDs
+    if (chainIdLower === 'injective-888') return 'testnet';
+    if (chainIdLower === 'injective-1') return 'mainnet';
+    
+    // Cosmos Hub
+    if (chainIdLower === 'cosmoshub-4') return 'mainnet';
+    if (chainIdLower === 'theta-testnet-001') return 'testnet';
+    
+    // Osmosis
+    if (chainIdLower === 'osmosis-1') return 'mainnet';
+    if (chainIdLower === 'osmo-test-5') return 'testnet';
+    
+    // Try parsing as numeric chain ID
+    const numericChainId = parseInt(chainId, 10);
+    if (!isNaN(numericChainId)) {
+      const chainInfo = getChainInfo(numericChainId);
+      if (chainInfo) {
+        return chainInfo.type as 'mainnet' | 'testnet';
+      }
+    }
+  }
+
+  // Check non_evm_network field
+  if (nonEvmNetwork) {
+    const networkLower = nonEvmNetwork.toLowerCase();
+    
+    // Explicit testnet/devnet markers
+    if (networkLower.includes('testnet') || networkLower.includes('test')) {
+      return 'testnet';
+    }
+    if (networkLower.includes('devnet') || networkLower.includes('dev')) {
+      return 'devnet';
+    }
+    
+    // Solana network detection
+    if (networkLower === 'solana-devnet') return 'devnet';
+    if (networkLower === 'solana-testnet') return 'testnet';
+    if (networkLower === 'solana' || networkLower === 'solana-mainnet') return 'mainnet';
+    
+    // Ripple/XRPL
+    if (networkLower === 'ripple-testnet' || networkLower === 'xrpl-testnet') return 'testnet';
+    if (networkLower === 'ripple' || networkLower === 'xrpl') return 'mainnet';
+    
+    // Bitcoin
+    if (networkLower === 'bitcoin-testnet') return 'testnet';
+    if (networkLower === 'bitcoin') return 'mainnet';
+    
+    // Injective
+    if (networkLower === 'injective-testnet') return 'testnet';
+    if (networkLower === 'injective') return 'mainnet';
+    
+    // Default to mainnet for known networks without explicit environment
+    const knownMainnetNetworks = ['solana', 'ripple', 'bitcoin', 'cosmos', 'injective'];
+    if (knownMainnetNetworks.includes(networkLower)) {
+      return 'mainnet';
+    }
+  }
+
+  return null;
+}

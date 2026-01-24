@@ -191,6 +191,84 @@ export class ModernSolanaErrorHandler {
   }
 
   /**
+   * Handle burn-specific errors
+   */
+  static handleBurnError(error: any, network?: SolanaNetwork): SolanaError {
+    const errorMsg = this.extractErrorMessage(error);
+
+    // Insufficient token balance
+    if (this.matchesPattern(errorMsg, [
+      'insufficient token balance',
+      'insufficient funds',
+      'burn amount exceeds balance',
+      'amount exceeds available balance'
+    ])) {
+      return {
+        code: ERROR_CODES.INSUFFICIENT_TOKEN_BALANCE,
+        category: 'balance',
+        message: errorMsg,
+        userMessage: 'Insufficient token balance to burn',
+        recoverable: false,
+        suggestedAction: 'Cannot burn more tokens than you own. Check your token balance.'
+      };
+    }
+
+    // Token account not found
+    if (this.matchesPattern(errorMsg, [
+      'AccountNotFound',
+      'could not find account',
+      'account does not exist',
+      'token account not found'
+    ])) {
+      return {
+        code: ERROR_CODES.ACCOUNT_NOT_FOUND,
+        category: 'account',
+        message: errorMsg,
+        userMessage: 'Token account not found',
+        recoverable: false,
+        suggestedAction: 'Token account does not exist or you do not own any tokens'
+      };
+    }
+
+    // Invalid burn authority
+    if (this.matchesPattern(errorMsg, [
+      'InvalidAccountOwner',
+      'account not owned by program',
+      'owner mismatch',
+      'invalid authority',
+      'unauthorized'
+    ])) {
+      return {
+        code: ERROR_CODES.INVALID_OWNER,
+        category: 'account',
+        message: errorMsg,
+        userMessage: 'You do not have permission to burn these tokens',
+        recoverable: false,
+        suggestedAction: 'Only the token owner or approved delegate can burn tokens'
+      };
+    }
+
+    // Insufficient SOL for transaction
+    if (this.matchesPattern(errorMsg, [
+      'insufficient funds for fee',
+      'insufficient lamports'
+    ])) {
+      return {
+        code: ERROR_CODES.INSUFFICIENT_FUNDS,
+        category: 'balance',
+        message: errorMsg,
+        userMessage: 'Insufficient SOL for burn transaction fees',
+        recoverable: true,
+        suggestedAction: 'Add a small amount of SOL to cover transaction fees (~0.000005 SOL)',
+        details: { network }
+      };
+    }
+
+    // Fallback to transfer error handling for common errors
+    return this.handleTransferError(error, network);
+  }
+
+  /**
    * Handle deployment-specific errors
    */
   static handleDeploymentError(error: any, network?: SolanaNetwork): SolanaError {
@@ -444,6 +522,9 @@ export class ModernSolanaErrorHandler {
 export const handleSolanaError = {
   transfer: (error: any, network?: SolanaNetwork) =>
     ModernSolanaErrorHandler.handleTransferError(error, network),
+  
+  burn: (error: any, network?: SolanaNetwork) =>
+    ModernSolanaErrorHandler.handleBurnError(error, network),
   
   deployment: (error: any, network?: SolanaNetwork) =>
     ModernSolanaErrorHandler.handleDeploymentError(error, network),

@@ -290,7 +290,7 @@ export class ComprehensiveVerificationService {
       };
       
       const blockchain = networkMap[network.toLowerCase()] || network.toLowerCase();
-      const configRpcUrl = getRpcUrl(blockchain, true); // Default to testnet
+      const configRpcUrl = getRpcUrl(blockchain);
       
       if (configRpcUrl) {
         this.provider = new ethers.JsonRpcProvider(configRpcUrl);

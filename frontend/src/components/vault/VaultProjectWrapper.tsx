@@ -13,8 +13,8 @@
  * - Project switcher in header
  * - Project-scoped data queries
  * - Audit trail for all vault operations
- * - Integrated navigation sidebar
- * - Consistent dashboard header
+ * - Horizontal navigation (ONLY)
+ * - Consistent dashboard header with wallet selector
  */
 
 import React, { useState, useEffect } from 'react'
@@ -34,6 +34,7 @@ import { VaultWithdrawForm } from './VaultWithdrawForm'
 
 // Shared components
 import { VaultNavigation, VaultDashboardHeader } from './shared'
+import type { ProjectWalletData } from '@/services/project/project-wallet-service'
 
 interface Project {
   id: string
@@ -50,7 +51,7 @@ export function VaultProjectWrapper() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [walletConnected, setWalletConnected] = useState(false)
+  const [selectedWallet, setSelectedWallet] = useState<(ProjectWalletData & { decryptedPrivateKey?: string }) | null>(null)
 
   // Load project on mount or when projectId changes
   useEffect(() => {
@@ -132,12 +133,12 @@ export function VaultProjectWrapper() {
     loadProject()
   }
 
-  const handleConnectWallet = () => {
-    // TODO: Implement wallet connection
-    toast({
-      title: 'Wallet Connection',
-      description: 'Wallet connection coming soon',
-    })
+  const handleWalletSelect = (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => {
+    setSelectedWallet(wallet)
+    console.log('Selected wallet:', wallet.wallet_address)
+    if (wallet.decryptedPrivateKey) {
+      console.log('Private key decrypted successfully')
+    }
   }
 
   const handleNetworkChange = (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => {
@@ -206,7 +207,7 @@ export function VaultProjectWrapper() {
 
   return (
     <div className="w-full h-full flex flex-col">
-      {/* Dashboard Header */}
+      {/* Dashboard Header with Wallet Selector */}
       <VaultDashboardHeader
         network="TESTNET"
         projectId={currentProject.id}
@@ -215,95 +216,88 @@ export function VaultProjectWrapper() {
         onRefresh={handleRefresh}
         onProjectChange={handleProjectChange}
         onNetworkChange={handleNetworkChange}
-        onConnectWallet={handleConnectWallet}
+        onWalletSelect={handleWalletSelect}
         onDeposit={handleDeposit}
         onWithdraw={handleWithdraw}
         onAnalytics={handleAnalytics}
-        walletAddress={walletConnected ? 'inj1...' : undefined}
+        walletAddress={selectedWallet?.wallet_address}
         isLoading={isLoading}
       />
 
-      {/* Main Content Area with Sidebar Navigation */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation */}
-        <aside className="w-64 border-r bg-muted/40 p-4 overflow-y-auto">
-          <VaultNavigation
-            projectId={currentProject.id}
-          />
-        </aside>
+      {/* Horizontal Navigation - ONLY NAVIGATION */}
+      <VaultNavigation projectId={currentProject.id} />
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
-          <Routes>
-            <Route index element={<VaultDashboard projectId={currentProject.id} />} />
-            <Route path="list" element={<VaultList projectId={currentProject.id} />} />
-            <Route path="deposit" element={
-              <div className="p-6">
-                <VaultDepositForm 
-                  vault={null}
-                  projectId={currentProject.id}
-                  onClose={() => navigate(`/projects/${currentProject.id}/vault`)}
-                />
-              </div>
-            } />
-            <Route path="withdraw" element={
-              <div className="p-6">
-                <VaultWithdrawForm
-                  vault={null}
-                  position={null}
-                  projectId={currentProject.id}
-                  onClose={() => navigate(`/projects/${currentProject.id}/vault`)}
-                />
-              </div>
-            } />
-            <Route path="analytics" element={
-              <div className="p-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Analytics</CardTitle>
-                    <CardDescription>
-                      Performance analytics and metrics
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Analytics dashboard coming soon...</p>
-                  </CardContent>
-                </Card>
-              </div>
-            } />
-            <Route path="reports" element={
-              <div className="p-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Reports</CardTitle>
-                    <CardDescription>
-                      Transaction history and reports
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Reports dashboard coming soon...</p>
-                  </CardContent>
-                </Card>
-              </div>
-            } />
-            <Route path="settings" element={
-              <div className="p-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>
-                      Vault configuration and preferences
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Settings page coming soon...</p>
-                  </CardContent>
-                </Card>
-              </div>
-            } />
-          </Routes>
-        </main>
-      </div>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <Routes>
+          <Route index element={<VaultDashboard projectId={currentProject.id} />} />
+          <Route path="list" element={<VaultList projectId={currentProject.id} />} />
+          <Route path="deposit" element={
+            <div className="p-6">
+              <VaultDepositForm 
+                vault={null}
+                projectId={currentProject.id}
+                onClose={() => navigate(`/projects/${currentProject.id}/vault`)}
+              />
+            </div>
+          } />
+          <Route path="withdraw" element={
+            <div className="p-6">
+              <VaultWithdrawForm
+                vault={null}
+                position={null}
+                projectId={currentProject.id}
+                onClose={() => navigate(`/projects/${currentProject.id}/vault`)}
+              />
+            </div>
+          } />
+          <Route path="analytics" element={
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analytics</CardTitle>
+                  <CardDescription>
+                    Performance analytics and metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Analytics dashboard coming soon...</p>
+                </CardContent>
+              </Card>
+            </div>
+          } />
+          <Route path="reports" element={
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Reports</CardTitle>
+                  <CardDescription>
+                    Transaction history and reports
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Reports dashboard coming soon...</p>
+                </CardContent>
+              </Card>
+            </div>
+          } />
+          <Route path="settings" element={
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Settings</CardTitle>
+                  <CardDescription>
+                    Vault configuration and preferences
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Settings page coming soon...</p>
+                </CardContent>
+              </Card>
+            </div>
+          } />
+        </Routes>
+      </main>
     </div>
   )
 }

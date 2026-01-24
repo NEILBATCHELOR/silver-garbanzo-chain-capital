@@ -23,6 +23,8 @@ export { BatchTransfer } from './BatchTransfer';
 // Token Operations
 export { TokenOperationsPanel } from './TokenOperationsPanel';
 export { TokenOperationsWrapper } from './TokenOperationsWrapper';
+export { BurnTokenForm } from './BurnTokenForm';
+export { CreateAccountForm } from './CreateAccountForm';
 
 // Deployment Components
 export { SolanaTokenDeploymentWizard } from './SolanaTokenDeploymentWizard';

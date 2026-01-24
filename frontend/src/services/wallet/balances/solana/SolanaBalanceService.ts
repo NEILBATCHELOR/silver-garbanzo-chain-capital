@@ -1,20 +1,14 @@
 /**
  * Solana Mainnet Balance Service
- * Fetches real balances and SPL token data from Solana mainnet
+ * Fetches real balances and SPL token data from Solana mainnet using @solana/kit
  */
 
+import { address, createSolanaRpc } from '@solana/kit';
 import { BaseChainBalanceService } from '../BaseChainBalanceService';
 import type { BalanceServiceConfig, TokenBalance } from '../types';
 
 // Solana address is a 44-character base58 string
 const SOLANA_ADDRESS_REGEX = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
-
-interface SolanaRPCRequest {
-  jsonrpc: '2.0';
-  id: number;
-  method: string;
-  params: any[];
-}
 
 interface SolanaTokenAccount {
   account: {
@@ -36,6 +30,8 @@ interface SolanaTokenAccount {
 }
 
 export class SolanaBalanceService extends BaseChainBalanceService {
+  private rpc: ReturnType<typeof createSolanaRpc>;
+
   constructor() {
     const config: BalanceServiceConfig = {
       chainId: 101, // Solana mainnet
@@ -44,42 +40,50 @@ export class SolanaBalanceService extends BaseChainBalanceService {
       symbol: 'SOL',
       decimals: 9,
       networkType: 'mainnet',
-      rpcUrl: import.meta.env.VITE_SOLANA_RPC_URL,
+      rpcUrl: import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
       explorerUrl: 'https://explorer.solana.com',
       coingeckoId: 'solana',
       timeout: 15000,
       isEVM: false
     };
     super(config);
+    
+    // Initialize Solana RPC client using @solana/kit
+    this.rpc = createSolanaRpc(this.config.rpcUrl!);
   }
 
   validateAddress(address: string): boolean {
     return SOLANA_ADDRESS_REGEX.test(address);
   }
 
-  protected async fetchNativeBalance(address: string): Promise<string> {
+  protected async fetchNativeBalance(addressString: string): Promise<string> {
     if (!this.config.rpcUrl) {
       throw new Error('Solana RPC provider not configured');
     }
 
     try {
-      const response = await this.makeRPCCall('getBalance', [address]);
+      // Convert string address to Solana Address type
+      const publicKey = address(addressString);
       
-      if (response.error) {
-        throw new Error(`RPC Error: ${response.error.message}`);
-      }
-
-      // Solana balance is returned in lamports (1 SOL = 1,000,000,000 lamports)
-      const lamports = response.result?.value || 0;
-      const solBalance = lamports / 1000000000;
+      // Get balance using @solana/kit (returns lamports)
+      const balanceResponse = await this.rpc.getBalance(publicKey).send();
+      
+      // balanceResponse.value contains the balance in lamports
+      const lamports = balanceResponse.value || 0n;
+      
+      // Convert lamports to SOL (1 SOL = 1,000,000,000 lamports)
+      const solBalance = Number(lamports) / 1000000000;
+      
+      console.log(`💰 Solana Mainnet Balance: ${solBalance.toFixed(9)} SOL (${lamports} lamports)`);
+      
       return solBalance.toFixed(9);
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`⚠️ Solana balance fetch failed:`, error.message);
       throw error;
     }
   }
 
-  protected async fetchTokenBalancesImpl(address: string): Promise<TokenBalance[]> {
+  protected async fetchTokenBalancesImpl(addressString: string): Promise<TokenBalance[]> {
     const tokens: TokenBalance[] = [];
     
     if (!this.config.rpcUrl) {
@@ -87,9 +91,13 @@ export class SolanaBalanceService extends BaseChainBalanceService {
     }
 
     try {
+      // Convert string address to Solana Address type
+      const publicKey = address(addressString);
+      
       // Get all SPL token accounts for the address
+      // Note: Using legacy RPC call for token accounts as @solana/kit may not have this yet
       const response = await this.makeRPCCall('getTokenAccountsByOwner', [
-        address,
+        addressString, // Use string for this legacy call
         { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, // SPL Token program
         { encoding: 'jsonParsed' }
       ]);
@@ -120,13 +128,13 @@ export class SolanaBalanceService extends BaseChainBalanceService {
               standard: 'SPL'
             });
 
-            console.log(`🌅 ${tokenMetadata.symbol}: ${tokenAmount.uiAmount} ($${(tokenAmount.uiAmount * tokenPrice).toFixed(2)})`);
+            console.log(`🪙 ${tokenMetadata.symbol}: ${tokenAmount.uiAmount} ($${(tokenAmount.uiAmount * tokenPrice).toFixed(2)})`);
           }
-        } catch (tokenError) {
+        } catch (tokenError: any) {
           console.warn(`⚠️ Failed to process token:`, tokenError.message);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.warn(`⚠️ SPL token enumeration failed:`, error.message);
     }
 
@@ -134,7 +142,7 @@ export class SolanaBalanceService extends BaseChainBalanceService {
   }
 
   private async makeRPCCall(method: string, params: any[]): Promise<any> {
-    const request: SolanaRPCRequest = {
+    const request = {
       jsonrpc: '2.0',
       id: Date.now(),
       method,

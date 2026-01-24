@@ -1,160 +1,233 @@
 /**
- * Solana Dashboard Header Component
+ * Solana Dashboard Header
+ * Matches Trade Finance Dashboard Header style with wallet/network/project selectors
  * 
- * Displays the main header for Solana Token Launchpad with title, description, and actions
+ * Features:
+ * - Project selector for multi-tenancy
+ * - Network selector (Mainnet/Testnet/Devnet)
+ * - Wallet selector with project filtering and auto-decryption
+ * - Action buttons (Deploy Token, Manage Tokens)
+ * - Refresh functionality
+ * - Real-time badge
+ * - Wallet balance display
  */
 
-import React from "react";
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { 
-  Coins,
+  RefreshCw, 
   Rocket,
-  Plus,
-  RefreshCw,
-  HelpCircle
-} from "lucide-react";
-import { cn } from "@/utils/utils";
+  Coins,
+  AlertCircle,
+  Briefcase
+} from 'lucide-react'
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { WalletSelector } from '@/components/shared/WalletSelector'
+import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
+import { useEffect } from 'react'
+import type { ProjectWalletData } from '@/services/project/project-wallet-service'
 
 export interface SolanaDashboardHeaderProps {
-  title?: string;
-  description?: string;
-  showDeployButton?: boolean;
-  showRefreshButton?: boolean;
-  isRefreshing?: boolean;
-  onDeploy?: () => void;
-  onRefresh?: () => void;
-  className?: string;
-  actions?: React.ReactNode;
+  network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
+  walletAddress?: string
+  walletBalance?: string
+  title?: string
+  subtitle?: string
+  projectId?: string
+  onRefresh?: () => void
+  onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
+  onProjectChange?: (projectId: string) => void
+  onWalletSelect?: (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => void
+  actions?: React.ReactNode
+  isLoading?: boolean
+  showDeploy?: boolean
+  showManage?: boolean
+  onDeploy?: () => void
+  onManage?: () => void
 }
 
 export function SolanaDashboardHeader({
-  title = "Solana Token Launchpad",
-  description = "Deploy and manage SPL and Token-2022 tokens on Solana",
-  showDeployButton = true,
-  showRefreshButton = true,
-  isRefreshing = false,
-  onDeploy,
+  network = 'DEVNET',
+  walletAddress,
+  walletBalance,
+  title = 'Solana Token Launchpad',
+  subtitle = 'Deploy and manage SPL and Token-2022 tokens on Solana',
+  projectId,
   onRefresh,
-  className,
-  actions
-}: SolanaDashboardHeaderProps) {
-  return (
-    <div className={cn("flex items-center justify-between", className)}>
-      {/* Left: Title and Description */}
-      <div className="flex items-center gap-3">
-        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Coins className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
-                    <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p className="max-w-xs">
-                    Deploy SPL tokens for basic functionality or Token-2022 tokens
-                    with advanced extensions like metadata, transfer fees, and compliance features.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
-          <p className="text-muted-foreground">{description}</p>
-        </div>
-      </div>
-
-      {/* Right: Actions */}
-      <div className="flex items-center gap-2">
-        {showRefreshButton && onRefresh && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-          </Button>
-        )}
-        
-        {showDeployButton && onDeploy && (
-          <Button onClick={onDeploy} className="gap-2">
-            <Rocket className="h-4 w-4" />
-            Deploy New Token
-          </Button>
-        )}
-
-        {/* Custom actions if provided */}
-        {actions}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Page Header for Sub-Pages
- */
-export interface SolanaPageHeaderProps {
-  title: string;
-  description?: string;
-  icon?: React.ReactNode;
-  backTo?: {
-    label: string;
-    href: string;
-  };
-  actions?: React.ReactNode;
-  className?: string;
-}
-
-export function SolanaPageHeader({
-  title,
-  description,
-  icon,
-  backTo,
+  onNetworkChange,
+  onProjectChange,
+  onWalletSelect,
   actions,
-  className
-}: SolanaPageHeaderProps) {
+  isLoading = false,
+  showDeploy = true,
+  showManage = true,
+  onDeploy,
+  onManage
+}: SolanaDashboardHeaderProps) {
+  
+  const { primaryProject, loadPrimaryProject } = usePrimaryProject({ loadOnMount: true })
+  
+  // Load primary project on mount and notify parent
+  useEffect(() => {
+    if (primaryProject && onProjectChange && !projectId) {
+      onProjectChange(primaryProject.id)
+    }
+  }, [primaryProject, onProjectChange, projectId])
+  
+  const getNetworkBadge = (net: string) => {
+    if (net === 'MAINNET') {
+      return <Badge variant="default" className="bg-green-500 text-white">Mainnet</Badge>
+    } else if (net === 'TESTNET') {
+      return <Badge variant="default" className="bg-blue-500 text-white">Testnet</Badge>
+    } else {
+      return <Badge variant="default" className="bg-purple-500 text-white">Devnet</Badge>
+    }
+  }
+
   return (
-    <div className={cn("space-y-4", className)}>
-      {backTo && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => window.history.back()}
-          className="gap-2"
-        >
-          <span>←</span>
-          {backTo.label}
-        </Button>
-      )}
-      
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {icon && (
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              {icon}
+    <div className="bg-white border-b">
+      <div className="px-6 py-4">
+        {/* Top Row: Title and Selectors */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <Coins className="h-6 w-6 text-primary" />
+              <h1 className="text-2xl font-bold text-foreground">
+                {title}
+              </h1>
+              <Badge variant="secondary" className="text-xs">
+                Real-time
+              </Badge>
+              {getNetworkBadge(network)}
+              {walletAddress && walletBalance && (
+                <Badge variant="outline" className="text-xs font-mono">
+                  {walletBalance} SOL
+                </Badge>
+              )}
+              {primaryProject && (
+                <Badge variant="outline" className="text-xs">
+                  <Briefcase className="h-3 w-3 mr-1" />
+                  {primaryProject.name}
+                </Badge>
+              )}
             </div>
-          )}
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-            {description && (
-              <p className="text-muted-foreground">{description}</p>
+            {subtitle && (
+              <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
             )}
           </div>
+
+          <div className="flex items-center gap-3">
+            {/* Project Selector */}
+            {primaryProject && (
+              <Select 
+                value={projectId || primaryProject.id} 
+                onValueChange={onProjectChange}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={primaryProject.id}>
+                    {primaryProject.name}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Network Selector */}
+            <Select value={network} onValueChange={onNetworkChange}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Select network" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MAINNET">Mainnet</SelectItem>
+                <SelectItem value="TESTNET">Testnet</SelectItem>
+                <SelectItem value="DEVNET">Devnet</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Wallet Selector */}
+            {projectId && (
+              <WalletSelector
+                projectId={projectId}
+                blockchain="solana"
+                network={network.toLowerCase() as 'mainnet' | 'testnet' | 'all'}
+                onWalletSelect={onWalletSelect}
+                placeholder="Select wallet"
+                showBalance={true}
+                autoDecrypt={true}
+              />
+            )}
+
+            {/* Refresh Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRefresh}
+              disabled={isLoading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`}
+              />
+              {isLoading ? 'Refreshing...' : 'Refresh'}
+            </Button>
+
+            {/* Action Buttons */}
+            {showDeploy && onDeploy && walletAddress && projectId && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDeploy}
+              >
+                <Rocket className="h-4 w-4 mr-2" />
+                Deploy Token
+              </Button>
+            )}
+
+            {showManage && onManage && walletAddress && projectId && (
+              <Button
+                size="sm"
+                onClick={onManage}
+                disabled={isLoading}
+              >
+                <Coins className="h-4 w-4 mr-2" />
+                Manage Tokens
+              </Button>
+            )}
+
+            {/* Custom Actions */}
+            {actions}
+          </div>
         </div>
 
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        {/* Warning if no project selected */}
+        {!projectId && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg mb-3">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="text-sm text-amber-800">
+              Please select a project to access Solana features
+            </span>
+          </div>
+        )}
+
+        {/* Warning if no wallet connected */}
+        {!walletAddress && projectId && (
+          <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <span className="text-sm text-amber-800">
+              Select a Solana wallet to access all features
+            </span>
+          </div>
+        )}
       </div>
     </div>
-  );
+  )
 }
+
+export default SolanaDashboardHeader

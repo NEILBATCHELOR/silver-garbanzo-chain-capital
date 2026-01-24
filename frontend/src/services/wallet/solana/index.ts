@@ -45,61 +45,50 @@ export {
   type FeeEstimate
 } from './ModernSolanaTokenTransferService';
 
-// ============================================================================
-// TOKEN OPERATIONS SERVICES
-// ============================================================================
+export {
+  SimpleSolanaTokenTransferService,
+  simpleSolanaTokenTransferService,
+  type SimpleTransferParams,
+  type SimpleTransferOptions,
+  type SimpleTransferResult
+} from './SimpleSolanaTokenTransferService';
 
 export {
-  ModernSolanaTokenDelegateService,
-  modernSolanaTokenDelegateService,
-  type ApproveDelegateParams,
-  type RevokeDelegateParams,
-  type ApproveResult,
-  type RevokeResult,
-  type DelegateInfo
-} from './ModernSolanaTokenDelegateService';
+  ModernSolanaMintService,
+  modernSolanaMintService,
+  type MintCreationConfig,
+  type MintCreationOptions,
+  type MintCreationResult
+} from './ModernSolanaMintService';
+
+export {
+  ModernSolanaTokenAccountService,
+  modernSolanaTokenAccountService,
+  type TokenAccountConfig,
+  type ATAConfig,
+  type TokenAccountOptions,
+  type TokenAccountResult,
+  type TokenAccountInfo
+} from './ModernSolanaTokenAccountService';
 
 export {
   ModernSolanaTokenBurnService,
   modernSolanaTokenBurnService,
-  type BurnTokenParams,
-  type BurnResult
+  type TokenBurnParams,
+  type ModernTokenBurnOptions,
+  type SolanaBurnResult,
+  type BurnValidation
 } from './ModernSolanaTokenBurnService';
 
-export {
-  ModernSolanaTokenMintService,
-  modernSolanaTokenMintService,
-  type MintTokensParams,
-  type MintResult
-} from './ModernSolanaTokenMintService';
+// ============================================================================
+// TOKEN OPERATIONS SERVICES
+// ============================================================================
 
-export {
-  ModernSolanaAuthorityService,
-  modernSolanaAuthorityService,
-  AuthorityType,
-  type SetAuthorityParams,
-  type SetAuthorityResult,
-  type AuthorityInfo
-} from './ModernSolanaAuthorityService';
-
-export {
-  ModernSolanaFreezeService,
-  modernSolanaFreezeService,
-  FreezeStatus,
-  type FreezeAccountParams,
-  type ThawAccountParams,
-  type FreezeResult
-} from './ModernSolanaFreezeService';
-
-export {
-  ModernSolanaAccountService,
-  modernSolanaAccountService,
-  type CloseAccountParams,
-  type SyncNativeParams,
-  type CloseAccountResult,
-  type SyncNativeResult,
-  type TokenAccountInfo
-} from './ModernSolanaAccountService';
+// NOTE: Additional token operation services will be added as needed:
+// - ModernSolanaTokenDelegateService (approve/revoke delegates)
+// - ModernSolanaTokenMintService (mint additional tokens)
+// - ModernSolanaAuthorityService (set mint/freeze authority)
+// - ModernSolanaFreezeService (freeze/thaw accounts)
 
 // ============================================================================
 // LEGACY SERVICES (Backward compatibility - delegate to modern)
@@ -119,6 +108,6 @@ export { solanaTokenDeploymentService } from './SolanaTokenDeploymentService';
 // INFRASTRUCTURE EXPORTS
 // ============================================================================
 
-export { createModernRpc } from './ModernSolanaRpc';
-export { createSolanaError } from './ModernSolanaErrors';
-export type { SolanaNetwork } from './ModernSolanaTypes';
+// Re-export infrastructure utilities from their actual location
+export { createModernRpc, createCustomRpc } from '@/infrastructure/web3/solana';
+export type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';

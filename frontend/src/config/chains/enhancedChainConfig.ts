@@ -497,6 +497,80 @@ export const ENHANCED_CHAIN_CONFIGS: ChainConfig[] = [
         }
       }
     ]
+  },
+  {
+    name: 'ripple',
+    label: 'XRP Ledger',
+    icon: '💧',
+    color: 'bg-blue-600',
+    chainType: 'other',
+    environments: [
+      {
+        name: 'mainnet',
+        chainId: null,
+        net: 'mainnet',
+        displayName: 'XRPL Mainnet',
+        isTestnet: false,
+        explorerUrl: 'https://livenet.xrpl.org',
+        balanceServiceKey: 'ripple',
+        nativeCurrency: {
+          name: 'XRP',
+          symbol: 'XRP',
+          decimals: 6
+        }
+      },
+      {
+        name: 'testnet',
+        chainId: null,
+        net: 'testnet',
+        displayName: 'XRPL Testnet',
+        isTestnet: true,
+        explorerUrl: 'https://testnet.xrpl.org',
+        balanceServiceKey: 'ripple-testnet',
+        nativeCurrency: {
+          name: 'Test XRP',
+          symbol: 'XRP',
+          decimals: 6
+        }
+      }
+    ]
+  },
+  {
+    name: 'xrpl-evm',
+    label: 'XRPL EVM Sidechain',
+    icon: '💧⚡',
+    color: 'bg-cyan-600',
+    chainType: 'evm',
+    environments: [
+      {
+        name: 'mainnet',
+        chainId: '1440002',
+        net: 'xrpl-evm',
+        displayName: 'XRPL EVM Mainnet',
+        isTestnet: false,
+        explorerUrl: 'https://evm-sidechain.xrpl.org',
+        balanceServiceKey: 'xrpl-evm',
+        nativeCurrency: {
+          name: 'XRP',
+          symbol: 'XRP',
+          decimals: 18
+        }
+      },
+      {
+        name: 'testnet',
+        chainId: '1440001',
+        net: 'xrpl-evm-testnet',
+        displayName: 'XRPL EVM Testnet',
+        isTestnet: true,
+        explorerUrl: 'https://evm-sidechain-testnet.xrpl.org',
+        balanceServiceKey: 'xrpl-evm-testnet',
+        nativeCurrency: {
+          name: 'Test XRP',
+          symbol: 'XRP',
+          decimals: 18
+        }
+      }
+    ]
   }
 ];
 

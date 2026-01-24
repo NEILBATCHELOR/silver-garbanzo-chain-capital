@@ -48,6 +48,7 @@ export interface EnvironmentOption {
   displayName: string;
   isTestnet: boolean;
   chainId?: string;
+  net: string; // Network identifier (e.g., 'testnet', 'mainnet', 'amoy')
 }
 
 /**
@@ -67,15 +68,15 @@ export interface ResolvedChainEnvironment {
 export const chains: Record<string, ChainConfig> = {
   ethereum: {
     id: 1,
-    name: 'Ethereum',
-    displayName: 'Ethereum Mainnet',
+    name: 'ethereum',
+    displayName: 'Ethereum',
     rpcUrl: import.meta.env.VITE_ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     blockExplorer: 'https://etherscan.io',
   },
   sepolia: {
     id: 11155111,
-    name: 'Sepolia',
+    name: 'sepolia',
     displayName: 'Sepolia Testnet',
     rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
     nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
@@ -84,7 +85,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   holesky: {
     id: 17000,
-    name: 'Holesky',
+    name: 'holesky',
     displayName: 'Holesky Testnet',
     rpcUrl: import.meta.env.VITE_HOLESKY_RPC_URL || 'https://ethereum-holesky-rpc.publicnode.com',
     nativeCurrency: { name: 'Holesky Ether', symbol: 'ETH', decimals: 18 },
@@ -93,15 +94,15 @@ export const chains: Record<string, ChainConfig> = {
   },
   polygon: {
     id: 137,
-    name: 'Polygon',
-    displayName: 'Polygon Mainnet',
+    name: 'polygon',
+    displayName: 'Polygon',
     rpcUrl: import.meta.env.VITE_POLYGON_RPC_URL || 'https://polygon-rpc.com',
     nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
     blockExplorer: 'https://polygonscan.com',
   },
   amoy: {
     id: 80002,
-    name: 'Amoy',
+    name: 'amoy',
     displayName: 'Polygon Amoy Testnet',
     rpcUrl: import.meta.env.VITE_AMOY_RPC_URL || 'https://rpc-amoy.polygon.technology',
     nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
@@ -110,15 +111,15 @@ export const chains: Record<string, ChainConfig> = {
   },
   arbitrum: {
     id: 42161,
-    name: 'Arbitrum',
-    displayName: 'Arbitrum One',
+    name: 'arbitrum',
+    displayName: 'Arbitrum',
     rpcUrl: import.meta.env.VITE_ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     blockExplorer: 'https://arbiscan.io',
   },
   'arbitrum-sepolia': {
     id: 421614,
-    name: 'Arbitrum Sepolia',
+    name: 'arbitrum-sepolia',
     displayName: 'Arbitrum Sepolia Testnet',
     rpcUrl: import.meta.env.VITE_ARBITRUM_SEPOLIA_RPC_URL || 'https://sepolia-rollup.arbitrum.io/rpc',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -127,15 +128,15 @@ export const chains: Record<string, ChainConfig> = {
   },
   avalanche: {
     id: 43114,
-    name: 'Avalanche',
-    displayName: 'Avalanche C-Chain',
+    name: 'avalanche',
+    displayName: 'Avalanche',
     rpcUrl: import.meta.env.VITE_AVALANCHE_RPC_URL || 'https://api.avax.network/ext/bc/C/rpc',
     nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
     blockExplorer: 'https://snowtrace.io',
   },
   'avalanche-testnet': {
     id: 43113,
-    name: 'Avalanche Testnet',
+    name: 'avalanche-testnet',
     displayName: 'Avalanche Fuji Testnet',
     rpcUrl: import.meta.env.VITE_AVALANCHE_TESTNET_RPC_URL || 'https://api.avax-test.network/ext/bc/C/rpc',
     nativeCurrency: { name: 'AVAX', symbol: 'AVAX', decimals: 18 },
@@ -144,15 +145,15 @@ export const chains: Record<string, ChainConfig> = {
   },
   optimism: {
     id: 10,
-    name: 'Optimism',
-    displayName: 'Optimism Mainnet',
+    name: 'optimism',
+    displayName: 'Optimism',
     rpcUrl: import.meta.env.VITE_OPTIMISM_RPC_URL || 'https://mainnet.optimism.io',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     blockExplorer: 'https://optimistic.etherscan.io',
   },
   'optimism-sepolia': {
     id: 11155420,
-    name: 'Optimism Sepolia',
+    name: 'optimism-sepolia',
     displayName: 'Optimism Sepolia Testnet',
     rpcUrl: import.meta.env.VITE_OPTIMISM_SEPOLIA_RPC_URL || 'https://sepolia.optimism.io',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -161,15 +162,15 @@ export const chains: Record<string, ChainConfig> = {
   },
   base: {
     id: 8453,
-    name: 'Base',
-    displayName: 'Base Mainnet',
+    name: 'base',
+    displayName: 'Base',
     rpcUrl: import.meta.env.VITE_BASE_RPC_URL || 'https://mainnet.base.org',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     blockExplorer: 'https://basescan.org',
   },
   'base-sepolia': {
     id: 84532,
-    name: 'Base Sepolia',
+    name: 'base-sepolia',
     displayName: 'Base Sepolia Testnet',
     rpcUrl: import.meta.env.VITE_BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -178,7 +179,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   bsc: {
     id: 56,
-    name: 'BSC',
+    name: 'bsc',
     displayName: 'BNB Smart Chain',
     rpcUrl: import.meta.env.VITE_BSC_RPC_URL || 'https://bsc-dataseed.binance.org',
     nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
@@ -186,7 +187,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   'bsc-testnet': {
     id: 97,
-    name: 'BSC Testnet',
+    name: 'bsc-testnet',
     displayName: 'BNB Smart Chain Testnet',
     rpcUrl: import.meta.env.VITE_BSC_TESTNET_RPC_URL || 'https://data-seed-prebsc-1-s1.binance.org:8545',
     nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
@@ -195,15 +196,15 @@ export const chains: Record<string, ChainConfig> = {
   },
   zksync: {
     id: 324,
-    name: 'zkSync',
-    displayName: 'zkSync Era Mainnet',
+    name: 'zksync',
+    displayName: 'zkSync',
     rpcUrl: import.meta.env.VITE_ZKSYNC_RPC_URL || 'https://mainnet.era.zksync.io',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     blockExplorer: 'https://explorer.zksync.io',
   },
   'zksync-sepolia': {
     id: 300,
-    name: 'zkSync Sepolia',
+    name: 'zksync-sepolia',
     displayName: 'zkSync Era Sepolia Testnet',
     rpcUrl: import.meta.env.VITE_ZKSYNC_SEPOLIA_RPC_URL || 'https://sepolia.era.zksync.dev',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -212,7 +213,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   hoodi: {
     id: 560048,
-    name: 'Hoodi',
+    name: 'hoodi',
     displayName: 'Hoodi Testnet',
     rpcUrl: import.meta.env.VITE_HOODI_RPC_URL || 'https://rpc.hoodi.io',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
@@ -221,8 +222,8 @@ export const chains: Record<string, ChainConfig> = {
   },
   injective: {
     id: 'injective-1', // Cosmos chain ID
-    name: 'Injective',
-    displayName: 'Injective Mainnet',
+    name: 'injective',
+    displayName: 'Injective',
     rpcUrl: import.meta.env.VITE_INJECTIVE_RPC_URL || 'https://sentry.tm.injective.network:443',
     nativeCurrency: { name: 'INJ', symbol: 'INJ', decimals: 18 },
     blockExplorer: 'https://explorer.injective.network',
@@ -231,7 +232,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   'injective-testnet': {
     id: 'injective-888', // Cosmos chain ID
-    name: 'Injective Testnet',
+    name: 'injective-testnet',
     displayName: 'Injective Testnet',
     rpcUrl: import.meta.env.VITE_INJECTIVE_TESTNET_RPC_URL || 'https://testnet.sentry.tm.injective.network:443',
     nativeCurrency: { name: 'INJ', symbol: 'INJ', decimals: 18 },
@@ -240,11 +241,28 @@ export const chains: Record<string, ChainConfig> = {
     isNonEvm: true,
     cosmosChainId: 'injective-888',
   },
+  'injective-evm': {
+    id: 1776, // EVM chain ID
+    name: 'injective-evm',
+    displayName: 'Injective EVM',
+    rpcUrl: import.meta.env.VITE_INJECTIVE_EVM_RPC_URL || 'https://mainnet.json-rpc.injective.network',
+    nativeCurrency: { name: 'INJ', symbol: 'INJ', decimals: 18 },
+    blockExplorer: 'https://explorer.injective.network',
+  },
+  'injective-evm-testnet': {
+    id: 1439, // EVM chain ID
+    name: 'injective-evm-testnet',
+    displayName: 'Injective EVM Testnet',
+    rpcUrl: import.meta.env.VITE_INJECTIVE_EVM_TESTNET_RPC_URL || 'https://testnet.json-rpc.injective.network',
+    nativeCurrency: { name: 'INJ', symbol: 'INJ', decimals: 18 },
+    blockExplorer: 'https://testnet.explorer.injective.network',
+    isTestnet: true,
+  },
   // Non-EVM networks
   bitcoin: {
     id: 'bitcoin',
-    name: 'Bitcoin',
-    displayName: 'Bitcoin Mainnet',
+    name: 'bitcoin',
+    displayName: 'Bitcoin',
     rpcUrl: '',
     nativeCurrency: { name: 'Bitcoin', symbol: 'BTC', decimals: 8 },
     blockExplorer: 'https://blockchain.info',
@@ -252,7 +270,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   'bitcoin-testnet': {
     id: 'bitcoin-testnet',
-    name: 'Bitcoin Testnet',
+    name: 'bitcoin-testnet',
     displayName: 'Bitcoin Testnet',
     rpcUrl: '',
     nativeCurrency: { name: 'Bitcoin', symbol: 'BTC', decimals: 8 },
@@ -262,8 +280,8 @@ export const chains: Record<string, ChainConfig> = {
   },
   solana: {
     id: 'solana',
-    name: 'Solana',
-    displayName: 'Solana Mainnet',
+    name: 'solana',
+    displayName: 'Solana',
     rpcUrl: getRpcUrl('solana', 'mainnet'),
     nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
     blockExplorer: 'https://explorer.solana.com',
@@ -271,7 +289,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   'solana-devnet': {
     id: 'solana-devnet',
-    name: 'Solana Devnet',
+    name: 'solana-devnet',
     displayName: 'Solana Devnet',
     rpcUrl: getRpcUrl('solana', 'devnet'),
     nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
@@ -281,7 +299,7 @@ export const chains: Record<string, ChainConfig> = {
   },
   'solana-testnet': {
     id: 'solana-testnet',
-    name: 'Solana Testnet',
+    name: 'solana-testnet',
     displayName: 'Solana Testnet',
     rpcUrl: getRpcUrl('solana', 'testnet'),
     nativeCurrency: { name: 'SOL', symbol: 'SOL', decimals: 9 },
@@ -291,8 +309,8 @@ export const chains: Record<string, ChainConfig> = {
   },
   ripple: {
     id: 'ripple',
-    name: 'Ripple',
-    displayName: 'XRPL Mainnet',
+    name: 'ripple',
+    displayName: 'XRPL',
     rpcUrl: 'https://s1.ripple.com:51234/',
     nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 6 },
     blockExplorer: 'https://livenet.xrpl.org',
@@ -300,13 +318,40 @@ export const chains: Record<string, ChainConfig> = {
   },
   'ripple-testnet': {
     id: 'ripple-testnet',
-    name: 'Ripple Testnet',
+    name: 'ripple-testnet',
     displayName: 'XRPL Testnet',
     rpcUrl: 'https://s.altnet.rippletest.net:51234/',
     nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 6 },
     blockExplorer: 'https://testnet.xrpl.org',
     isTestnet: true,
     isNonEvm: true,
+  },
+  'ripple-devnet': {
+    id: 'ripple-devnet',
+    name: 'ripple-devnet',
+    displayName: 'XRPL Devnet',
+    rpcUrl: 'https://s.devnet.rippletest.net:51234/',
+    nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 6 },
+    blockExplorer: 'https://devnet.xrpl.org',
+    isTestnet: true,
+    isNonEvm: true,
+  },
+  'xrpl-evm': {
+    id: 1440,
+    name: 'xrpl-evm',
+    displayName: 'XRPL EVM',
+    rpcUrl: import.meta.env.VITE_XRPL_EVM_RPC_URL || 'https://rpc-evm-sidechain.xrpl.org',
+    nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 18 },
+    blockExplorer: 'https://explorer.xrpl.org',
+  },
+  'xrpl-evm-testnet': {
+    id: 1441,
+    name: 'xrpl-evm-testnet',
+    displayName: 'XRPL EVM Devnet',
+    rpcUrl: import.meta.env.VITE_XRPL_EVM_TESTNET_RPC_URL || 'https://rpc-evm-sidechain.peersyst.tech',
+    nativeCurrency: { name: 'XRP', symbol: 'XRP', decimals: 18 },
+    blockExplorer: 'https://explorer.xrpl-devnet.peersyst.tech',
+    isTestnet: true,
   },
 };
 
@@ -517,6 +562,69 @@ export function getAllChains(): ChainConfig[] {
 }
 
 /**
+ * Get unique base networks (filters out testnet/devnet variants)
+ * Returns only one entry per network family (e.g., just "Ethereum" not "Ethereum", "Sepolia", "Holesky")
+ */
+export function getUniqueNetworks(): ChainConfig[] {
+  const seen = new Set<string>();
+  const uniqueNetworks: ChainConfig[] = [];
+  
+  // Define network families and their base network
+  const networkFamilies: Record<string, string> = {
+    'ethereum': 'ethereum',
+    'sepolia': 'ethereum',
+    'holesky': 'ethereum',
+    'polygon': 'polygon',
+    'amoy': 'polygon',
+    'arbitrum': 'arbitrum',
+    'arbitrum-sepolia': 'arbitrum',
+    'avalanche': 'avalanche',
+    'avalanche-testnet': 'avalanche',
+    'optimism': 'optimism',
+    'optimism-sepolia': 'optimism',
+    'base': 'base',
+    'base-sepolia': 'base',
+    'bsc': 'bsc',
+    'bsc-testnet': 'bsc',
+    'zksync': 'zksync',
+    'zksync-sepolia': 'zksync',
+    'hoodi': 'hoodi',
+    'injective': 'injective',
+    'injective-testnet': 'injective',
+    'injective-evm': 'injective-evm',
+    'injective-evm-testnet': 'injective-evm',
+    'bitcoin': 'bitcoin',
+    'bitcoin-testnet': 'bitcoin',
+    'solana': 'solana',
+    'solana-devnet': 'solana',
+    'solana-testnet': 'solana',
+    'ripple': 'ripple',
+    'ripple-testnet': 'ripple',
+    'ripple-devnet': 'ripple',
+    'xrpl-evm': 'xrpl-evm',
+    'xrpl-evm-testnet': 'xrpl-evm',
+  };
+  
+  // Preferred display order
+  const preferredOrder = [
+    'ethereum', 'polygon', 'arbitrum', 'avalanche', 'optimism', 'base', 'bsc', 
+    'zksync', 'hoodi', 'injective', 'injective-evm', 'solana', 'ripple', 'xrpl-evm', 'bitcoin'
+  ];
+  
+  // Get one representative config per network family (prefer mainnet)
+  for (const baseNetwork of preferredOrder) {
+    // First try mainnet
+    const mainnetConfig = chains[baseNetwork];
+    if (mainnetConfig && !seen.has(baseNetwork)) {
+      uniqueNetworks.push(mainnetConfig);
+      seen.add(baseNetwork);
+    }
+  }
+  
+  return uniqueNetworks;
+}
+
+/**
  * Get available environments for a network
  * Returns array of environment options with display info
  */
@@ -531,30 +639,73 @@ export function getChainEnvironments(network: string): EnvironmentOption[] {
       name: 'mainnet',
       displayName: mainnetConfig.displayName,
       isTestnet: false,
-      chainId: String(mainnetConfig.id)
+      chainId: String(mainnetConfig.id),
+      net: normalizedNetwork
     });
   }
   
-  // Check for testnet variants
-  const testnetVariants = [
-    normalizedNetwork + '-testnet',
-    normalizedNetwork + '-devnet',
-    // Special cases
-    normalizedNetwork === 'polygon' ? 'amoy' : null,
-    normalizedNetwork === 'ethereum' ? 'sepolia' : null,
-    normalizedNetwork === 'ethereum' ? 'holesky' : null,
-  ].filter(Boolean) as string[];
+  // Check for testnet
+  const testnetKey = normalizedNetwork + '-testnet';
+  const testnetConfig = chains[testnetKey];
+  if (testnetConfig?.isTestnet) {
+    environments.push({
+      name: 'testnet',
+      displayName: testnetConfig.displayName,
+      isTestnet: true,
+      chainId: String(testnetConfig.id),
+      net: testnetKey
+    });
+  }
   
-  for (const variant of testnetVariants) {
-    const testnetConfig = chains[variant];
-    if (testnetConfig?.isTestnet) {
+  // Check for devnet
+  const devnetKey = normalizedNetwork + '-devnet';
+  const devnetConfig = chains[devnetKey];
+  if (devnetConfig?.isTestnet) {
+    environments.push({
+      name: 'testnet',
+      displayName: devnetConfig.displayName,
+      isTestnet: true,
+      chainId: String(devnetConfig.id),
+      net: devnetKey
+    });
+  }
+  
+  // Special cases for networks with different naming
+  if (normalizedNetwork === 'polygon') {
+    const amoyConfig = chains['amoy'];
+    if (amoyConfig && !environments.some(e => e.isTestnet)) {
       environments.push({
         name: 'testnet',
-        displayName: testnetConfig.displayName,
+        displayName: amoyConfig.displayName,
         isTestnet: true,
-        chainId: String(testnetConfig.id)
+        chainId: String(amoyConfig.id),
+        net: 'amoy'
       });
-      break; // Only add first testnet variant
+    }
+  }
+  
+  if (normalizedNetwork === 'ethereum') {
+    const sepoliaConfig = chains['sepolia'];
+    const holeskyConfig = chains['holesky'];
+    
+    if (sepoliaConfig && !environments.some(e => e.net === 'sepolia')) {
+      environments.push({
+        name: 'testnet',
+        displayName: sepoliaConfig.displayName,
+        isTestnet: true,
+        chainId: String(sepoliaConfig.id),
+        net: 'sepolia'
+      });
+    }
+    
+    if (holeskyConfig && !environments.some(e => e.net === 'holesky')) {
+      environments.push({
+        name: 'testnet',
+        displayName: holeskyConfig.displayName,
+        isTestnet: true,
+        chainId: String(holeskyConfig.id),
+        net: 'holesky'
+      });
     }
   }
   
