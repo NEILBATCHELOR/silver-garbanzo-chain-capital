@@ -118,12 +118,20 @@ export interface Token2022DeploymentResult {
 export class Token2022DeploymentService {
   /**
    * Deploy Token-2022 with extensions - FULLY MODERN
+   * 
+   * @param existingDatabaseTokenId - Optional existing database token UUID to update (instead of creating new)
    */
   async deployToken2022(
     config: Token2022Config,
-    options: Token2022DeploymentOptions
+    options: Token2022DeploymentOptions,
+    existingDatabaseTokenId?: string  // RENAMED to be crystal clear this is the DATABASE UUID
   ): Promise<Token2022DeploymentResult> {
     const startTime = Date.now();
+    
+    // DEBUG: Log what existingDatabaseTokenId we received
+    console.log('[Token2022] deployToken2022 called with existingDatabaseTokenId:', existingDatabaseTokenId);
+    console.log('[Token2022] existingDatabaseTokenId type:', typeof existingDatabaseTokenId);
+    console.log('[Token2022] existingDatabaseTokenId length:', existingDatabaseTokenId?.length);
     
     try {
       await logActivity({
@@ -199,15 +207,24 @@ export class Token2022DeploymentService {
       }
 
       // Step 8: Save to database
-      const tokenId = await this.saveDeploymentToDatabase({
+      // DEBUG: Log what we're about to pass
+      console.log('[Token2022] About to save to database');
+      console.log('[Token2022] solana mintAddress:', mintAddress);
+      console.log('[Token2022] database existingDatabaseTokenId:', existingDatabaseTokenId);
+      console.log('[Token2022] Passing existingTokenId:', existingDatabaseTokenId);
+      
+      // CRITICAL: existingDatabaseTokenId is the DATABASE UUID, mintAddress is the SOLANA address
+      const savedDatabaseTokenId = await this.saveDeploymentToDatabase({
         projectId: options.projectId,
         userId: options.userId,
+        deployerWalletAddress: payer.address, // Deployer wallet for reference only
         network: `solana-${options.network}`,
-        contractAddress: mintAddress,
+        contractAddress: mintAddress,  // This is the SOLANA MINT ADDRESS
         transactionHash: signature,
         config,
         extensions: this.getEnabledExtensions(config),
-        deploymentData: this.buildDeploymentData(config, payer.address, mintAddress)
+        deploymentData: this.buildDeploymentData(config, payer.address, mintAddress),
+        existingTokenId: existingDatabaseTokenId // This is the DATABASE UUID
       });
 
       const deploymentTimeMs = Date.now() - startTime;
@@ -215,7 +232,7 @@ export class Token2022DeploymentService {
       await logActivity({
         action: 'token2022_deployment_completed',
         entity_type: 'token',
-        entity_id: tokenId,
+        entity_id: savedDatabaseTokenId,
         details: {
           tokenAddress: mintAddress,
           transactionHash: signature,
@@ -233,7 +250,7 @@ export class Token2022DeploymentService {
         networkUsed: `solana-${options.network}`,
         extensions: this.getEnabledExtensions(config),
         deploymentTimeMs,
-        tokenId,
+        tokenId: savedDatabaseTokenId,  // Return the DATABASE UUID, not the mint address
         warnings: this.getDeploymentWarnings(config)
       };
 
@@ -493,51 +510,112 @@ export class Token2022DeploymentService {
 
   /**
    * Save deployment to database
+   * 
+   * IMPORTANT: If existingTokenId is provided, UPDATE that record instead of creating new
+   * For Solana: deployed_by should be the contract_address (mint), not the wallet
    */
   private async saveDeploymentToDatabase(params: {
     projectId: string;
     userId: string;
+    deployerWalletAddress: Address; // Wallet that deployed (stored in details only)
     network: string;
     contractAddress: string;
     transactionHash: string;
     config: Token2022Config;
     extensions: string[];
     deploymentData: any;
+    existingTokenId?: string; // NEW: Optional existing token ID to update
   }): Promise<string> {
-    // First, create the token record
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('tokens')
-      .insert({
-        project_id: params.projectId,
-        name: params.config.name,
-        symbol: params.config.symbol,
-        standard: 'Token2022',
-        network: params.network,
-        contract_address: params.contractAddress,
-        total_supply: params.config.initialSupply.toString(),
-        decimals: params.config.decimals,
-        metadata: {
-          uri: params.config.uri,
-          decimals: params.config.decimals,
-          extensions: params.extensions
-        }
-      })
-      .select()
-      .single();
+    // DEBUG: Log what we received
+    console.log('[Token2022] saveDeploymentToDatabase received:');
+    console.log('[Token2022] contractAddress:', params.contractAddress);
+    console.log('[Token2022] existingTokenId:', params.existingTokenId);
+    console.log('[Token2022] existingTokenId type:', typeof params.existingTokenId);
+    
+    let finalTokenId: string;
 
-    if (tokenError) {
-      throw new Error(`Failed to create token record: ${tokenError.message}`);
+    if (params.existingTokenId) {
+      // VALIDATION: Ensure existingTokenId is a UUID, not a Solana address
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(params.existingTokenId)) {
+        throw new Error(
+          `Invalid existingTokenId format: expected UUID but got "${params.existingTokenId}". ` +
+          `This looks like a Solana address. Check that you're passing the database token ID, not the mint address.`
+        );
+      }
+
+      // UPDATE EXISTING TOKEN
+      console.log('[Token2022] ABOUT TO UPDATE TOKENS TABLE');
+      console.log('[Token2022] Using .eq("id", params.existingTokenId)');
+      console.log('[Token2022] params.existingTokenId VALUE:', params.existingTokenId);
+      console.log('[Token2022] params.existingTokenId TYPE:', typeof params.existingTokenId);
+      console.log('[Token2022] params.contractAddress VALUE:', params.contractAddress);
+      console.log('[Token2022] ARE THEY THE SAME?', params.existingTokenId === params.contractAddress);
+      
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .update({
+          // deployed_by should be userId (UUID), NOT the mint address
+          // The mint address goes in the 'address' field
+          status: 'DEPLOYED',
+          address: params.contractAddress,
+          deployment_status: 'deployed',
+          deployment_timestamp: new Date().toISOString(),
+          deployment_transaction: params.transactionHash,
+          deployment_environment: params.network.replace('solana-', ''),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', params.existingTokenId)
+        .select()
+        .single();
+      
+      console.log('[Token2022] UPDATE COMPLETE');
+      console.log('[Token2022] tokenError:', tokenError);
+      console.log('[Token2022] tokenData:', tokenData);
+
+      if (tokenError || !tokenData) {
+        throw new Error(`Failed to update token record: ${tokenError?.message || 'Unknown error'}`);
+      }
+
+      finalTokenId = tokenData.id;
+    } else {
+      // CREATE NEW TOKEN (fallback for backward compatibility)
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .insert({
+          project_id: params.projectId,
+          name: params.config.name,
+          symbol: params.config.symbol,
+          standard: 'Token2022',
+          blockchain: params.network,
+          address: params.contractAddress,
+          total_supply: params.config.initialSupply.toString(),
+          decimals: params.config.decimals,
+          metadata: {
+            uri: params.config.uri,
+            decimals: params.config.decimals,
+            extensions: params.extensions
+          }
+        })
+        .select()
+        .single();
+
+      if (tokenError) {
+        throw new Error(`Failed to create token record: ${tokenError.message}`);
+      }
+
+      finalTokenId = tokenData.id;
     }
 
     // Then, create the deployment record
     const { data: deploymentData, error: deploymentError } = await supabase
       .from('token_deployments')
       .insert({
-        token_id: tokenData.id,
+        token_id: finalTokenId,
         network: params.network,
         contract_address: params.contractAddress,
         transaction_hash: params.transactionHash,
-        deployed_by: params.userId,
+        deployed_by: params.contractAddress, // For Solana: use mint address, not wallet
         status: 'DEPLOYED',
         deployment_data: params.deploymentData,
         deployment_strategy: 'Token2022',
@@ -546,7 +624,9 @@ export class Token2022DeploymentService {
           name: params.config.name,
           symbol: params.config.symbol,
           decimals: params.config.decimals,
-          extensions: params.extensions
+          extensions: params.extensions,
+          user_id: params.userId, // Store userId in details for reference
+          deployer_wallet: params.deployerWalletAddress // Store deployer wallet in details
         },
         solana_token_type: 'Token2022',
         solana_extensions: params.extensions as any[]
@@ -558,7 +638,7 @@ export class Token2022DeploymentService {
       throw new Error(`Failed to create deployment record: ${deploymentError.message}`);
     }
 
-    return tokenData.id;
+    return finalTokenId;
   }
 
   /**
@@ -654,10 +734,12 @@ export class Token2022DeploymentService {
     const extensions: string[] = [];
 
     if (config.enableMetadata) {
-      extensions.push('MetadataPointer', 'TokenMetadata');
+      // Database enum: 'Metadata' not 'TokenMetadata'
+      extensions.push('MetadataPointer', 'Metadata');
     }
     if (config.enableTransferFee) {
-      extensions.push('TransferFeeConfig');
+      // Database enum: 'TransferFee' not 'TransferFeeConfig'
+      extensions.push('TransferFee');
     }
     if (config.enableMintCloseAuthority) {
       extensions.push('MintCloseAuthority');

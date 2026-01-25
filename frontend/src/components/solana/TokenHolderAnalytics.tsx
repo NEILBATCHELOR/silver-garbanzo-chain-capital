@@ -1,20 +1,20 @@
 /**
- * Solana Token Holder Analytics
- * Displays holder distribution and statistics
+ * Solana Token Holder Analytics - BLOCKCHAIN VERSION
+ * 
+ * CRITICAL: Fetches REAL holder data from blockchain
+ * NO MOCK DATA - 100% on-chain queries
  * 
  * Features:
- * - Total holders count
- * - Top holders list
- * - Distribution chart
- * - Concentration metrics
+ * - Real holder discovery via getProgramAccounts
+ * - Actual balance calculations
+ * - Live concentration metrics
+ * - Top holders ranking
  */
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/infrastructure/database/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   RefreshCw, 
@@ -23,8 +23,9 @@ import {
   PieChart,
   ExternalLink
 } from 'lucide-react';
-import { createModernRpc } from '@/infrastructure/web3/solana/ModernSolanaRpc';
-import { address } from '@solana/kit';
+import { modernSolanaBlockchainQueryService } from '@/services/wallet/solana/ModernSolanaBlockchainQueryService';
+import type { TokenHolder } from '@/services/wallet/solana/ModernSolanaBlockchainQueryService';
+import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { HolderAnalyticsLoadingSkeleton } from './LoadingStates';
 import { solanaExplorer } from '@/infrastructure/web3/solana';
 
@@ -32,17 +33,10 @@ import { solanaExplorer } from '@/infrastructure/web3/solana';
 // TYPES
 // ============================================================================
 
-interface TokenHolder {
-  address: string;
-  balance: string;
-  percentage: number;
-  rank: number;
-}
-
 interface HolderAnalytics {
   totalHolders: number;
-  totalSupply: string;
-  topHolders: TokenHolder[];
+  totalSupply: bigint;
+  holders: TokenHolder[];
   concentration: {
     top10: number;
     top50: number;
@@ -52,7 +46,7 @@ interface HolderAnalytics {
 
 interface TokenHolderAnalyticsProps {
   tokenAddress: string;
-  network: 'mainnet-beta' | 'devnet' | 'testnet';
+  network: SolanaNetwork;
   decimals: number;
   tokenSymbol: string;
 }
@@ -71,6 +65,7 @@ export function TokenHolderAnalytics({
   const [analytics, setAnalytics] = useState<HolderAnalytics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showCount, setShowCount] = useState(10);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   useEffect(() => {
     loadHolderAnalytics();
@@ -80,60 +75,42 @@ export function TokenHolderAnalytics({
     try {
       setIsLoading(true);
 
-      const rpc = createModernRpc(network);
-      const mintAddress = address(tokenAddress);
+      // Fetch REAL holder data from blockchain
+      const holders = await modernSolanaBlockchainQueryService.getTokenHolders(
+        tokenAddress,
+        network
+      );
 
-      // Get program accounts for this token
-      // TODO: Implement actual holder fetching using getProgramAccounts
-      // For now, return mock data
-      const mockAnalytics: HolderAnalytics = {
-        totalHolders: 1523,
-        totalSupply: '1000000000000000',
-        topHolders: [
-          {
-            address: '7xKXt...9uYz2',
-            balance: '150000000000000',
-            percentage: 15,
-            rank: 1
-          },
-          {
-            address: '8yLZt...3vXw1',
-            balance: '120000000000000',
-            percentage: 12,
-            rank: 2
-          },
-          {
-            address: '9zMAt...7wQp4',
-            balance: '100000000000000',
-            percentage: 10,
-            rank: 3
-          },
-          {
-            address: '4aNBt...5rTy8',
-            balance: '85000000000000',
-            percentage: 8.5,
-            rank: 4
-          },
-          {
-            address: '5bOCt...6sUz9',
-            balance: '75000000000000',
-            percentage: 7.5,
-            rank: 5
-          }
-        ],
+      // Calculate total supply
+      const totalSupply = holders.reduce((sum, h) => sum + h.balance, BigInt(0));
+
+      // Calculate concentration
+      const top10 = holders.slice(0, 10).reduce((sum, h) => sum + h.percentage, 0);
+      const top50 = holders.slice(0, 50).reduce((sum, h) => sum + h.percentage, 0);
+      const top100 = holders.slice(0, 100).reduce((sum, h) => sum + h.percentage, 0);
+
+      setAnalytics({
+        totalHolders: holders.length,
+        totalSupply,
+        holders,
         concentration: {
-          top10: 45.5,
-          top50: 72.3,
-          top100: 85.7
+          top10: Math.round(top10 * 10) / 10,
+          top50: Math.round(top50 * 10) / 10,
+          top100: Math.round(top100 * 10) / 10
         }
-      };
+      });
 
-      setAnalytics(mockAnalytics);
+      setLastUpdated(new Date());
+
+      toast({
+        title: 'Holders Updated',
+        description: `Found ${holders.length} token holders on blockchain`
+      });
     } catch (error) {
       console.error('Error loading holder analytics:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load holder analytics',
+        description: 'Failed to load holder data from blockchain',
         variant: 'destructive'
       });
     } finally {
@@ -141,8 +118,15 @@ export function TokenHolderAnalytics({
     }
   };
 
-  const formatBalance = (balance: string): string => {
+  const formatBalance = (balance: bigint): string => {
     const value = Number(balance) / Math.pow(10, decimals);
+    return value.toLocaleString(undefined, {
+      maximumFractionDigits: 2
+    });
+  };
+
+  const formatSupply = (supply: bigint): string => {
+    const value = Number(supply) / Math.pow(10, decimals);
     return value.toLocaleString(undefined, {
       maximumFractionDigits: 2
     });
@@ -157,17 +141,25 @@ export function TokenHolderAnalytics({
     return <HolderAnalyticsLoadingSkeleton />;
   }
 
-  if (!analytics) {
+  if (!analytics || analytics.holders.length === 0) {
     return (
       <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Holder Analytics
+          </CardTitle>
+        </CardHeader>
         <CardContent className="p-6">
           <p className="text-center text-muted-foreground">
-            No holder data available
+            No holders found for this token
           </p>
         </CardContent>
       </Card>
     );
   }
+
+  const avgHolderBalance = analytics.totalSupply / BigInt(analytics.totalHolders);
 
   return (
     <Card>
@@ -202,15 +194,15 @@ export function TokenHolderAnalytics({
           />
           <StatCard
             label="Total Supply"
-            value={formatBalance(analytics.totalSupply)}
+            value={formatSupply(analytics.totalSupply)}
             icon={<TrendingUp className="h-4 w-4" />}
+            sublabel={tokenSymbol}
           />
           <StatCard
             label="Avg Holder"
-            value={formatBalance(
-              (Number(analytics.totalSupply) / analytics.totalHolders).toString()
-            )}
+            value={formatBalance(avgHolderBalance)}
             icon={<PieChart className="h-4 w-4" />}
+            sublabel={tokenSymbol}
           />
         </div>
 
@@ -235,14 +227,15 @@ export function TokenHolderAnalytics({
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold text-sm">Top Holders</h3>
-            <Badge variant="secondary">{analytics.topHolders.length}</Badge>
+            <Badge variant="secondary">{analytics.holders.length}</Badge>
           </div>
           
           <div className="space-y-2">
-            {analytics.topHolders.slice(0, showCount).map((holder) => (
+            {analytics.holders.slice(0, showCount).map((holder, idx) => (
               <HolderRow
                 key={holder.address}
                 holder={holder}
+                rank={idx + 1}
                 tokenSymbol={tokenSymbol}
                 decimals={decimals}
                 network={network}
@@ -250,15 +243,21 @@ export function TokenHolderAnalytics({
             ))}
           </div>
 
-          {analytics.topHolders.length > showCount && (
+          {analytics.holders.length > showCount && (
             <Button
               variant="outline"
               className="w-full"
-              onClick={() => setShowCount(showCount + 10)}
+              onClick={() => setShowCount(Math.min(showCount + 10, analytics.holders.length))}
             >
-              Show More
+              Show More ({analytics.holders.length - showCount} remaining)
             </Button>
           )}
+        </div>
+
+        {/* Data Source */}
+        <div className="flex items-center justify-between pt-2 border-t text-xs text-muted-foreground">
+          <span>✅ Live data from Solana blockchain</span>
+          <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>
         </div>
       </CardContent>
     </Card>
@@ -272,11 +271,13 @@ export function TokenHolderAnalytics({
 function StatCard({
   label,
   value,
-  icon
+  icon,
+  sublabel
 }: {
   label: string;
   value: string;
   icon: React.ReactNode;
+  sublabel?: string;
 }) {
   return (
     <div className="p-3 border rounded-lg space-y-1">
@@ -285,6 +286,9 @@ function StatCard({
         <span>{label}</span>
       </div>
       <p className="text-lg font-bold">{value}</p>
+      {sublabel && (
+        <p className="text-xs text-muted-foreground">{sublabel}</p>
+      )}
     </div>
   );
 }
@@ -306,12 +310,12 @@ function ConcentrationBar({
     <div className="space-y-2">
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium">{percentage}%</span>
+        <span className="font-medium">{percentage.toFixed(1)}%</span>
       </div>
       <div className="relative h-2 bg-muted rounded-full overflow-hidden">
         <div
           className={`h-full ${getColor(percentage)} transition-all duration-500`}
-          style={{ width: `${percentage}%` }}
+          style={{ width: `${Math.min(percentage, 100)}%` }}
         />
       </div>
     </div>
@@ -320,16 +324,18 @@ function ConcentrationBar({
 
 function HolderRow({
   holder,
+  rank,
   tokenSymbol,
   decimals,
   network
 }: {
   holder: TokenHolder;
+  rank: number;
   tokenSymbol: string;
   decimals: number;
-  network: string;
+  network: SolanaNetwork;
 }) {
-  const formatBalance = (balance: string): string => {
+  const formatBalance = (balance: bigint): string => {
     const value = Number(balance) / Math.pow(10, decimals);
     return value.toLocaleString(undefined, {
       maximumFractionDigits: 2
@@ -345,35 +351,37 @@ function HolderRow({
     <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors">
       <div className="flex items-center gap-3">
         <Badge variant="outline" className="w-10 justify-center">
-          #{holder.rank}
+          #{rank}
         </Badge>
         <div>
           <code className="text-xs bg-muted px-2 py-1 rounded">
             {shortenAddress(holder.address)}
           </code>
           <p className="text-xs text-muted-foreground mt-1">
-            {holder.percentage}% of supply
+            {holder.percentage.toFixed(2)}% of supply
           </p>
         </div>
       </div>
-      <div className="text-right">
-        <p className="text-sm font-mono font-medium">
-          {formatBalance(holder.balance)}
-        </p>
-        <p className="text-xs text-muted-foreground">{tokenSymbol}</p>
+      <div className="text-right flex items-center gap-2">
+        <div>
+          <p className="text-sm font-mono font-medium">
+            {formatBalance(holder.balance)}
+          </p>
+          <p className="text-xs text-muted-foreground">{tokenSymbol}</p>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() =>
+            window.open(
+              solanaExplorer.address(holder.address, network),
+              '_blank'
+            )
+          }
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
       </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() =>
-          window.open(
-            solanaExplorer.address(holder.address, network as any),
-            '_blank'
-          )
-        }
-      >
-        <ExternalLink className="h-4 w-4" />
-      </Button>
     </div>
   );
 }

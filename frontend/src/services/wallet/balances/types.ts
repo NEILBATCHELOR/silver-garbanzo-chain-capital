@@ -10,9 +10,10 @@ export interface TokenBalance {
   valueUsd: number;
   decimals: number;
   contractAddress?: string;
-  standard?: 'ERC-20' | 'BEP-20' | 'SPL' | 'native' | 'other' | 'Aptos Coin' | 'IBC' | 'NEP-141' | 'Sui Coin';
+  standard?: 'ERC-20' | 'BEP-20' | 'SPL' | 'Token2022' | 'native' | 'other' | 'Aptos Coin' | 'IBC' | 'NEP-141' | 'Sui Coin';
   logoUrl?: string;
   priceChange24h?: number;
+  tokenProgram?: 'spl-token' | 'token-2022'; // Solana-specific: which token program owns this token
 }
 
 export interface ChainBalance {

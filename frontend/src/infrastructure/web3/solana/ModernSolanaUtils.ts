@@ -165,7 +165,7 @@ export function validateMnemonic(mnemonic: string): boolean {
 // ===========================
 
 /**
- * Create signer from private key (base58 or hex or bytes)
+ * Create signer from private key (base58, base64, hex, or bytes)
  */
 export async function createSignerFromPrivateKey(
   privateKey: string | Uint8Array
@@ -173,12 +173,25 @@ export async function createSignerFromPrivateKey(
   let secretKey: Uint8Array;
 
   if (typeof privateKey === 'string') {
-    // Try hex format first
+    // Detect format and decode accordingly
     if (privateKey.length === 128) {
+      // Hex format (128 chars = 64 bytes)
       secretKey = new Uint8Array(Buffer.from(privateKey, 'hex'));
+    } else if (privateKey.includes('+') || privateKey.includes('/') || privateKey.includes('=')) {
+      // Base64 format (contains +, /, or =)
+      try {
+        const decoded = Buffer.from(privateKey, 'base64');
+        secretKey = new Uint8Array(decoded);
+      } catch (error) {
+        throw new Error(`Invalid base64 private key: ${error instanceof Error ? error.message : 'decode failed'}`);
+      }
     } else {
-      // Assume base58
-      secretKey = bs58.decode(privateKey);
+      // Assume base58 format
+      try {
+        secretKey = bs58.decode(privateKey);
+      } catch (error) {
+        throw new Error(`Invalid base58 private key: ${error instanceof Error ? error.message : 'decode failed'}`);
+      }
     }
   } else {
     secretKey = privateKey;
@@ -192,7 +205,7 @@ export async function createSignerFromPrivateKey(
     // 64-byte secret key (private + public) - use createKeyPairSignerFromBytes
     return await createKeyPairSignerFromBytes(secretKey, true);
   } else {
-    throw new Error(`Invalid private key length: ${secretKey.length} (expected 32 or 64 bytes)`);
+    throw new Error(`Invalid private key length: ${secretKey.length} bytes (expected 32 or 64 bytes). Format detection: ${typeof privateKey === 'string' ? `String length ${privateKey.length}, contains +: ${privateKey.includes('+')}, contains /: ${privateKey.includes('/')}` : 'Uint8Array'}`);
   }
 }
 
@@ -404,10 +417,39 @@ export function parseRpcError(error: any): {
 // ===========================
 
 /**
+ * Normalize Solana network format
+ * Converts database format (solana-devnet) to standard format (devnet)
+ */
+export function normalizeSolanaNetwork(network: string): 'mainnet-beta' | 'devnet' | 'testnet' {
+  // Remove 'solana-' prefix if present
+  const cleaned = network.toLowerCase().replace('solana-', '');
+  
+  // Map to standard format
+  const networkMap: Record<string, 'mainnet-beta' | 'devnet' | 'testnet'> = {
+    'mainnet': 'mainnet-beta',
+    'mainnet-beta': 'mainnet-beta',
+    'devnet': 'devnet',
+    'testnet': 'testnet',
+  };
+  
+  const normalized = networkMap[cleaned];
+  if (!normalized) {
+    throw new Error(`Invalid Solana network: ${network}`);
+  }
+  
+  return normalized;
+}
+
+/**
  * Validate network type
  */
 export function isValidNetwork(network: string): network is 'mainnet-beta' | 'devnet' | 'testnet' {
-  return ['mainnet-beta', 'devnet', 'testnet'].includes(network);
+  try {
+    normalizeSolanaNetwork(network);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**

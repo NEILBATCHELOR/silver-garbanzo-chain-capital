@@ -27,6 +27,8 @@ import {
 import { createModernRpc } from '@/infrastructure/web3/solana/ModernSolanaRpc';
 import { address } from '@solana/kit';
 import { MetadataLoadingSkeleton } from './LoadingStates';
+import { TokenInstructionsViewer } from './TokenInstructionsViewer';
+import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 
 // ============================================================================
 // TYPES
@@ -63,7 +65,7 @@ interface TokenMetadata {
   updateAuthority?: string | null;
   
   // Extensions (Token-2022)
-  extensions?: string[];
+  extensions?: Array<string | { extension?: string; type?: string; state?: unknown }>;
   transferFee?: {
     feeBasisPoints: number;
     maxFee: string;
@@ -98,37 +100,55 @@ export function TokenMetadataViewer({
     try {
       setIsLoading(true);
       
-      const rpc = createModernRpc(network);
-      const mintAddress = address(tokenAddress);
-      
-      // Get account info
-      const accountInfo = await rpc.getAccountInfo(mintAddress);
-      
-      if (!accountInfo) {
-        throw new Error('Token account not found');
-      }
+      // Fetch REAL on-chain metadata from blockchain
+      const { modernSolanaBlockchainQueryService } = await import('@/services/wallet/solana/ModernSolanaBlockchainQueryService');
+      const onChainData = await modernSolanaBlockchainQueryService.getOnChainMetadata(
+        tokenAddress,
+        network
+      );
 
-      // Parse metadata based on token type
-      // TODO: Implement actual metadata parsing
-      // For now, return placeholder
-      const mockMetadata: TokenMetadata = {
-        name: 'Token Name',
-        symbol: 'TKN',
-        decimals: 9,
-        supply: '1000000',
-        uri: 'https://arweave.net/...',
-        description: 'Token description from metadata',
-        mintAuthority: tokenAddress.slice(0, 44),
-        freezeAuthority: null,
-        extensions: tokenType === 'Token2022' ? ['Metadata', 'TransferFee'] : []
+      // Store RAW supply (will format when displaying)
+      const supplyRaw = onChainData.supply.toString();
+
+      // Build metadata object
+      const tokenMetadata: TokenMetadata = {
+        name: onChainData.name,
+        symbol: onChainData.symbol,
+        decimals: onChainData.decimals,
+        supply: supplyRaw, // Store raw supply as string
+        uri: onChainData.uri,
+        mintAuthority: onChainData.mintAuthority,
+        freezeAuthority: onChainData.freezeAuthority,
+        extensions: onChainData.extensions
       };
 
-      setMetadata(mockMetadata);
+      // Fetch off-chain metadata if URI exists
+      if (onChainData.uri) {
+        try {
+          const response = await fetch(onChainData.uri);
+          if (response.ok) {
+            const offChainData = await response.json();
+            tokenMetadata.description = offChainData.description;
+            tokenMetadata.image = offChainData.image;
+            tokenMetadata.externalUrl = offChainData.external_url;
+            tokenMetadata.attributes = offChainData.attributes;
+          }
+        } catch (err) {
+          console.warn('Failed to fetch off-chain metadata:', err);
+        }
+      }
+
+      setMetadata(tokenMetadata);
+
+      toast({
+        title: 'Metadata Loaded',
+        description: 'Fetched metadata from blockchain'
+      });
     } catch (error) {
       console.error('Error loading metadata:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load token metadata',
+        description: 'Failed to load token metadata from blockchain',
         variant: 'destructive'
       });
     } finally {
@@ -153,28 +173,29 @@ export function TokenMetadataViewer({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <Info className="h-5 w-5" />
-              Token Metadata
-            </CardTitle>
-            <CardDescription>
-              {tokenType} token information
-            </CardDescription>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Token Metadata
+              </CardTitle>
+              <CardDescription>
+                {tokenType} token information
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadMetadata}
+              disabled={isLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={loadMetadata}
-            disabled={isLoading}
-          >
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-          </Button>
-        </div>
-      </CardHeader>
+        </CardHeader>
       <CardContent className="space-y-6">
         {/* Token Image */}
         {metadata.image && (
@@ -255,11 +276,21 @@ export function TokenMetadataViewer({
                 Extensions
               </h3>
               <div className="flex flex-wrap gap-2">
-                {metadata.extensions.map((ext) => (
-                  <Badge key={ext} variant="secondary">
-                    {ext}
-                  </Badge>
-                ))}
+                {metadata.extensions.map((ext, index) => {
+                  // Extract extension name/type from object or use string directly
+                  const extensionName = typeof ext === 'string' 
+                    ? ext 
+                    : (ext.extension || ext.type || `Extension ${index + 1}`);
+                  
+                  return (
+                    <Badge 
+                      key={`${extensionName}-${index}`} 
+                      variant="secondary"
+                    >
+                      {extensionName}
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
           </>
@@ -320,6 +351,13 @@ export function TokenMetadataViewer({
         )}
       </CardContent>
     </Card>
+
+    {/* Token Instructions Section */}
+    <TokenInstructionsViewer
+      tokenAddress={tokenAddress}
+      network={network as SolanaNetwork}
+    />
+  </div>
   );
 }
 
@@ -362,10 +400,25 @@ function AuthorityRow({
 // ============================================================================
 
 function formatSupply(supply: string, decimals: number): string {
-  const value = Number(supply) / Math.pow(10, decimals);
-  return value.toLocaleString(undefined, {
+  // Use BigInt for precision with large numbers
+  const supplyBigInt = BigInt(supply);
+  const divisor = BigInt(10 ** decimals);
+  
+  // Calculate integer and fractional parts
+  const integerPart = supplyBigInt / divisor;
+  const remainder = supplyBigInt % divisor;
+  
+  // Format fractional part with proper padding
+  const fractionalPart = remainder.toString().padStart(decimals, '0');
+  
+  // Combine and remove trailing zeros
+  const combined = `${integerPart}.${fractionalPart}`;
+  const formatted = parseFloat(combined).toLocaleString(undefined, {
+    minimumFractionDigits: 0,
     maximumFractionDigits: decimals > 4 ? 4 : decimals
   });
+  
+  return formatted;
 }
 
 function shortenAddress(address: string): string {

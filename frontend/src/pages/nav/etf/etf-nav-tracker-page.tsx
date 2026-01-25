@@ -4,7 +4,7 @@
  * Following MMF NAV Tracker page pattern
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ETFNavigation, NAVChart } from '@/components/nav/etf'
@@ -40,9 +40,11 @@ export default function ETFNAVTrackerPage() {
   const etfs = etfsData?.data || []
 
   // Set default fund if not specified
-  if (!selectedFundId && etfs.length > 0) {
-    setSelectedFundId(etfs[0].id)
-  }
+  useEffect(() => {
+    if (!selectedFundId && etfs.length > 0) {
+      setSelectedFundId(etfs[0].id)
+    }
+  }, [selectedFundId, etfs])
 
   const selectedETF = etfs.find(e => e.id === selectedFundId)
 

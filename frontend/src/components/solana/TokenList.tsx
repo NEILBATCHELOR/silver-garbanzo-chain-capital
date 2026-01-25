@@ -127,11 +127,12 @@ export function TokenList({ projectId }: TokenListProps) {
       // Get deployment info for each token
       const tokensWithDeployments = await Promise.all(
         (tokensData || []).map(async (token) => {
+          // Query for successful deployments (status can be 'success', 'deployed', 'DEPLOYED', 'SUCCESS')
           const { data: deployment } = await supabase
             .from('token_deployments')
             .select('*')
             .eq('token_id', token.id)
-            .eq('status', 'deployed')
+            .in('status', ['success', 'deployed', 'DEPLOYED', 'SUCCESS'])
             .order('deployed_at', { ascending: false })
             .limit(1)
             .single();
@@ -198,10 +199,20 @@ export function TokenList({ projectId }: TokenListProps) {
   };
 
   /**
+   * Format network name for display
+   */
+  const formatNetwork = (network: string) => {
+    // Remove "solana-" prefix if present
+    return network.replace(/^solana-/, '');
+  };
+
+  /**
    * Get explorer URL
    */
   const getExplorerUrl = (address: string, network: string) => {
-    const cluster = network === 'mainnet-beta' ? '' : `?cluster=${network}`;
+    // Extract network without solana- prefix
+    const networkName = network.replace(/^solana-/, '');
+    const cluster = networkName === 'mainnet-beta' ? '' : `?cluster=${networkName}`;
     return `https://explorer.solana.com/address/${address}${cluster}`;
   };
 
@@ -229,15 +240,16 @@ export function TokenList({ projectId }: TokenListProps) {
   // ============================================================================
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Solana Tokens</CardTitle>
-            <CardDescription>
-              Manage your deployed SPL and Token-2022 tokens
-            </CardDescription>
-          </div>
+    <div className="p-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Solana Tokens</CardTitle>
+              <CardDescription>
+                Manage your deployed SPL and Token-2022 tokens
+              </CardDescription>
+            </div>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -247,7 +259,7 @@ export function TokenList({ projectId }: TokenListProps) {
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             </Button>
-            <Button onClick={() => navigate('deploy')}>
+            <Button onClick={() => navigate(`/projects/${projectId}/solana/deploy`)}>
               Deploy New Token
             </Button>
           </div>
@@ -318,7 +330,7 @@ export function TokenList({ projectId }: TokenListProps) {
                 : 'No Solana tokens deployed yet'}
             </p>
             {!searchTerm && tokenTypeFilter === 'all' && (
-              <Button onClick={() => navigate('deploy')}>
+              <Button onClick={() => navigate(`/projects/${projectId}/solana/deploy`)}>
                 Deploy Your First Token
               </Button>
             )}
@@ -330,6 +342,7 @@ export function TokenList({ projectId }: TokenListProps) {
                 <TableHead>Token</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Address</TableHead>
+                <TableHead>Transaction Hash</TableHead>
                 <TableHead>Network</TableHead>
                 <TableHead>Deployed</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -388,11 +401,39 @@ export function TokenList({ projectId }: TokenListProps) {
                     )}
                   </TableCell>
 
+                  {/* Transaction Hash */}
+                  <TableCell>
+                    {token.deployment?.transaction_hash ? (
+                      <div className="flex items-center gap-2">
+                        <code className="text-xs bg-muted px-2 py-1 rounded">
+                          {token.deployment.transaction_hash.slice(0, 8)}...
+                          {token.deployment.transaction_hash.slice(-6)}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            const explorerUrl = getExplorerUrl(
+                              token.deployment!.transaction_hash,
+                              token.deployment!.network
+                            ).replace('/address/', '/tx/');
+                            window.open(explorerUrl, '_blank');
+                          }}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
+                  </TableCell>
+
                   {/* Network */}
                   <TableCell>
                     {token.deployment?.network && (
                       <Badge variant="outline">
-                        {token.deployment.network}
+                        {formatNetwork(token.deployment.network)}
                       </Badge>
                     )}
                   </TableCell>
@@ -418,7 +459,7 @@ export function TokenList({ projectId }: TokenListProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => navigate(`${token.id}/details`)}
+                          onClick={() => navigate(`/projects/${projectId}/solana/${token.id}/details`)}
                         >
                           <Eye className="h-4 w-4 mr-2" />
                           View Details
@@ -427,7 +468,7 @@ export function TokenList({ projectId }: TokenListProps) {
                         {token.deployment?.contract_address && (
                           <>
                             <DropdownMenuItem
-                              onClick={() => navigate(`${token.id}/transfer`)}
+                              onClick={() => navigate(`/projects/${projectId}/solana/${token.id}/transfer`)}
                             >
                               <Send className="h-4 w-4 mr-2" />
                               Transfer Tokens
@@ -459,6 +500,7 @@ export function TokenList({ projectId }: TokenListProps) {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
 

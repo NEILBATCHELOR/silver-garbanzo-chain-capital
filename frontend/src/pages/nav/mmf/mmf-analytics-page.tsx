@@ -4,7 +4,7 @@
  * Following Bonds page pattern with enhanced header
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { MMFNavigation, WAMWALChart, LiquidityGauge, DeviationHistory } from '@/components/nav/mmf'
@@ -32,9 +32,11 @@ export default function MMFAnalyticsPage() {
   const mmfs = mmfsData?.data || []
 
   // Set default fund if not specified
-  if (!selectedFundId && mmfs.length > 0) {
-    setSelectedFundId(mmfs[0].id)
-  }
+  useEffect(() => {
+    if (!selectedFundId && mmfs.length > 0) {
+      setSelectedFundId(mmfs[0].id)
+    }
+  }, [selectedFundId, mmfs])
 
   const handleRefresh = () => {
     refetch()

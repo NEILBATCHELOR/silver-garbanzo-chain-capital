@@ -6,6 +6,10 @@
  * 
  * MIGRATION STATUS: ✅ MODERN
  * Uses: ModernSolanaRpc + @solana-program/token
+ * 
+ * CONFIRMATION STRATEGY: Polling-based (no WebSocket required)
+ * Why: Alchemy and many RPC providers don't support WebSocket subscriptions via simple URL conversion.
+ * We use getSignatureStatuses polling instead of WebSocket slot notifications for reliability.
  */
 
 import {
@@ -44,6 +48,7 @@ import { ModernSolanaRpc, createModernRpc } from '@/infrastructure/web3/solana';
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { supabase } from '@/infrastructure/database/client';
 import { logActivity } from '@/infrastructure/activityLogger';
+import { metaplexTokenMetadataService } from './MetaplexTokenMetadataService';
 import bs58 from 'bs58';
 
 // ============================================================================
@@ -86,10 +91,13 @@ export interface ModernSPLDeploymentResult {
 export class ModernSPLTokenDeploymentService {
   /**
    * Deploy SPL token using modern Solana SDK
+   * 
+   * @param tokenId - Optional existing token ID to update (instead of creating new)
    */
   async deploySPLToken(
     config: ModernSPLTokenConfig,
-    options: ModernSPLDeploymentOptions
+    options: ModernSPLDeploymentOptions,
+    tokenId?: string
   ): Promise<ModernSPLDeploymentResult> {
     try {
       // Step 1: Validate configuration
@@ -193,32 +201,137 @@ export class ModernSPLTokenDeploymentService {
       // Get signature for tracking (MODERN)
       const signature = getSignatureFromTransaction(signedTransaction);
       
-      // Encode and send transaction (MODERN)
+      // Encode and send transaction
       const encodedTransaction = getBase64EncodedWireTransaction(signedTransaction);
-      await rpc.sendRawTransaction(encodedTransaction, { skipPreflight: false });
+      await rpc.sendRawTransaction(encodedTransaction, { 
+        skipPreflight: false 
+      });
+
+      // Wait for confirmation using polling (no WebSocket required)
+      const confirmed = await rpc.waitForConfirmation(signature, 'confirmed', 60);
       
-      // Wait for confirmation (MODERN)
-      const confirmed = await rpc.waitForConfirmation(signature, 'confirmed');
       if (!confirmed) {
-        throw new Error('Transaction failed to confirm');
+        throw new Error('Transaction failed to confirm within 30 seconds');
       }
 
-      // Step 8: Save to database
-      const tokenId = await this.saveSPLDeployment({
+      // Step 7: Wait for FINALIZED confirmation before creating metadata
+      // This ensures the mint account data is fully propagated across the network
+      // and available for the Metaplex program to read
+      const finalized = await rpc.waitForConfirmation(signature, 'finalized', 90);
+      
+      if (!finalized) {
+        console.warn('Mint creation finalized confirmation timeout - proceeding with metadata creation anyway');
+        // Wait extra time if finalization times out
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      } else {
+        // Wait 2 seconds to ensure RPC node has the latest state
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      // Step 8: Create Metaplex Metadata (name, symbol, URI) with retry logic
+      const warnings: string[] = [];
+      let metadataSignature: string | undefined;
+      
+      // Retry metadata creation up to 3 times if it fails due to blockhash expiry
+      let metadataAttempts = 0;
+      const maxMetadataAttempts = 3;
+      let metadataSuccess = false;
+      
+      while (metadataAttempts < maxMetadataAttempts && !metadataSuccess) {
+        metadataAttempts++;
+        
+        try {
+          if (metadataAttempts > 1) {
+            console.log(`Metadata creation attempt ${metadataAttempts}/${maxMetadataAttempts}`);
+            // Wait before retry to allow network to settle
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
+          
+          const metadataResult = await metaplexTokenMetadataService.addMetadata(
+            {
+              name: config.name,
+              symbol: config.symbol,
+              uri: config.uri,
+              sellerFeeBasisPoints: 0 // No royalties for SPL tokens
+            },
+            {
+              network: options.network,
+              mintAddress: mintKeypair.address,
+              payerPrivateKey: options.walletPrivateKey,
+              isMutable: true // Allow metadata updates
+            }
+          );
+
+          if (metadataResult.success) {
+            metadataSignature = metadataResult.signature;
+            metadataSuccess = true;
+            await logActivity({
+              action: 'spl_metadata_created',
+              entity_type: 'token',
+              entity_id: mintKeypair.address,
+              details: {
+                signature: metadataResult.signature,
+                metadataPDA: metadataResult.metadataPDA,
+                attempts: metadataAttempts
+              }
+            });
+          } else {
+            const errorMsg = metadataResult.error || 'Unknown error';
+            
+            // Check if this is a retryable error (blockhash expiry)
+            const isRetryable = errorMsg.includes('block height exceeded') || 
+                              errorMsg.includes('blockhash') ||
+                              errorMsg.includes('expired');
+            
+            if (isRetryable && metadataAttempts < maxMetadataAttempts) {
+              console.warn(`Retryable metadata error (attempt ${metadataAttempts}): ${errorMsg}`);
+              continue; // Retry
+            } else {
+              // Non-retryable error or max attempts reached
+              warnings.push(`Metadata creation failed after ${metadataAttempts} attempts: ${errorMsg}`);
+              console.warn('Metadata creation failed:', errorMsg);
+              break;
+            }
+          }
+        } catch (metadataError) {
+          const errorMsg = metadataError instanceof Error ? metadataError.message : 'Unknown error';
+          
+          // Check if this is a retryable error
+          const isRetryable = errorMsg.includes('block height exceeded') || 
+                            errorMsg.includes('blockhash') ||
+                            errorMsg.includes('expired');
+          
+          if (isRetryable && metadataAttempts < maxMetadataAttempts) {
+            console.warn(`Retryable metadata error (attempt ${metadataAttempts}): ${errorMsg}`);
+            continue; // Retry
+          } else {
+            // Non-retryable error or max attempts reached
+            warnings.push(`Metadata creation error after ${metadataAttempts} attempts: ${errorMsg}`);
+            console.error('Metadata creation error:', metadataError);
+            break;
+          }
+        }
+      }
+
+      // Step 9: Save to database
+      const savedTokenId = await this.saveSPLDeployment({
         mintAddress: mintKeypair.address,
         tokenAccountAddress,
         signature,
         config,
-        options
+        options,
+        tokenId, // Pass the tokenId to update existing record
+        deployerWalletAddress: payer.address // Deployer wallet for reference
       });
 
       await logActivity({
         action: 'modern_spl_deployment_completed',
         entity_type: 'token',
-        entity_id: tokenId,
+        entity_id: savedTokenId,
         details: {
           mintAddress: mintKeypair.address,
           signature,
+          metadataSignature,
           network: options.network
         }
       });
@@ -229,7 +342,8 @@ export class ModernSPLTokenDeploymentService {
         mint: mintKeypair.address,
         transactionHash: signature,
         tokenAccountAddress,
-        deployedAt: new Date().toISOString()
+        deployedAt: new Date().toISOString(),
+        warnings: warnings.length > 0 ? warnings : undefined
       };
 
     } catch (error) {
@@ -309,6 +423,14 @@ export class ModernSPLTokenDeploymentService {
 
   /**
    * Save SPL deployment to database
+   * 
+   * IMPORTANT: This method receives a tokenId from the unified service
+   * We MUST update the existing token record, NOT create a new one
+   * 
+   * Database fields:
+   * - deployed_by: UUID of user who deployed the token
+   * - address: Solana mint address (the token's on-chain identifier)
+   * - deployerWalletAddress: Stored in deployment_data for reference
    */
   private async saveSPLDeployment(params: {
     mintAddress: Address;
@@ -316,42 +438,100 @@ export class ModernSPLTokenDeploymentService {
     signature: string;
     config: ModernSPLTokenConfig;
     options: ModernSPLDeploymentOptions;
+    tokenId?: string; // Existing token ID to update
+    deployerWalletAddress: Address; // Wallet that deployed (stored in details only)
   }): Promise<string> {
-    const { mintAddress, tokenAccountAddress, signature, config, options } = params;
+    const { mintAddress, tokenAccountAddress, signature, config, options, tokenId, deployerWalletAddress } = params;
 
-    // Step 1: Save to tokens table
-    const { data: tokenData, error: tokenError } = await supabase
-      .from('tokens')
-      .insert({
-        user_id: options.userId,
-        project_id: options.projectId,
-        name: config.name,
-        symbol: config.symbol,
-        standard: 'SPL',
-        network: `solana-${options.network}`,
-        contract_address: mintAddress,
-        decimals: config.decimals,
-        total_supply: config.initialSupply.toString(),
-        metadata_uri: config.uri,
-        created_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    // If tokenId is provided, UPDATE existing record. Otherwise CREATE new one.
+    let finalTokenId: string;
+    
+    if (tokenId) {
+      // UPDATE EXISTING TOKEN
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .update({
+          deployed_by: options.userId, // User ID who deployed the token
+          status: 'DEPLOYED',
+          address: mintAddress, // Solana mint address
+          deployment_status: 'deployed',
+          deployment_timestamp: new Date().toISOString(),
+          deployment_transaction: signature,
+          deployment_environment: options.network,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', tokenId)
+        .select()
+        .single();
 
-    if (tokenError || !tokenData) {
-      throw new Error(`Failed to save token: ${tokenError?.message || 'Unknown error'}`);
+      if (tokenError || !tokenData) {
+        throw new Error(`Failed to update token: ${tokenError?.message || 'Unknown error'}`);
+      }
+      
+      finalTokenId = tokenData.id;
+    } else {
+      // CREATE NEW TOKEN (fallback for backward compatibility)
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('tokens')
+        .insert({
+          deployed_by: options.userId, // User ID who deployed the token
+          project_id: options.projectId,
+          name: config.name,
+          symbol: config.symbol,
+          standard: 'SPL',
+          status: 'DEPLOYED',
+          blockchain: `solana-${options.network}`,
+          address: mintAddress, // Solana mint address
+          decimals: config.decimals,
+          total_supply: config.initialSupply.toString(),
+          blocks: {
+            // Minimal blocks config for Solana SPL tokens
+            name: config.name,
+            symbol: config.symbol,
+            initial_supply: config.initialSupply.toString(),
+            token_type: 'spl',
+            is_mintable: false,
+            is_burnable: false,
+            is_pausable: false
+          },
+          metadata: {
+            uri: config.uri
+          },
+          deployment_status: 'deployed',
+          deployment_timestamp: new Date().toISOString(),
+          deployment_transaction: signature,
+          deployment_environment: options.network,
+          created_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (tokenError || !tokenData) {
+        throw new Error(`Failed to save token: ${tokenError?.message || 'Unknown error'}`);
+      }
+      
+      finalTokenId = tokenData.id;
     }
 
     // Step 2: Save to token_deployments table
     const { error: deploymentError } = await supabase
       .from('token_deployments')
       .insert({
-        token_id: tokenData.id,
+        token_id: finalTokenId,
         network: `solana-${options.network}`,
         contract_address: mintAddress,
         transaction_hash: signature,
-        deployer_address: options.walletPrivateKey, // Store deployer address (should derive from key)
+        deployed_by: mintAddress, // For Solana: use mint address, not wallet
+        status: 'success',
+        deployed_at: new Date().toISOString(),
         solana_token_type: 'SPL',
+        details: {
+          deployment_type: 'modern_spl',
+          token_type: 'SPL',
+          network: options.network,
+          user_id: options.userId, // Store userId in details for reference
+          deployer_wallet: deployerWalletAddress // Store deployer wallet in details
+        },
         deployment_data: {
           solana_specific: {
             mint_authority: config.mintAuthority || null,
@@ -361,15 +541,14 @@ export class ModernSPLTokenDeploymentService {
             initial_supply: config.initialSupply.toString(),
             token_account_address: tokenAccountAddress
           }
-        },
-        deployed_at: new Date().toISOString()
+        }
       });
 
     if (deploymentError) {
       throw new Error(`Failed to save deployment: ${deploymentError.message}`);
     }
 
-    return tokenData.id;
+    return finalTokenId;
   }
 }
 

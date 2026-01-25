@@ -4,7 +4,7 @@
  * Following MMF Analytics page pattern
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { 
@@ -42,9 +42,11 @@ export default function ETFAnalyticsPage() {
   const etfs = etfsData?.data || []
 
   // Set default fund if not specified
-  if (!selectedFundId && etfs.length > 0) {
-    setSelectedFundId(etfs[0].id)
-  }
+  useEffect(() => {
+    if (!selectedFundId && etfs.length > 0) {
+      setSelectedFundId(etfs[0].id)
+    }
+  }, [selectedFundId, etfs])
 
   const handleRefresh = () => {
     refetch()

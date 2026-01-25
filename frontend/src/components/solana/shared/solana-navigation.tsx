@@ -6,7 +6,7 @@
  */
 
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { cn } from "@/utils/utils";
 import { 
   LayoutDashboard,
@@ -26,15 +26,17 @@ import {
 
 export interface SolanaNavigationProps {
   projectId?: string;
-  tokenId?: string; // For token-specific navigation
 }
 
 export const SolanaNavigation: React.FC<SolanaNavigationProps> = ({ 
-  projectId, 
-  tokenId 
+  projectId
 }) => {
   const location = useLocation();
   const currentPath = location.pathname;
+  const params = useParams<{ tokenId?: string; projectId?: string }>();
+  
+  // Extract tokenId from URL params
+  const tokenId = params.tokenId;
 
   const isActive = (path: string) => {
     return currentPath.includes(path);
@@ -75,56 +77,20 @@ export const SolanaNavigation: React.FC<SolanaNavigationProps> = ({
     {
       icon: <Info className="h-4 w-4" />,
       label: "Overview",
-      href: getPath(`/token/${tokenId}`),
-      active: currentPath === getPath(`/token/${tokenId}`),
+      href: getPath(`/${tokenId}/details`),
+      active: currentPath === getPath(`/${tokenId}/details`) || isActive(`/${tokenId}/details`),
     },
     {
       icon: <Settings className="h-4 w-4" />,
       label: "Operations",
-      href: getPath(`/token/${tokenId}/operations`),
+      href: getPath(`/${tokenId}/operations`),
       active: isActive("/operations"),
-    },
-    {
-      icon: <Coins className="h-4 w-4" />,
-      label: "Balance",
-      href: getPath(`/token/${tokenId}/balance`),
-      active: isActive("/balance"),
-    },
-    {
-      icon: <TrendingUp className="h-4 w-4" />,
-      label: "Metadata",
-      href: getPath(`/token/${tokenId}/metadata`),
-      active: isActive("/metadata"),
-    },
-    {
-      icon: <Users className="h-4 w-4" />,
-      label: "Holders",
-      href: getPath(`/token/${tokenId}/holders`),
-      active: isActive("/holders"),
-    },
-    {
-      icon: <History className="h-4 w-4" />,
-      label: "Transactions",
-      href: getPath(`/token/${tokenId}/transactions`),
-      active: isActive("/transactions"),
     },
     {
       icon: <Send className="h-4 w-4" />,
       label: "Transfer",
-      href: getPath(`/token/${tokenId}/transfer`),
+      href: getPath(`/${tokenId}/transfer`),
       active: isActive("/transfer"),
-    },
-    {
-      icon: <Search className="h-4 w-4" />,
-      label: "Search",
-      href: getPath(`/token/${tokenId}/search`),
-      active: isActive("/search"),
-    },
-    {
-      icon: <ArrowLeftRight className="h-4 w-4" />,
-      label: "Batch Transfer",
-      href: getPath(`/token/${tokenId}/batch`),
-      active: isActive("/batch"),
     },
   ] : [];
 

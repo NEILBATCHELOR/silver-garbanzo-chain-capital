@@ -37,15 +37,18 @@ export interface SolanaDashboardHeaderProps {
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
   walletAddress?: string
   walletBalance?: string
+  walletId?: string // Add wallet ID to track selected wallet
   title?: string
   subtitle?: string
   projectId?: string
+  projectName?: string
   onRefresh?: () => void
   onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
   onProjectChange?: (projectId: string) => void
   onWalletSelect?: (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => void
   actions?: React.ReactNode
   isLoading?: boolean
+  isLoadingBalance?: boolean
   showDeploy?: boolean
   showManage?: boolean
   onDeploy?: () => void
@@ -56,15 +59,18 @@ export function SolanaDashboardHeader({
   network = 'DEVNET',
   walletAddress,
   walletBalance,
+  walletId,
   title = 'Solana Token Launchpad',
   subtitle = 'Deploy and manage SPL and Token-2022 tokens on Solana',
   projectId,
+  projectName,
   onRefresh,
   onNetworkChange,
   onProjectChange,
   onWalletSelect,
   actions,
   isLoading = false,
+  isLoadingBalance = false,
   showDeploy = true,
   showManage = true,
   onDeploy,
@@ -107,13 +113,20 @@ export function SolanaDashboardHeader({
               {getNetworkBadge(network)}
               {walletAddress && walletBalance && (
                 <Badge variant="outline" className="text-xs font-mono">
-                  {walletBalance} SOL
+                  {isLoadingBalance ? (
+                    <div className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Loading...</span>
+                    </div>
+                  ) : (
+                    `${walletBalance} SOL`
+                  )}
                 </Badge>
               )}
-              {primaryProject && (
+              {(projectId || projectName) && (
                 <Badge variant="outline" className="text-xs">
                   <Briefcase className="h-3 w-3 mr-1" />
-                  {primaryProject.name}
+                  {projectName || primaryProject?.name || 'Project'}
                 </Badge>
               )}
             </div>
@@ -157,7 +170,8 @@ export function SolanaDashboardHeader({
               <WalletSelector
                 projectId={projectId}
                 blockchain="solana"
-                network={network.toLowerCase() as 'mainnet' | 'testnet' | 'all'}
+                network="all"
+                value={walletId}
                 onWalletSelect={onWalletSelect}
                 placeholder="Select wallet"
                 showBalance={true}

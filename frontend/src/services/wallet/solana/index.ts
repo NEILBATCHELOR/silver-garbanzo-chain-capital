@@ -39,6 +39,15 @@ export {
 } from './Token2022DeploymentService';
 
 export {
+  Token2022MetadataService,
+  token2022MetadataService,
+  type Token2022MetadataInfo,
+  type Token2022MetadataUpdate,
+  type Token2022MetadataOptions,
+  type Token2022MetadataResult
+} from './Token2022MetadataService';
+
+export {
   ModernSolanaTokenTransferService,
   modernSolanaTokenTransferService,
   type TokenTransferParams,
@@ -79,6 +88,26 @@ export {
   type SolanaBurnResult,
   type BurnValidation
 } from './ModernSolanaTokenBurnService';
+
+export {
+  ModernSolanaTokenQueryService,
+  modernSolanaTokenQueryService,
+  type TokenOnChainData,
+  type TokenAccountData,
+  type TokenTransactionSignature
+} from './ModernSolanaTokenQueryService';
+
+export {
+  ModernSolanaBlockchainQueryService,
+  modernSolanaBlockchainQueryService
+} from './ModernSolanaBlockchainQueryService';
+export type {
+  WalletBalance,
+  TokenBalance,
+  TokenHolder,
+  TokenTransaction,
+  OnChainMetadata
+} from './ModernSolanaBlockchainQueryService';
 
 // ============================================================================
 // TOKEN OPERATIONS SERVICES

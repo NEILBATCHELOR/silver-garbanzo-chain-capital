@@ -94,30 +94,40 @@ export class SolanaDevnetBalanceService extends BaseChainBalanceService {
       // Convert string address to Solana Address type
       const publicKey = address(addressString);
       
-      // Get all SPL token accounts for the address
-      // Note: Using legacy RPC call for token accounts as @solana/kit may not have this yet
-      const response = await this.makeRPCCall('getTokenAccountsByOwner', [
-        addressString, // Use string for this legacy call
-        { programId: 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' }, // SPL Token program
+      // Fetch BOTH SPL and Token-2022 tokens
+      const SPL_TOKEN_PROGRAM = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+      const TOKEN_2022_PROGRAM = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+      
+      // Get SPL token accounts
+      const splResponse = await this.makeRPCCall('getTokenAccountsByOwner', [
+        addressString,
+        { programId: SPL_TOKEN_PROGRAM },
         { encoding: 'jsonParsed' }
       ]);
 
-      if (response.error) {
-        console.warn(`⚠️ SPL token fetch failed:`, response.error.message);
-        return tokens;
-      }
+      // Get Token-2022 accounts
+      const token2022Response = await this.makeRPCCall('getTokenAccountsByOwner', [
+        addressString,
+        { programId: TOKEN_2022_PROGRAM },
+        { encoding: 'jsonParsed' }
+      ]);
 
-      const tokenAccounts: SolanaTokenAccount[] = response.result?.value || [];
+      // Combine results
+      const splAccounts: SolanaTokenAccount[] = splResponse.result?.value || [];
+      const token2022Accounts: SolanaTokenAccount[] = token2022Response.result?.value || [];
+      const allTokenAccounts = [...splAccounts, ...token2022Accounts];
+      
+      console.log(`🔍 Found ${splAccounts.length} SPL tokens and ${token2022Accounts.length} Token-2022 tokens`);
 
-      for (const tokenAccount of tokenAccounts) {
+      // Process SPL tokens
+      for (const tokenAccount of splAccounts) {
         try {
           const tokenInfo = tokenAccount.account.data.parsed.info;
           const tokenAmount = tokenInfo.tokenAmount;
           
           if (tokenAmount.uiAmount > 0.000001) {
             const tokenMetadata = await this.getTokenMetadata(tokenInfo.mint);
-            // For devnet, tokens have no real value
-            const tokenPrice = 0;
+            const tokenPrice = 0; // Devnet tokens have no real value
             
             tokens.push({
               symbol: tokenMetadata.symbol || 'Unknown',
@@ -126,13 +136,42 @@ export class SolanaDevnetBalanceService extends BaseChainBalanceService {
               valueUsd: tokenAmount.uiAmount * tokenPrice,
               decimals: tokenAmount.decimals,
               contractAddress: tokenInfo.mint,
-              standard: 'SPL'
+              standard: 'SPL',
+              tokenProgram: 'spl-token'
             });
 
-            console.log(`🪙 ${tokenMetadata.symbol}: ${tokenAmount.uiAmount} (devnet)`);
+            console.log(`🪙 SPL ${tokenMetadata.symbol}: ${tokenAmount.uiAmount} (devnet)`);
           }
         } catch (tokenError: any) {
-          console.warn(`⚠️ Failed to process devnet token:`, tokenError.message);
+          console.warn(`⚠️ Failed to process SPL token:`, tokenError.message);
+        }
+      }
+      
+      // Process Token-2022 tokens
+      for (const tokenAccount of token2022Accounts) {
+        try {
+          const tokenInfo = tokenAccount.account.data.parsed.info;
+          const tokenAmount = tokenInfo.tokenAmount;
+          
+          if (tokenAmount.uiAmount > 0.000001) {
+            const tokenMetadata = await this.getTokenMetadata(tokenInfo.mint);
+            const tokenPrice = 0; // Devnet tokens have no real value
+            
+            tokens.push({
+              symbol: tokenMetadata.symbol || 'Unknown',
+              balance: tokenAmount.uiAmount.toString(),
+              balanceRaw: tokenAmount.amount,
+              valueUsd: tokenAmount.uiAmount * tokenPrice,
+              decimals: tokenAmount.decimals,
+              contractAddress: tokenInfo.mint,
+              standard: 'Token2022',
+              tokenProgram: 'token-2022'
+            });
+
+            console.log(`🪙 Token-2022 ${tokenMetadata.symbol}: ${tokenAmount.uiAmount} (devnet)`);
+          }
+        } catch (tokenError: any) {
+          console.warn(`⚠️ Failed to process Token-2022 token:`, tokenError.message);
         }
       }
     } catch (error: any) {

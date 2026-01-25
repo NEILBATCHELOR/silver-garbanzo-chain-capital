@@ -13,7 +13,9 @@
  * - Project switcher in header
  * - Project-scoped data queries
  * - Audit trail for all solana operations
- * - Integrated navigation sidebar
+ * - Horizontal navigation (replacing vertical sidebar)
+ * - Wallet selection with persistence
+ * - Network derived from selected wallet
  * - Consistent dashboard header
  */
 
@@ -25,6 +27,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { RefreshCw, Info } from 'lucide-react'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import type { ProjectWalletData } from '@/services/project/project-wallet-service'
+
+// Balance services
+import { solanaBalanceService } from '@/services/wallet/balances/solana/SolanaBalanceService'
+import { solanaDevnetBalanceService } from '@/services/wallet/balances/solana/SolanaDevnetBalanceService'
 
 // Solana components
 import {
@@ -39,11 +46,16 @@ import {
 // Shared components
 import { SolanaNavigation, SolanaDashboardHeader } from './index'
 
+// Context
+import { SolanaWalletProvider } from '../contexts/SolanaWalletContext'
+
 interface Project {
   id: string
   name: string
   organization_id?: string
 }
+
+type NetworkType = 'MAINNET' | 'TESTNET' | 'DEVNET'
 
 export function SolanaProjectWrapper() {
   const { projectId } = useParams<{ projectId: string }>()
@@ -54,12 +66,50 @@ export function SolanaProjectWrapper() {
   const [currentProject, setCurrentProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [walletConnected, setWalletConnected] = useState(false)
+  
+  // Wallet state management
+  const [selectedWallet, setSelectedWallet] = useState<(ProjectWalletData & { decryptedPrivateKey?: string }) | null>(null)
+  const [walletBalance, setWalletBalance] = useState<string>('0.00')
+  const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+  const [network, setNetwork] = useState<NetworkType>('DEVNET')
 
   // Load project on mount or when projectId changes
   useEffect(() => {
     loadProject()
   }, [projectId])
+
+  // Derive network from selected wallet
+  useEffect(() => {
+    if (selectedWallet) {
+      const walletNetwork = deriveNetworkFromWallet(selectedWallet)
+      setNetwork(walletNetwork)
+    }
+  }, [selectedWallet])
+
+  // Refetch balance when network changes (manual override)
+  useEffect(() => {
+    if (selectedWallet) {
+      fetchWalletBalance(selectedWallet.wallet_address, network)
+    }
+  }, [network])
+
+  /**
+   * Derive network type from wallet data
+   */
+  const deriveNetworkFromWallet = (wallet: ProjectWalletData): NetworkType => {
+    const networkLower = wallet.net?.toLowerCase() || ''
+    
+    if (networkLower.includes('mainnet') || networkLower === 'mainnet-beta') {
+      return 'MAINNET'
+    } else if (networkLower.includes('testnet')) {
+      return 'TESTNET'
+    } else if (networkLower.includes('devnet')) {
+      return 'DEVNET'
+    }
+    
+    // Default to devnet for safety
+    return 'DEVNET'
+  }
 
   const loadProject = async () => {
     try {
@@ -134,19 +184,86 @@ export function SolanaProjectWrapper() {
 
   const handleRefresh = () => {
     loadProject()
+    // Also refresh balance if wallet is selected
+    if (selectedWallet) {
+      fetchWalletBalance(selectedWallet.wallet_address, network)
+    }
   }
 
-  const handleConnectWallet = () => {
-    // TODO: Implement wallet connection
+  /**
+   * Fetch wallet balance using appropriate balance service
+   */
+  const fetchWalletBalance = async (walletAddress: string, networkType: NetworkType) => {
+    try {
+      setIsLoadingBalance(true)
+      
+      // Select appropriate balance service based on network
+      let balanceService
+      switch (networkType) {
+        case 'MAINNET':
+          balanceService = solanaBalanceService
+          console.log('📡 Using Solana MAINNET balance service')
+          break
+        case 'TESTNET':
+          // Use devnet service for testnet as well
+          balanceService = solanaDevnetBalanceService
+          console.log('📡 Using Solana TESTNET balance service (devnet)')
+          break
+        case 'DEVNET':
+        default:
+          balanceService = solanaDevnetBalanceService
+          console.log('📡 Using Solana DEVNET balance service')
+          break
+      }
+      
+      // Fetch balance using correct method name
+      const balanceData = await balanceService.fetchBalance(walletAddress)
+      
+      // Format balance to 2 decimal places
+      const formattedBalance = parseFloat(balanceData.nativeBalance).toFixed(2)
+      setWalletBalance(formattedBalance)
+      
+      console.log(`✅ Fetched ${networkType} balance: ${formattedBalance} SOL for ${walletAddress.substring(0, 8)}...`)
+    } catch (error: any) {
+      console.error('Error fetching wallet balance:', error)
+      setWalletBalance('0.00')
+      toast({
+        title: 'Balance Fetch Failed',
+        description: error.message || 'Could not fetch wallet balance',
+        variant: 'destructive'
+      })
+    } finally {
+      setIsLoadingBalance(false)
+    }
+  }
+
+  /**
+   * Handle wallet selection
+   * Updates wallet state and derives network from wallet data
+   */
+  const handleWalletSelect = (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => {
+    console.log('Wallet selected:', wallet.wallet_address)
+    setSelectedWallet(wallet)
+    
+    // Derive network from wallet
+    const walletNetwork = deriveNetworkFromWallet(wallet)
+    setNetwork(walletNetwork)
+    
+    // Fetch balance for selected wallet
+    fetchWalletBalance(wallet.wallet_address, walletNetwork)
+    
     toast({
-      title: 'Wallet Connection',
-      description: 'Wallet connection coming soon',
+      title: 'Wallet Selected',
+      description: `Connected to ${wallet.wallet_address.substring(0, 8)}...`
     })
   }
 
-  const handleNetworkChange = (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => {
-    // TODO: Implement network switching
-    console.log('Network changed to:', network)
+  /**
+   * Handle network change (manual override)
+   */
+  const handleNetworkChange = (newNetwork: NetworkType) => {
+    setNetwork(newNetwork)
+    console.log('Network changed to:', newNetwork)
   }
 
   const handleDeposit = () => {
@@ -212,33 +329,44 @@ export function SolanaProjectWrapper() {
     <div className="w-full h-full flex flex-col">
       {/* Dashboard Header */}
       <SolanaDashboardHeader
-        title={`${currentProject.name} - Solana Token Launchpad`}
+        title="Solana Token Launchpad"
         subtitle="Deploy and manage SPL and Token-2022 tokens"
-        network="DEVNET"
+        network={network}
+        walletAddress={selectedWallet?.wallet_address}
+        walletBalance={walletBalance}
+        walletId={selectedWallet?.id}
         projectId={currentProject.id}
+        projectName={currentProject.name}
         showDeploy={true}
         showManage={true}
         isLoading={isLoading}
+        isLoadingBalance={isLoadingBalance}
         onDeploy={() => navigate(`/projects/${currentProject.id}/solana/deploy`)}
         onManage={() => navigate(`/projects/${currentProject.id}/solana/list`)}
         onRefresh={handleRefresh}
         onProjectChange={handleProjectChange}
+        onNetworkChange={handleNetworkChange}
+        onWalletSelect={handleWalletSelect}
       />
 
-      {/* Main Content Area with Sidebar Navigation */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar Navigation */}
-        <aside className="w-64 border-r bg-muted/40 p-4 overflow-y-auto">
-          <SolanaNavigation
-            projectId={currentProject.id}
-          />
-        </aside>
+      {/* Horizontal Navigation */}
+      <SolanaNavigation projectId={currentProject.id} />
 
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto">
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <SolanaWalletProvider selectedWallet={selectedWallet} network={network}>
           <Routes>
             {/* Dashboard */}
-            <Route index element={<SolanaTokenLaunchpad projectId={currentProject.id} />} />
+            <Route 
+              index 
+              element={
+                <SolanaTokenLaunchpad 
+                  projectId={currentProject.id} 
+                  selectedWallet={selectedWallet?.wallet_address} 
+                  network={network}
+                />
+              } 
+            />
             
             {/* Token List */}
             <Route path="list" element={<TokenList projectId={currentProject.id} />} />
@@ -254,43 +382,43 @@ export function SolanaProjectWrapper() {
             
             {/* Transfer Token */}
             <Route path=":tokenId/transfer" element={<TransferTokenForm projectId={currentProject.id} />} />
-            
-            {/* Analytics */}
-            <Route path="analytics" element={
-              <div className="p-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Analytics</CardTitle>
-                    <CardDescription>
-                      Performance analytics and metrics
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Analytics dashboard coming soon...</p>
-                  </CardContent>
-                </Card>
-              </div>
-            } />
-            
-            {/* Settings */}
-            <Route path="settings" element={
-              <div className="p-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Settings</CardTitle>
-                    <CardDescription>
-                      Solana configuration and preferences
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Settings page coming soon...</p>
-                  </CardContent>
-                </Card>
-              </div>
-            } />
-          </Routes>
-        </main>
-      </div>
+          
+          {/* Analytics */}
+          <Route path="analytics" element={
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Analytics</CardTitle>
+                  <CardDescription>
+                    Performance analytics and metrics
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Analytics dashboard coming soon...</p>
+                </CardContent>
+              </Card>
+            </div>
+          } />
+          
+          {/* Settings */}
+          <Route path="settings" element={
+            <div className="p-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Settings</CardTitle>
+                  <CardDescription>
+                    Solana configuration and preferences
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Settings page coming soon...</p>
+                </CardContent>
+              </Card>
+            </div>
+          } />
+        </Routes>
+        </SolanaWalletProvider>
+      </main>
     </div>
   )
 }

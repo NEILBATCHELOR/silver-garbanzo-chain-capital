@@ -51,6 +51,7 @@ export function TokenOperationsWrapper() {
           )
         `)
         .eq('id', tokenId)
+        .in('deployment.status', ['success', 'deployed', 'SUCCESS', 'DEPLOYED'])
         .single();
 
       if (fetchError) throw fetchError;

@@ -35,8 +35,11 @@ export async function logActivity(params: {
     }
     
     // Format details if it's an object
+    // Handle BigInt values by converting to strings
     const formattedDetails = typeof params.details === 'object' 
-      ? JSON.stringify(params.details)
+      ? JSON.stringify(params.details, (_, value) => 
+          typeof value === 'bigint' ? value.toString() : value
+        )
       : params.details;
     
     // Insert audit log

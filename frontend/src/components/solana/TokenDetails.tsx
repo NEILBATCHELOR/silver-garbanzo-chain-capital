@@ -42,13 +42,16 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Import our enhanced components
-import { TokenBalanceDisplay } from './TokenBalanceDisplay';
+import { DeployerWalletOverview } from './DeployerWalletOverview';
 import { TokenMetadataViewer } from './TokenMetadataViewer';
+import { TokenMetadataManager } from './TokenMetadataManager';
 import { TokenHolderAnalytics } from './TokenHolderAnalytics';
-import { TokenTransactionHistory } from './TokenTransactionHistory';
+import { BlockchainTokenTransactionHistory } from './BlockchainTokenTransactionHistory';
 import { TransactionSearch } from './TransactionSearch';
 import { BatchTransfer } from './BatchTransfer';
+import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { FullPageLoader } from './LoadingStates';
+import { modernSolanaTokenQueryService, type TokenOnChainData } from '@/services/wallet/solana';
 
 // ============================================================================
 // TYPES
@@ -76,11 +79,42 @@ interface TokenDetails {
     solana_extensions: string[] | null;
     deployment_data: any;
     block_explorer_url: string | null;
+    details?: {
+      deployer_wallet?: string;
+      user_id?: string;
+      deployment_type?: string;
+      token_type?: string;
+      network?: string;
+      [key: string]: any;
+    };
   } | null;
 }
 
 interface TokenDetailsProps {
   projectId: string;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Validate if a string is a valid Solana address format
+ * Solana addresses are base58-encoded strings, 32-44 characters long
+ * UUIDs have hyphens and are exactly 36 characters with specific format
+ */
+function isValidSolanaAddress(address: string): boolean {
+  if (!address || typeof address !== 'string') return false;
+  
+  // UUIDs have hyphens - Solana addresses don't
+  if (address.includes('-')) return false;
+  
+  // Solana addresses are typically 32-44 characters
+  if (address.length < 32 || address.length > 44) return false;
+  
+  // Base58 alphabet (no 0, O, I, l)
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/;
+  return base58Regex.test(address);
 }
 
 // ============================================================================
@@ -98,6 +132,13 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
   const [copiedTxHash, setCopiedTxHash] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [balance, setBalance] = useState('0');
+  
+  // On-chain data (real-time from blockchain)
+  const [onChainData, setOnChainData] = useState<TokenOnChainData | null>(null);
+  const [isLoadingOnChain, setIsLoadingOnChain] = useState(false);
+  
+  // Metadata refresh key - increment to force TokenMetadataViewer re-mount
+  const [metadataRefreshKey, setMetadataRefreshKey] = useState(0);
 
   // Load token on mount
   useEffect(() => {
@@ -129,7 +170,7 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
         .from('token_deployments')
         .select('*')
         .eq('token_id', tokenId)
-        .eq('status', 'deployed')
+        .in('status', ['success', 'deployed', 'DEPLOYED', 'SUCCESS'])
         .order('deployed_at', { ascending: false })
         .limit(1)
         .single();
@@ -138,6 +179,12 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
         ...tokenData,
         deployment: deployment || null
       });
+      
+      // Fetch real-time on-chain data if deployed
+      if (deployment?.contract_address) {
+        await loadOnChainData(deployment.contract_address, deployment.network);
+      }
+      
     } catch (error: any) {
       console.error('Error loading token:', error);
       toast({
@@ -147,6 +194,76 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Load real-time data from Solana blockchain
+   */
+  const loadOnChainData = async (mintAddress: string, network: string) => {
+    try {
+      setIsLoadingOnChain(true);
+      
+      // Normalize network
+      const normalizedNetwork = network.replace('solana-', '') as 'devnet' | 'testnet' | 'mainnet-beta';
+      
+      // Fetch mint data from blockchain
+      const mintData = await modernSolanaTokenQueryService.getMintData(
+        mintAddress,
+        normalizedNetwork
+      );
+      
+      setOnChainData(mintData);
+      
+    } catch (error) {
+      console.error('Error loading on-chain data:', error);
+      toast({
+        title: 'Warning',
+        description: 'Could not fetch live blockchain data',
+        variant: 'default'
+      });
+    } finally {
+      setIsLoadingOnChain(false);
+    }
+  };
+
+  /**
+   * Handle metadata update from TokenMetadataManager
+   * Refreshes both database and blockchain data
+   */
+  const handleMetadataUpdated = async () => {
+    try {
+      // First, fetch updated metadata from blockchain
+      if (token?.deployment?.contract_address) {
+        const normalizedNetwork = token.deployment.network.replace('solana-', '') as 'devnet' | 'testnet' | 'mainnet-beta';
+        
+        // Get fresh mint data including updated metadata
+        const mintData = await modernSolanaTokenQueryService.getMintData(
+          token.deployment.contract_address,
+          normalizedNetwork
+        );
+        
+        // Update on-chain data state
+        setOnChainData(mintData);
+      }
+      
+      // Reload token from database (will get any database updates)
+      await loadToken();
+      
+      // Increment key to force TokenMetadataViewer to remount and refetch
+      setMetadataRefreshKey(prev => prev + 1);
+      
+      toast({
+        title: 'Success',
+        description: 'Metadata updated and refreshed',
+      });
+    } catch (error) {
+      console.error('Error refreshing after metadata update:', error);
+      toast({
+        title: 'Warning',
+        description: 'Metadata updated but refresh failed. Try refreshing the page.',
+        variant: 'default'
+      });
     }
   };
 
@@ -221,7 +338,7 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -271,9 +388,17 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
 
         <div className="flex gap-2">
           {token.deployment && (
-            <Badge variant={token.deployment.network === 'devnet' ? 'secondary' : 'default'}>
-              {token.deployment.network}
-            </Badge>
+            <>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/projects/${projectId}/solana/${tokenId}/operations`)}
+              >
+                Token Operations
+              </Button>
+              <Badge variant={token.deployment.network === 'devnet' ? 'secondary' : 'default'}>
+                {token.deployment.network}
+              </Badge>
+            </>
           )}
           <Button
             variant="outline"
@@ -328,9 +453,34 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
                 <InfoRow label="Symbol" value={token.symbol} />
                 <InfoRow label="Decimals" value={token.decimals.toString()} />
                 <InfoRow label="Standard" value={token.standard} />
-                {token.total_supply && (
-                  <InfoRow label="Total Supply" value={token.total_supply} />
+                
+                {/* Current Supply (from blockchain) */}
+                {onChainData && (
+                  <div className="col-span-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Current Supply {isLoadingOnChain && <span className="text-xs">(loading...)</span>}
+                    </label>
+                    <div className="mt-1 space-y-1">
+                      <p className="text-lg font-semibold text-green-600">
+                        {onChainData.supplyFormatted} {token.symbol}
+                      </p>
+                      {token.total_supply && token.total_supply !== '0' && (
+                        <p className="text-xs text-muted-foreground">
+                          Max Supply: {token.total_supply} {token.symbol}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        ✅ Live data
+                      </p>
+                    </div>
+                  </div>
                 )}
+                
+                {/* Fallback to database value if on-chain not loaded */}
+                {!onChainData && token.total_supply && (
+                  <InfoRow label="Total Supply (Database)" value={token.total_supply} />
+                )}
+                
                 <InfoRow label="Status" value={token.status} />
               </div>
             </CardContent>
@@ -436,15 +586,17 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
                   />
                   <InfoRow label="Network" value={token.deployment.network} />
                   <InfoRow label="Deployed At" value={formatDate(token.deployment.deployed_at)} />
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Deployed By
-                    </label>
-                    <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
-                      {token.deployment.deployed_by.slice(0, 8)}...
-                      {token.deployment.deployed_by.slice(-6)}
-                    </code>
-                  </div>
+                  {(token.deployment.details?.deployer_wallet || onChainData?.mintAuthority) && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Deployer Wallet {!token.deployment.details?.deployer_wallet && '(Mint Authority)'}
+                      </label>
+                      <code className="text-xs bg-muted px-2 py-1 rounded mt-1 inline-block">
+                        {(token.deployment.details?.deployer_wallet || onChainData?.mintAuthority || '').slice(0, 8)}...
+                        {(token.deployment.details?.deployer_wallet || onChainData?.mintAuthority || '').slice(-6)}
+                      </code>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -471,26 +623,46 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
             </Card>
           )}
 
-          {/* Balance Display */}
-          {token.deployment && (
-            <TokenBalanceDisplay
-              tokenAddress={token.deployment.contract_address}
-              ownerAddress={token.deployment.deployed_by}
-              tokenSymbol={token.symbol}
-              decimals={token.decimals}
-              network={token.deployment.network as 'mainnet-beta' | 'devnet' | 'testnet'}
+          {/* Deployer Wallet Overview */}
+          {token.deployment && onChainData?.mintAuthority && isValidSolanaAddress(onChainData.mintAuthority) && (
+            <DeployerWalletOverview
+              deployerAddress={onChainData.mintAuthority}
+              network={token.deployment.network as SolanaNetwork}
+              highlightToken={token.deployment.contract_address}
             />
           )}
         </TabsContent>
 
         {/* METADATA TAB */}
-        <TabsContent value="metadata">
+        <TabsContent value="metadata" className="space-y-6">
           {token.deployment && (
-            <TokenMetadataViewer
-              tokenAddress={token.deployment.contract_address}
-              network={token.deployment.network as 'mainnet-beta' | 'devnet' | 'testnet'}
-              tokenType={(token.deployment.solana_token_type || 'SPL') as 'SPL' | 'Token2022'}
-            />
+            <>
+              {/* Token-2022 / On-chain Metadata Viewer */}
+              <TokenMetadataViewer
+                key={`metadata-viewer-${metadataRefreshKey}`}
+                tokenAddress={token.deployment.contract_address}
+                network={token.deployment.network as 'mainnet-beta' | 'devnet' | 'testnet'}
+                tokenType={(token.deployment.solana_token_type || 'SPL') as 'SPL' | 'Token2022'}
+              />
+
+              {/* Metaplex Metadata Manager (for SPL tokens) */}
+              {token.deployment.solana_token_type === 'SPL' && (
+                <div className="mt-6">
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold">Metaplex Metadata Management</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Add, view, and update Metaplex metadata for your SPL token
+                    </p>
+                  </div>
+                  <TokenMetadataManager
+                    mintAddress={token.deployment.contract_address}
+                    network={token.deployment.network as 'mainnet-beta' | 'devnet' | 'testnet'}
+                    projectId={token.project_id}
+                    onMetadataUpdated={handleMetadataUpdated}
+                  />
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 
@@ -509,13 +681,12 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
         {/* HISTORY TAB */}
         <TabsContent value="history">
           {token.deployment && (
-            <TokenTransactionHistory
-              tokenId={token.id}
-              tokenSymbol={token.symbol}
+            <BlockchainTokenTransactionHistory
               tokenAddress={token.deployment.contract_address}
+              tokenSymbol={token.symbol}
               decimals={token.decimals}
-              network={token.deployment.network}
-              currentUserAddress={token.deployment.deployed_by}
+              network={token.deployment.network.replace('solana-', '') as SolanaNetwork}
+              currentUserAddress={token.deployment.details?.deployer_wallet || token.deployment.deployed_by}
             />
           )}
         </TabsContent>

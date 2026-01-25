@@ -36,7 +36,6 @@ interface WizardState {
   selectedWallet: SelectedSolanaWallet | null;
   extensions: Token2022Extension[];
   transferFeeConfig: TransferFeeConfiguration | null;
-  isBasicConfigValid: boolean;
 }
 
 const steps: { id: WizardStep; label: string; description: string }[] = [
@@ -71,9 +70,8 @@ export function SolanaTokenDeploymentWizard({
     tokenType: 'SPL',
     basicConfig: null,
     selectedWallet: null,
-    extensions: [],
-    transferFeeConfig: null,
-    isBasicConfigValid: false
+    extensions: [], // Will be auto-populated when Token2022 is selected
+    transferFeeConfig: null
   });
   const [deploymentResult, setDeploymentResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +104,10 @@ export function SolanaTokenDeploymentWizard({
       case 'tokenType':
         return true;
       case 'basicConfig':
-        return state.basicConfig !== null && state.isBasicConfigValid;
+        // Just check if basic fields exist, don't enforce strict validation
+        return state.basicConfig !== null && 
+               !!state.basicConfig.name && 
+               !!state.basicConfig.symbol;
       case 'walletSelection':
         return state.selectedWallet !== null;
       case 'extensions':
@@ -155,22 +156,34 @@ export function SolanaTokenDeploymentWizard({
     setError(null);
     setCurrentStep('deploying');
 
+    let tokenRecordId: string | null = null;
+
     try {
+      // Get current authenticated user
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        throw new Error('User not authenticated. Please log in to deploy tokens.');
+      }
+      
+      const currentUserId = userId || authUser.id;
+
       // Step 1: Create token record in database first
       const { data: tokenRecord, error: dbError } = await supabase
         .from('tokens')
         .insert({
           project_id: projectId,
-          user_id: userId,
           name: state.basicConfig.name,
           symbol: state.basicConfig.symbol,
           standard: state.tokenType === 'SPL' ? 'SPL' : 'Token2022',
           decimals: state.basicConfig.decimals,
           total_supply: state.basicConfig.initialSupply.toString(),
           blockchain: 'solana',
-          network: `solana-${network}`,
+          deployment_environment: network,
+          deployment_status: 'pending', // Mark as pending initially
+          status: 'DRAFT', // Initial status is DRAFT
+          blocks: {}, // Required field - empty for Solana tokens
           metadata: {
-            uri: state.basicConfig.metadataUri,
+            uri: state.basicConfig.metadataUri || null,
             on_chain_metadata: state.tokenType === 'Token2022' && state.extensions.includes('Metadata'),
             transfer_fee: state.transferFeeConfig ? {
               fee_basis_points: state.transferFeeConfig.feeBasisPoints,
@@ -182,13 +195,20 @@ export function SolanaTokenDeploymentWizard({
         .single();
 
       if (dbError || !tokenRecord) {
-        throw new Error('Failed to create token record in database');
+        console.error('[Deploy] Database error:', dbError);
+        throw new Error(dbError ? `Database error: ${dbError.message}` : 'Failed to create token record in database');
       }
 
+      tokenRecordId = tokenRecord.id;
+
       // Step 2: Deploy token using unified service
+      console.log('[Wizard] Calling deploySolanaToken with:');
+      console.log('[Wizard] tokenRecord.id:', tokenRecord.id);
+      console.log('[Wizard] tokenRecord:', tokenRecord);
+      
       const result = await unifiedSolanaTokenDeploymentService.deploySolanaToken(
         tokenRecord.id,
-        userId,
+        currentUserId,
         projectId,
         network,
         state.selectedWallet.privateKey
@@ -199,12 +219,36 @@ export function SolanaTokenDeploymentWizard({
         setCurrentStep('complete');
         onComplete?.(result);
       } else {
+        // Deployment failed - update token status
+        await supabase
+          .from('tokens')
+          .update({
+            deployment_status: 'failed',
+            deployment_error: result.errors?.join(', ') || 'Deployment failed',
+            status: 'FAILED'
+          })
+          .eq('id', tokenRecord.id);
+        
         setError(result.errors?.join(', ') || 'Deployment failed');
         setCurrentStep('preview'); // Go back to preview on error
       }
     } catch (err) {
       console.error('Deployment error:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error occurred');
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+      
+      // Update token status to failed if we created the record
+      if (tokenRecordId) {
+        await supabase
+          .from('tokens')
+          .update({
+            deployment_status: 'failed',
+            deployment_error: errorMessage,
+            status: 'FAILED'
+          })
+          .eq('id', tokenRecordId);
+      }
+      
+      setError(errorMessage);
       setCurrentStep('preview'); // Go back to preview on error
     } finally {
       setIsDeploying(false);
@@ -251,7 +295,13 @@ export function SolanaTokenDeploymentWizard({
       {currentStep === 'tokenType' && (
         <TokenTypeSelector
           value={state.tokenType}
-          onChange={(tokenType) => setState({ ...state, tokenType, extensions: [] })}
+          onChange={(tokenType) => {
+            // Auto-enable metadata extension for Token-2022 (it's the whole point!)
+            const defaultExtensions: Token2022Extension[] = tokenType === 'Token2022' 
+              ? ['Metadata' as Token2022Extension, 'MetadataPointer' as Token2022Extension] 
+              : [];
+            setState({ ...state, tokenType, extensions: defaultExtensions });
+          }}
         />
       )}
 
@@ -259,7 +309,6 @@ export function SolanaTokenDeploymentWizard({
         <BasicTokenConfigForm
           value={state.basicConfig || {}}
           onChange={(basicConfig) => setState({ ...state, basicConfig })}
-          onValidityChange={(isValid) => setState({ ...state, isBasicConfigValid: isValid })}
         />
       )}
 

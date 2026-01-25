@@ -150,7 +150,11 @@ export class UnifiedSolanaTokenDeploymentService {
       walletPrivateKey
     };
 
-    const result = await this.modernSPLService.deploySPLToken(config, options);
+    const result = await this.modernSPLService.deploySPLToken(
+      config, 
+      options,
+      tokenData.id // Pass tokenId to update existing record
+    );
 
     return {
       success: result.success,
@@ -175,6 +179,11 @@ export class UnifiedSolanaTokenDeploymentService {
     walletPrivateKey: string,
     complexity: any
   ): Promise<UnifiedSolanaDeploymentResult> {
+    // DEBUG: Check what tokenData.id is
+    console.log('[UnifiedService] deployToken2022 received tokenData:');
+    console.log('[UnifiedService] tokenData.id:', tokenData.id);
+    console.log('[UnifiedService] tokenData.address:', tokenData.address);
+    console.log('[UnifiedService] Passing tokenData.id to Token2022DeploymentService');
     // Build extension configs
     const metadata = tokenData.metadata?.on_chain_metadata !== false
       ? {
@@ -224,7 +233,11 @@ export class UnifiedSolanaTokenDeploymentService {
       walletPrivateKey
     };
 
-    const result = await this.token2022Service.deployToken2022(config, options);
+    const result = await this.token2022Service.deployToken2022(
+      config, 
+      options,
+      tokenData.id // Pass tokenId to update existing record
+    );
 
     return {
       success: result.success,
@@ -244,6 +257,8 @@ export class UnifiedSolanaTokenDeploymentService {
    * Get token configuration from database
    */
   private async getTokenConfiguration(tokenId: string): Promise<any | null> {
+    console.log('[UnifiedService] getTokenConfiguration called with tokenId:', tokenId);
+    
     const { data, error } = await supabase
       .from('tokens')
       .select('*')
@@ -255,6 +270,10 @@ export class UnifiedSolanaTokenDeploymentService {
       return null;
     }
 
+    console.log('[UnifiedService] getTokenConfiguration returning:', data);
+    console.log('[UnifiedService] data.id:', data?.id);
+    console.log('[UnifiedService] data.address:', data?.address);
+    
     return data;
   }
 

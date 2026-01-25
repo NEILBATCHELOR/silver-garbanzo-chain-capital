@@ -23,6 +23,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -32,13 +33,14 @@ import {
   AlertTriangle,
   CheckCircle,
   ExternalLink,
-  Info
+  Info,
+  Wallet
 } from 'lucide-react';
 import { modernSolanaTokenBurnService } from '@/services/wallet/solana/ModernSolanaTokenBurnService';
 import { solanaExplorer } from '@/infrastructure/web3/solana';
 import { address, type Address } from '@solana/kit';
 import { logActivity } from '@/infrastructure/activityLogger';
-import { SolanaWalletSelector, type SelectedSolanaWallet } from './SolanaWalletSelector';
+import { useSolanaWallet } from './contexts/SolanaWalletContext';
 
 // ============================================================================
 // TYPES
@@ -57,16 +59,21 @@ interface TokenInfo {
 
 interface BurnTokenFormProps {
   projectId: string;
+  tokenId?: string; // Optional for backward compatibility with routing
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
-  const { tokenId } = useParams<{ tokenId: string }>();
+export function BurnTokenForm({ projectId, tokenId: tokenIdProp }: BurnTokenFormProps) {
+  const { tokenId: tokenIdParam } = useParams<{ tokenId: string }>();
+  const tokenId = tokenIdProp || tokenIdParam; // Prefer prop over param
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Get wallet from context (already selected in dashboard header)
+  const { selectedWallet, network } = useSolanaWallet();
 
   const [token, setToken] = useState<TokenInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -87,7 +94,6 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
 
   // Form state
   const [amount, setAmount] = useState('');
-  const [selectedWallet, setSelectedWallet] = useState<SelectedSolanaWallet | null>(null);
   const [currentBalance, setCurrentBalance] = useState<bigint | null>(null);
 
   // Validation state
@@ -170,7 +176,7 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
     try {
       const balance = await modernSolanaTokenBurnService.getTokenBalance(
         address(token.deployment.contract_address),
-        address(selectedWallet.address),
+        address(selectedWallet.wallet_address),
         token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta'
       );
 
@@ -232,13 +238,13 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
       const validation = await modernSolanaTokenBurnService.validateBurn(
         {
           mint: address(token.deployment.contract_address),
-          owner: address(selectedWallet.address),
+          owner: address(selectedWallet.wallet_address),
           amount: amountInSmallestUnit,
           decimals: token.decimals
         },
         {
           network: token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta',
-          signerPrivateKey: selectedWallet.privateKey
+          signerPrivateKey: selectedWallet.decryptedPrivateKey!
         }
       );
 
@@ -251,13 +257,13 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
       const result = await modernSolanaTokenBurnService.burnTokens(
         {
           mint: address(token.deployment.contract_address),
-          owner: address(selectedWallet.address),
+          owner: address(selectedWallet.wallet_address),
           amount: amountInSmallestUnit,
           decimals: token.decimals
         },
         {
           network: token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta',
-          signerPrivateKey: selectedWallet.privateKey,
+          signerPrivateKey: selectedWallet.decryptedPrivateKey!,
           checkBalance: true
         }
       );
@@ -325,10 +331,10 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => navigate(`/projects/${projectId}/tokens/${tokenId}`)}
+          onClick={() => navigate(`/projects/${projectId}/solana/list`)}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Token
+          Back to Token List
         </Button>
       </div>
 
@@ -353,14 +359,30 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
             </AlertDescription>
           </Alert>
 
-          {/* Wallet Selector */}
+          {/* Funding Wallet (Read-only) */}
           <div className="space-y-2">
-            <Label>Select Wallet</Label>
-            <SolanaWalletSelector
-              projectId={projectId}
-              network={token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta'}
-              onWalletSelected={setSelectedWallet}
-            />
+            <Label>Burn From Wallet</Label>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  {selectedWallet?.project_wallet_name || 'Wallet'}
+                </p>
+                <p className="text-xs text-muted-foreground font-mono">
+                  {selectedWallet?.wallet_address ? 
+                    `${selectedWallet.wallet_address.slice(0, 8)}...${selectedWallet.wallet_address.slice(-8)}` : 
+                    'No wallet selected'}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {network}
+              </Badge>
+            </div>
+            {!selectedWallet && (
+              <p className="text-sm text-destructive">
+                Please select a wallet in the dashboard header
+              </p>
+            )}
           </div>
 
           {/* Current Balance */}
@@ -504,9 +526,11 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
                   variant="outline"
                   size="icon"
                   onClick={() => {
+                    // Normalize network name (remove 'solana-' prefix if present)
+                    const normalizedNetwork = token.deployment.network.replace('solana-', '') as 'devnet' | 'testnet' | 'mainnet-beta';
                     const explorerUrl = solanaExplorer.tx(
                       transactionHash,
-                      token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta'
+                      normalizedNetwork
                     );
                     window.open(explorerUrl, '_blank');
                   }}
@@ -531,10 +555,10 @@ export function BurnTokenForm({ projectId }: BurnTokenFormProps) {
                 Burn More Tokens
               </Button>
               <Button
-                onClick={() => navigate(`/projects/${projectId}/tokens/${tokenId}`)}
+                onClick={() => navigate(`/projects/${projectId}/solana/list`)}
                 className="flex-1"
               >
-                Back to Token
+                Back to Token List
               </Button>
             </div>
           </CardContent>

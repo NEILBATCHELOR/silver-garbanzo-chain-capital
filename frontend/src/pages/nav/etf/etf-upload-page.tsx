@@ -32,7 +32,7 @@ export default function ETFUploadPage() {
   const projectId = urlProjectId || contextProjectId
 
   // State for selected ETF
-  const [selectedFundId, setSelectedFundId] = useState<string>('')
+  const [selectedFundId, setSelectedFundId] = useState<string | undefined>(undefined)
 
   // Fetch ETFs for selector
   const { data: etfsData, isLoading: isLoadingETFs } = useQuery({
@@ -138,7 +138,7 @@ export default function ETFUploadPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Select value={selectedFundId} onValueChange={setSelectedFundId}>
+              <Select value={selectedFundId ?? ''} onValueChange={setSelectedFundId}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select ETF..." />
                 </SelectTrigger>

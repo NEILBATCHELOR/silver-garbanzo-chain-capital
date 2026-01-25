@@ -37,8 +37,17 @@ import {
   TOKEN_PROGRAM_ADDRESS,
   getBurnCheckedInstruction,
   findAssociatedTokenPda,
-  fetchToken
+  fetchToken,
+  fetchMint
 } from '@solana-program/token';
+
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getBurnCheckedInstruction as getToken2022BurnCheckedInstruction,
+  findAssociatedTokenPda as findToken2022AssociatedTokenPda,
+  fetchToken as fetchToken2022Token,
+  fetchMint as fetchToken2022Mint
+} from '@solana-program/token-2022';
 
 import { createModernRpc, createCustomRpc, type ModernSolanaRpc } from '@/infrastructure/web3/solana';
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
@@ -90,6 +99,37 @@ export interface BurnValidation {
 
 export class ModernSolanaTokenBurnService {
   /**
+   * Detect which token program a mint uses by attempting to fetch it
+   * Returns TOKEN_2022_PROGRAM_ADDRESS or TOKEN_PROGRAM_ADDRESS
+   */
+  private async detectTokenProgram(
+    mintAddress: Address,
+    rpc: ModernSolanaRpc
+  ): Promise<Address> {
+    try {
+      // Try Token-2022 first (most likely for new tokens)
+      try {
+        await fetchToken2022Mint(rpc.getRpc(), mintAddress);
+        console.log('🎯 Detected Token-2022 mint:', mintAddress);
+        return TOKEN_2022_PROGRAM_ADDRESS;
+      } catch (token2022Error) {
+        // If Token-2022 fetch fails, try SPL Token
+        try {
+          await fetchMint(rpc.getRpc(), mintAddress);
+          console.log('🎯 Detected SPL Token mint:', mintAddress);
+          return TOKEN_PROGRAM_ADDRESS;
+        } catch (splError) {
+          // If both fail, the mint doesn't exist
+          throw new Error(`Mint account ${mintAddress} not found or invalid`);
+        }
+      }
+    } catch (error) {
+      console.error('Error detecting token program:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Burn SPL tokens from a wallet
    * Reduces token supply permanently
    */
@@ -113,17 +153,35 @@ export class ModernSolanaTokenBurnService {
       const rpc = this.createRpc(options.network, options.rpcUrl);
       const signer = await this.createSigner(options.signerPrivateKey);
 
-      // Step 3: Find token account (ATA)
-      const [tokenAccount] = await findAssociatedTokenPda({
-        owner: params.owner,
+      // Step 2.5: Detect which token program the mint uses (SPL vs Token-2022)
+      const tokenProgramAddress = await this.detectTokenProgram(params.mint, rpc);
+      const isToken2022 = tokenProgramAddress === TOKEN_2022_PROGRAM_ADDRESS;
+
+      console.log('🔧 Token Program Detection (Burn):', {
         mint: params.mint,
-        tokenProgram: TOKEN_PROGRAM_ADDRESS
+        program: isToken2022 ? 'Token-2022' : 'SPL Token',
+        programAddress: tokenProgramAddress
       });
+
+      // Step 3: Find token account (ATA) using correct program
+      const [tokenAccount] = isToken2022
+        ? await findToken2022AssociatedTokenPda({
+            owner: params.owner,
+            mint: params.mint,
+            tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+          })
+        : await findAssociatedTokenPda({
+            owner: params.owner,
+            mint: params.mint,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+          });
 
       // Step 4: Check balance before burn (if enabled)
       let balanceBefore: bigint | undefined;
       if (options.checkBalance ?? true) {
-        const accountInfo = await fetchToken(rpc.getRpc(), tokenAccount);
+        const accountInfo = isToken2022
+          ? await fetchToken2022Token(rpc.getRpc(), tokenAccount)
+          : await fetchToken(rpc.getRpc(), tokenAccount);
         balanceBefore = accountInfo.data.amount;
 
         // Verify sufficient balance
@@ -139,14 +197,22 @@ export class ModernSolanaTokenBurnService {
         }
       }
 
-      // Step 5: Build burn instruction
-      const burnInstruction = getBurnCheckedInstruction({
-        account: tokenAccount,
-        mint: params.mint,
-        authority: signer,
-        amount: params.amount,
-        decimals: params.decimals
-      });
+      // Step 5: Build burn instruction using correct program
+      const burnInstruction = isToken2022
+        ? getToken2022BurnCheckedInstruction({
+            account: tokenAccount,
+            mint: params.mint,
+            authority: signer,
+            amount: params.amount,
+            decimals: params.decimals
+          })
+        : getBurnCheckedInstruction({
+            account: tokenAccount,
+            mint: params.mint,
+            authority: signer,
+            amount: params.amount,
+            decimals: params.decimals
+          });
 
       const instructions: Instruction[] = [burnInstruction];
 
@@ -182,7 +248,9 @@ export class ModernSolanaTokenBurnService {
       // Step 9: Check balance after burn
       let balanceAfter: bigint | undefined;
       try {
-        const accountInfoAfter = await fetchToken(rpc.getRpc(), tokenAccount);
+        const accountInfoAfter = isToken2022
+          ? await fetchToken2022Token(rpc.getRpc(), tokenAccount)
+          : await fetchToken(rpc.getRpc(), tokenAccount);
         balanceAfter = accountInfoAfter.data.amount;
       } catch (error) {
         // Account might not exist if all tokens were burned
@@ -266,16 +334,28 @@ export class ModernSolanaTokenBurnService {
       // Setup RPC
       const rpc = this.createRpc(options.network, options.rpcUrl);
 
-      // Find token account
-      const [tokenAccount] = await findAssociatedTokenPda({
-        owner: params.owner,
-        mint: params.mint,
-        tokenProgram: TOKEN_PROGRAM_ADDRESS
-      });
+      // Detect token program
+      const tokenProgramAddress = await this.detectTokenProgram(params.mint, rpc);
+      const isToken2022 = tokenProgramAddress === TOKEN_2022_PROGRAM_ADDRESS;
 
-      // Check current balance
+      // Find token account using correct program
+      const [tokenAccount] = isToken2022
+        ? await findToken2022AssociatedTokenPda({
+            owner: params.owner,
+            mint: params.mint,
+            tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+          })
+        : await findAssociatedTokenPda({
+            owner: params.owner,
+            mint: params.mint,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+          });
+
+      // Check current balance using correct fetch function
       try {
-        const accountInfo = await fetchToken(rpc.getRpc(), tokenAccount);
+        const accountInfo = isToken2022
+          ? await fetchToken2022Token(rpc.getRpc(), tokenAccount)
+          : await fetchToken(rpc.getRpc(), tokenAccount);
         const currentBalance = accountInfo.data.amount;
 
         // Verify sufficient balance
@@ -320,6 +400,7 @@ export class ModernSolanaTokenBurnService {
 
   /**
    * Get current token balance
+   * Automatically detects SPL Token vs Token-2022
    */
   async getTokenBalance(
     mint: Address,
@@ -330,13 +411,27 @@ export class ModernSolanaTokenBurnService {
     try {
       const rpc = this.createRpc(network, rpcUrl);
       
-      const [tokenAccount] = await findAssociatedTokenPda({
-        owner,
-        mint,
-        tokenProgram: TOKEN_PROGRAM_ADDRESS
-      });
+      // Detect token program
+      const tokenProgramAddress = await this.detectTokenProgram(mint, rpc);
+      const isToken2022 = tokenProgramAddress === TOKEN_2022_PROGRAM_ADDRESS;
+      
+      // Find token account using correct program
+      const [tokenAccount] = isToken2022
+        ? await findToken2022AssociatedTokenPda({
+            owner,
+            mint,
+            tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+          })
+        : await findAssociatedTokenPda({
+            owner,
+            mint,
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+          });
 
-      const accountInfo = await fetchToken(rpc.getRpc(), tokenAccount);
+      // Fetch balance using correct function
+      const accountInfo = isToken2022
+        ? await fetchToken2022Token(rpc.getRpc(), tokenAccount)
+        : await fetchToken(rpc.getRpc(), tokenAccount);
       return accountInfo.data.amount;
 
     } catch (error) {

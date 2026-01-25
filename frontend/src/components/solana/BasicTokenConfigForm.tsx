@@ -14,22 +14,12 @@ import { InfoIcon } from 'lucide-react';
 
 const basicConfigSchema = z.object({
   name: z.string()
-    .min(1, 'Token name is required')
-    .max(32, 'Token name must be 32 characters or less'),
+    .min(1, 'Token name is required'),
   symbol: z.string()
-    .min(1, 'Symbol is required')
-    .max(10, 'Symbol must be 10 characters or less')
-    .regex(/^[A-Z0-9]+$/, 'Symbol must be uppercase letters and numbers only'),
-  decimals: z.number()
-    .min(0, 'Decimals must be at least 0')
-    .max(9, 'Decimals must be 9 or less')
-    .int('Decimals must be an integer'),
-  initialSupply: z.number()
-    .min(0, 'Initial supply must be positive')
-    .max(Number.MAX_SAFE_INTEGER, 'Initial supply too large'),
-  metadataUri: z.string()
-    .url('Must be a valid URL')
-    .startsWith('https://', 'Must use HTTPS')
+    .min(1, 'Symbol is required'),
+  decimals: z.number(),
+  initialSupply: z.number(),
+  metadataUri: z.string().optional()
 });
 
 export type BasicTokenConfig = z.infer<typeof basicConfigSchema>;
@@ -156,11 +146,11 @@ export function BasicTokenConfigForm({ value, onChange, onValidityChange }: Basi
 
         {/* Metadata URI */}
         <div className="space-y-2">
-          <Label htmlFor="metadataUri">Metadata URI *</Label>
+          <Label htmlFor="metadataUri">Metadata URI (Optional)</Label>
           <Input
             id="metadataUri"
             type="url"
-            placeholder="https://arweave.net/..."
+            placeholder="https://arweave.net/... or ipfs://... (optional)"
             {...form.register('metadataUri')}
             onChange={(e) => {
               form.register('metadataUri').onChange(e);
@@ -170,7 +160,7 @@ export function BasicTokenConfigForm({ value, onChange, onValidityChange }: Basi
           <Alert>
             <InfoIcon className="h-4 w-4" />
             <AlertDescription>
-              Upload your token metadata to Arweave, IPFS, or any permanent storage
+              Upload your token metadata to Arweave, IPFS, or any permanent storage. Not required for basic deployments.
             </AlertDescription>
           </Alert>
           {form.formState.errors.metadataUri && (

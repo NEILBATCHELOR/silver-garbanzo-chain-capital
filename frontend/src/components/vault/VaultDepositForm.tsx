@@ -130,7 +130,7 @@ export const VaultDepositForm: React.FC<VaultDepositFormProps> = ({
               </div>
             ) : (
               <Select 
-                value={selectedVault?.id} 
+                value={selectedVault?.id ?? ''} 
                 onValueChange={(id) => {
                   const vault = vaults.find(v => v.id === id);
                   setSelectedVault(vault || null);

@@ -4,7 +4,7 @@
  * Following MMF History page pattern
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 
 import { ETFNavigation, NAVHistory } from '@/components/nav/etf'
@@ -37,9 +37,11 @@ export default function ETFHistoryPage() {
   const etfs = etfsData?.data || []
 
   // Set default fund if not specified
-  if (!selectedFundId && etfs.length > 0) {
-    setSelectedFundId(etfs[0].id)
-  }
+  useEffect(() => {
+    if (!selectedFundId && etfs.length > 0) {
+      setSelectedFundId(etfs[0].id)
+    }
+  }, [selectedFundId, etfs])
 
   const handleRefresh = () => {
     refetch()

@@ -1,26 +1,25 @@
 /**
  * Token Operations Panel
- * UI for Solana SPL token operations
+ * Integrated UI for Solana token operations using existing form components
  * 
- * Current Operations:
- * - Transfer: Send tokens to another address
- * - Mint: Create new tokens (requires mint authority)
- * - Burn: Permanently destroy tokens
- * - Account: Create token accounts (ATAs)
- * 
- * Future Operations (services not yet implemented):
- * - Delegate: Approve/revoke token delegates
- * - Authority: Set mint/freeze authority
- * - Freeze: Freeze/thaw token accounts
- * - Close: Close accounts and sync native SOL
+ * Operations:
+ * ✅ Transfer: TransferTokenForm
+ * ✅ Mint: MintTokenForm
+ * ✅ Burn: BurnTokenForm
+ * ✅ Account: CreateAccountForm
  */
 
 import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Info, ArrowRightLeft, Coins, Flame, Wallet } from 'lucide-react';
+
+// Import actual form components
+import { TransferTokenForm } from './TransferTokenForm';
+import { MintTokenForm } from './MintTokenForm';
+import { BurnTokenForm } from './BurnTokenForm';
+import { CreateAccountForm } from './CreateAccountForm';
 
 interface TokenOperationsPanelProps {
   tokenId: string;
@@ -39,13 +38,15 @@ export function TokenOperationsPanel({
   symbol,
   network,
 }: TokenOperationsPanelProps) {
+  const [activeTab, setActiveTab] = useState('transfer');
+
   return (
     <Card className="p-6">
       <div className="space-y-4">
         <div>
           <h2 className="text-2xl font-bold">Token Operations</h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage your {symbol} tokens: transfer, mint, and burn
+            Manage your {symbol} tokens: transfer, mint, burn, and create accounts
           </p>
         </div>
 
@@ -59,14 +60,11 @@ export function TokenOperationsPanel({
               <div>✅ <strong>Mint:</strong> Create new tokens (requires mint authority)</div>
               <div>✅ <strong>Burn:</strong> Permanently destroy tokens</div>
               <div>✅ <strong>Account:</strong> Create Associated Token Accounts (ATAs)</div>
-              <div className="mt-3 pt-3 border-t">
-                <strong>Coming Soon:</strong> Delegate, Authority Management, Freeze/Thaw, Close Account
-              </div>
             </div>
           </AlertDescription>
         </Alert>
 
-        <Tabs defaultValue="transfer" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="transfer" className="flex items-center gap-2">
               <ArrowRightLeft className="h-4 w-4" />
@@ -86,55 +84,28 @@ export function TokenOperationsPanel({
             </TabsTrigger>
           </TabsList>
 
-          {/* Transfer Tab */}
+          {/* Each tab renders the form directly with props - no routing needed */}
           <TabsContent value="transfer" className="mt-6">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                Transfer {symbol} tokens to another Solana address. The transfer form will be displayed on a separate page.
-              </AlertDescription>
-            </Alert>
-            <div className="mt-4 text-sm text-muted-foreground">
-              Navigate to the Transfer page from the token details to perform transfers.
+            <div className="space-y-4">
+              <TransferTokenForm projectId={projectId} tokenId={tokenId} />
             </div>
           </TabsContent>
 
-          {/* Mint Tab */}
           <TabsContent value="mint" className="mt-6">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                Mint new {symbol} tokens and send them to a destination address. You must have mint authority for this token.
-              </AlertDescription>
-            </Alert>
-            <div className="mt-4 text-sm text-muted-foreground">
-              Navigate to the Mint page from the token details to mint additional tokens.
+            <div className="space-y-4">
+              <MintTokenForm projectId={projectId} tokenId={tokenId} />
             </div>
           </TabsContent>
 
-          {/* Burn Tab */}
           <TabsContent value="burn" className="mt-6">
-            <Alert variant="destructive">
-              <Flame className="h-4 w-4" />
-              <AlertDescription>
-                Permanently destroy {symbol} tokens from circulation. This action cannot be undone.
-              </AlertDescription>
-            </Alert>
-            <div className="mt-4 text-sm text-muted-foreground">
-              Navigate to the Burn page from the token details to permanently remove tokens from circulation.
+            <div className="space-y-4">
+              <BurnTokenForm projectId={projectId} tokenId={tokenId} />
             </div>
           </TabsContent>
 
-          {/* Account Tab */}
           <TabsContent value="account" className="mt-6">
-            <Alert>
-              <Wallet className="h-4 w-4" />
-              <AlertDescription>
-                Create an Associated Token Account (ATA) to hold {symbol} tokens. Each wallet needs a separate ATA for each token type.
-              </AlertDescription>
-            </Alert>
-            <div className="mt-4 text-sm text-muted-foreground">
-              Navigate to the Account page from the token details to create token accounts for your wallets.
+            <div className="space-y-4">
+              <CreateAccountForm projectId={projectId} tokenId={tokenId} />
             </div>
           </TabsContent>
         </Tabs>

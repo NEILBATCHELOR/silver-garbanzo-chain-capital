@@ -3,7 +3,7 @@
  * Page for uploading holdings to an existing Money Market Fund via CSV
  */
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { MMFCsvUpload } from '@/components/nav/mmf/data-input'
 import { NavNavigation, NavDashboardHeaderEnhanced } from '@/components/nav'
@@ -35,6 +35,13 @@ export default function MMFUploadPage() {
   // Fetch MMFs for selector
   const { data: mmfsData, isLoading: isLoadingMMFs } = useMMFs(projectId!)
   const mmfs = mmfsData?.data || []
+
+  // Set default fund if not specified
+  useEffect(() => {
+    if (!selectedFundId && mmfs.length > 0) {
+      setSelectedFundId(mmfs[0].id)
+    }
+  }, [selectedFundId, mmfs])
 
   const handleUploadComplete = () => {
     toast({

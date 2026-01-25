@@ -7,6 +7,8 @@
 
 import { 
   createSolanaRpc,
+  createSolanaRpcSubscriptions,
+  sendAndConfirmTransactionFactory,
   address,
   lamports,
   signature as createSignature,
@@ -42,13 +44,19 @@ export interface ModernTransactionOptions {
  */
 export class ModernSolanaRpc {
   private rpc: ReturnType<typeof createSolanaRpc>;
+  private rpcSubscriptions: ReturnType<typeof createSolanaRpcSubscriptions>;
   private endpoint: string;
+  private wsEndpoint: string;
   private commitment: Commitment;
 
   constructor(config: ModernRpcConfig) {
     this.endpoint = config.endpoint;
     this.commitment = config.commitment || 'confirmed';
     this.rpc = createSolanaRpc(this.endpoint);
+    
+    // Create WebSocket endpoint from HTTP endpoint if not provided
+    this.wsEndpoint = config.wsEndpoint || this.endpoint.replace('http', 'ws');
+    this.rpcSubscriptions = createSolanaRpcSubscriptions(this.wsEndpoint);
   }
 
   /**
@@ -271,6 +279,35 @@ export class ModernSolanaRpc {
   }
 
   /**
+   * Send and confirm transaction (MODERN - preferred method)
+   * Uses sendAndConfirmTransactionFactory from @solana/kit
+   * 
+   * DEPRECATED: Use sendRawTransaction + waitForConfirmation instead
+   * This method requires WebSocket support which many RPC providers don't offer
+   */
+  async sendAndConfirmTransaction(
+    signedTransaction: any, // SignedTransaction type from @solana/kit
+    options?: {
+      commitment?: Commitment;
+      skipPreflight?: boolean;
+    }
+  ): Promise<string> {
+    // Type assertion to avoid cluster type mismatch errors
+    // Since we're deprecating this in favor of polling-based confirmation
+    const sendAndConfirm = sendAndConfirmTransactionFactory({ 
+      rpc: this.rpc as any, 
+      rpcSubscriptions: this.rpcSubscriptions as any
+    });
+    
+    const signature = await sendAndConfirm(signedTransaction, {
+      commitment: options?.commitment || this.commitment,
+      skipPreflight: options?.skipPreflight
+    });
+    
+    return signature as unknown as string;
+  }
+
+  /**
    * Send raw transaction
    * Accepts either Uint8Array (will be base64-encoded) or string (already base64-encoded)
    */
@@ -282,25 +319,35 @@ export class ModernSolanaRpc {
       minContextSlot?: number;
     }
   ): Promise<string> {
-    let base64Encoded: any; // Will be cast to Base64EncodedWireTransaction
+    let base64Encoded: string;
     
     if (typeof transaction === 'string') {
       // Already base64-encoded (from getBase64EncodedWireTransaction)
       base64Encoded = transaction;
     } else {
-      // Raw bytes - need to convert to base64 string
-      const { getBase64Decoder } = await import('@solana/kit');
-      const base64Decoder = getBase64Decoder();
-      base64Encoded = base64Decoder.decode(transaction);
+      // Raw bytes - convert to base64 string using native APIs
+      // Use Buffer in Node.js or btoa in browser
+      if (typeof Buffer !== 'undefined') {
+        // Node.js environment
+        base64Encoded = Buffer.from(transaction).toString('base64');
+      } else {
+        // Browser environment - convert Uint8Array to binary string then to base64
+        const binaryString = Array.from(transaction)
+          .map(byte => String.fromCharCode(byte))
+          .join('');
+        base64Encoded = btoa(binaryString);
+      }
     }
     
     const config = {
+      encoding: 'base64' as const, // CRITICAL: Tell RPC this is base64, not base58
       skipPreflight: options?.skipPreflight,
       maxRetries: options?.maxRetries ? BigInt(options.maxRetries) : undefined,
       minContextSlot: options?.minContextSlot ? BigInt(options.minContextSlot) : undefined
     };
     
-    const signature = await this.rpc.sendTransaction(base64Encoded, config).send();
+    // Cast to any to pass the base64 string
+    const signature = await this.rpc.sendTransaction(base64Encoded as any, config).send();
     return signature as unknown as string;
   }
 

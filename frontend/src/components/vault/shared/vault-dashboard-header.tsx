@@ -135,7 +135,7 @@ export function VaultDashboardHeader({
             {/* Project Selector */}
             {primaryProject && (
               <Select 
-                value={projectId || primaryProject.id} 
+                value={(projectId || primaryProject.id) ?? ''} 
                 onValueChange={onProjectChange}
               >
                 <SelectTrigger className="w-[200px]">
@@ -150,7 +150,7 @@ export function VaultDashboardHeader({
             )}
 
             {/* Network Selector */}
-            <Select value={network} onValueChange={onNetworkChange}>
+            <Select value={network ?? 'TESTNET'} onValueChange={onNetworkChange}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Select network" />
               </SelectTrigger>

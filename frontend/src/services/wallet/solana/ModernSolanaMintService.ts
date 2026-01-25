@@ -1,13 +1,14 @@
 /**
  * Modern Solana Mint Service
  * 
- * Handles ONLY mint account creation using modern @solana/kit
+ * Handles BOTH mint account creation AND minting tokens using modern @solana/kit
  * Following official Solana documentation: https://solana.com/docs/tokens/basics/create-mint
  * 
  * Use this when you need to:
- * - Create a mint without minting tokens
+ * - Create a mint without minting tokens (createMint)
  * - Create a mint for later use by protocols
  * - Separate mint creation from token deployment
+ * - Mint additional tokens post-deployment (mintTokens)
  * 
  * ARCHITECTURE: Modern @solana/kit + @solana-program/token
  */
@@ -35,11 +36,25 @@ import { getCreateAccountInstruction } from '@solana-program/system';
 import {
   TOKEN_PROGRAM_ADDRESS,
   getMintSize,
-  getInitializeMintInstruction
+  getInitializeMintInstruction,
+  findAssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstruction,
+  getMintToCheckedInstruction,
+  fetchMint
 } from '@solana-program/token';
+
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  getMintSize as getToken2022MintSize,
+  findAssociatedTokenPda as findToken2022AssociatedTokenPda,
+  getCreateAssociatedTokenIdempotentInstruction as getToken2022CreateAssociatedTokenIdempotentInstruction,
+  getMintToCheckedInstruction as getToken2022MintToCheckedInstruction,
+  fetchMint as fetchToken2022Mint
+} from '@solana-program/token-2022';
 
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { logActivity } from '@/infrastructure/activityLogger';
+import { address } from '@solana/kit';
 import bs58 from 'bs58';
 
 // ============================================================================
@@ -65,6 +80,32 @@ export interface MintCreationResult {
   mintAddress?: Address;
   mintKeypair?: KeyPairSigner; // Return the mint keypair (useful for further operations)
   signature?: string;
+  explorerUrl?: string;
+  errors?: string[];
+}
+
+// ============================================================================
+// POST-DEPLOYMENT MINTING INTERFACES
+// ============================================================================
+
+export interface MintTokensConfig {
+  mintAddress: string; // The mint to mint from
+  destinationAddress: string; // Recipient wallet address (NOT token account)
+  amount: bigint; // Amount in smallest units (e.g., 1000000000 for 1 token with 9 decimals)
+  decimals: number; // Token decimals (for MintToChecked safety)
+}
+
+export interface MintTokensOptions {
+  network: SolanaNetwork;
+  rpcUrl?: string;
+  mintAuthorityPrivateKey: string; // Private key of mint authority
+  createATAIfNeeded?: boolean; // Auto-create destination ATA (default: true)
+}
+
+export interface MintTokensResult {
+  success: boolean;
+  signature?: string;
+  destinationATA?: Address; // The actual token account that received tokens
   explorerUrl?: string;
   errors?: string[];
 }
@@ -235,6 +276,267 @@ export class ModernSolanaMintService {
   }
 
   // ============================================================================
+  // POST-DEPLOYMENT MINTING
+  // ============================================================================
+
+  /**
+   * Detect which token program a mint uses by attempting to fetch it
+   * Returns TOKEN_2022_PROGRAM_ADDRESS or TOKEN_PROGRAM_ADDRESS
+   */
+  private async detectTokenProgram(
+    mintAddress: string,
+    rpcUrl: string
+  ): Promise<Address> {
+    try {
+      const rpc = createSolanaRpc(rpcUrl);
+      
+      // Try Token-2022 first (most likely for new tokens)
+      try {
+        await fetchToken2022Mint(rpc, address(mintAddress));
+        console.log('🎯 Detected Token-2022 mint:', mintAddress);
+        return TOKEN_2022_PROGRAM_ADDRESS;
+      } catch (token2022Error) {
+        // If Token-2022 fetch fails, try SPL Token
+        try {
+          await fetchMint(rpc, address(mintAddress));
+          console.log('🎯 Detected SPL Token mint:', mintAddress);
+          return TOKEN_PROGRAM_ADDRESS;
+        } catch (splError) {
+          // If both fail, the mint doesn't exist
+          throw new Error(`Mint account ${mintAddress} not found or invalid`);
+        }
+      }
+    } catch (error) {
+      console.error('Error detecting token program:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Mint additional tokens to a destination address (Scenario A: Mint to yourself or others)
+   * 
+   * This follows the same pattern as your successful transaction:
+   * https://explorer.solana.com/tx/5gDbavAsN1QPuu6ZTv5v4TVQPQFi8sYHCRnQzmWreTMKTYEwmxFwA8BeJbywSmu6xXTuv8rXKVV3zyTpfsHEJnb4?cluster=devnet
+   * 
+   * Instructions executed:
+   * 1. Create Associated Token Account (if needed)
+   * 2. Mint tokens to that ATA
+   */
+  async mintTokens(
+    config: MintTokensConfig,
+    options: MintTokensOptions
+  ): Promise<MintTokensResult> {
+    try {
+      // Step 1: Setup RPC
+      const rpcUrl = this.getRpcUrl(options.network, options.rpcUrl);
+      const wsUrl = this.getWebSocketUrl(options.network);
+      
+      // Validate URLs before creating connections
+      if (!rpcUrl) {
+        throw new Error(`Invalid network: ${options.network}. Expected 'devnet', 'testnet', or 'mainnet-beta'`);
+      }
+      if (!wsUrl) {
+        throw new Error(`Could not determine WebSocket URL for network: ${options.network}`);
+      }
+
+      // Step 1.5: Detect which token program the mint uses (SPL vs Token-2022)
+      const tokenProgramAddress = await this.detectTokenProgram(config.mintAddress, rpcUrl);
+      const isToken2022 = tokenProgramAddress === TOKEN_2022_PROGRAM_ADDRESS;
+
+      console.log('🔧 Token Program Detection:', {
+        mint: config.mintAddress,
+        program: isToken2022 ? 'Token-2022' : 'SPL Token',
+        programAddress: tokenProgramAddress
+      });
+      
+      const rpc = createSolanaRpc(rpcUrl);
+      const rpcSubscriptions = createSolanaRpcSubscriptions(wsUrl);
+
+      // Step 2: Create mint authority signer
+      const mintAuthority = await this.createSignerFromPrivateKey(options.mintAuthorityPrivateKey);
+
+      await logActivity({
+        action: 'solana_mint_tokens_started',
+        entity_type: 'token',
+        entity_id: config.mintAddress,
+        details: {
+          destinationAddress: config.destinationAddress,
+          amount: config.amount.toString(),
+          network: options.network,
+          tokenProgram: isToken2022 ? 'Token-2022' : 'SPL Token'
+        }
+      });
+
+      // Step 3: Derive destination Associated Token Account (ATA) using correct program
+      const [destinationATA] = isToken2022
+        ? await findToken2022AssociatedTokenPda({
+            owner: address(config.destinationAddress),
+            mint: address(config.mintAddress),
+            tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+          })
+        : await findAssociatedTokenPda({
+            owner: address(config.destinationAddress),
+            mint: address(config.mintAddress),
+            tokenProgram: TOKEN_PROGRAM_ADDRESS
+          });
+      
+      console.log('🎯 Mint Details:', {
+        mintAddress: config.mintAddress,
+        destinationWallet: config.destinationAddress,
+        derivedATA: destinationATA,
+        amount: config.amount.toString(),
+        network: options.network,
+        tokenProgram: isToken2022 ? 'Token-2022' : 'SPL Token'
+      });
+
+      // Step 4: Get latest blockhash
+      const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
+
+      // Step 5: Build instructions using correct program
+      const instructions = [];
+
+      // Create ATA if it doesn't exist (idempotent - safe to always call)
+      if (options.createATAIfNeeded !== false) {
+        const createATAInstruction = isToken2022
+          ? getToken2022CreateAssociatedTokenIdempotentInstruction({
+              payer: mintAuthority,
+              ata: destinationATA,
+              owner: address(config.destinationAddress),
+              mint: address(config.mintAddress),
+              tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+            })
+          : getCreateAssociatedTokenIdempotentInstruction({
+              payer: mintAuthority,
+              ata: destinationATA,
+              owner: address(config.destinationAddress),
+              mint: address(config.mintAddress)
+            });
+        
+        instructions.push(createATAInstruction);
+      }
+
+      // Mint tokens to the ATA using correct instruction
+      const mintToInstruction = isToken2022
+        ? getToken2022MintToCheckedInstruction({
+            mint: address(config.mintAddress),
+            token: destinationATA,
+            mintAuthority: mintAuthority,
+            amount: config.amount,
+            decimals: config.decimals
+          })
+        : getMintToCheckedInstruction({
+            mint: address(config.mintAddress),
+            token: destinationATA,
+            mintAuthority: mintAuthority,
+            amount: config.amount,
+            decimals: config.decimals
+          });
+
+      instructions.push(mintToInstruction);
+
+      // Step 6: Create, sign, and send transaction
+      const transactionMessage = pipe(
+        createTransactionMessage({ version: 0 }),
+        (tx) => setTransactionMessageFeePayerSigner(mintAuthority, tx),
+        (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+        (tx) => appendTransactionMessageInstructions(instructions, tx)
+      );
+
+      const signedTransaction = await signTransactionMessageWithSigners(transactionMessage);
+      
+      assertIsSendableTransaction(signedTransaction);
+      assertIsTransactionWithBlockhashLifetime(signedTransaction);
+
+      await sendAndConfirmTransactionFactory({ rpc, rpcSubscriptions })(
+        signedTransaction,
+        { commitment: 'confirmed' }
+      );
+
+      const signature = getSignatureFromTransaction(signedTransaction);
+      const explorerUrl = this.getExplorerUrl(signature, options.network);
+
+      await logActivity({
+        action: 'solana_mint_tokens_completed',
+        entity_type: 'token',
+        entity_id: config.mintAddress,
+        details: {
+          signature,
+          destinationAddress: config.destinationAddress,
+          destinationATA: destinationATA,
+          amount: config.amount.toString(),
+          network: options.network
+        }
+      });
+
+      return {
+        success: true,
+        signature,
+        destinationATA,
+        explorerUrl
+      };
+
+    } catch (error) {
+      console.error('Mint tokens error:', error);
+      
+      await logActivity({
+        action: 'solana_mint_tokens_failed',
+        entity_type: 'token',
+        entity_id: config.mintAddress,
+        details: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          config,
+          options
+        }
+      });
+
+      return {
+        success: false,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
+  // ============================================================================
+  // UTILITY METHODS
+  // ============================================================================
+
+  /**
+   * Get the Associated Token Account (ATA) for a wallet and mint
+   * This is what you need to know to see YOUR token balance!
+   * Automatically detects if the mint is SPL Token or Token-2022
+   * 
+   * @param walletAddress - Your wallet address (e.g., 5YZb2nQ4BsQauH5wz92sSjciGs67o6GuuF3H1cLAZ2PA)
+   * @param mintAddress - The token mint address (e.g., FtxA8oiouv1VjpD1iASWudvxyMXtCE3NtRSYFEjMscU5)
+   * @param network - The network to check on ('devnet', 'testnet', 'mainnet-beta')
+   * @returns The ATA address (e.g., BZgArohf8EsGyU9mnmXV4GbWL7RH7uFXEaczCQqxrhxE)
+   */
+  async getTokenAccountAddress(
+    walletAddress: string,
+    mintAddress: string,
+    network: SolanaNetwork = 'devnet'
+  ): Promise<Address> {
+    // Detect which token program the mint uses
+    const rpcUrl = this.getRpcUrl(network);
+    const tokenProgramAddress = await this.detectTokenProgram(mintAddress, rpcUrl);
+    const isToken2022 = tokenProgramAddress === TOKEN_2022_PROGRAM_ADDRESS;
+
+    // Use the appropriate function for the detected program
+    const [ataAddress] = isToken2022
+      ? await findToken2022AssociatedTokenPda({
+          owner: address(walletAddress),
+          mint: address(mintAddress),
+          tokenProgram: TOKEN_2022_PROGRAM_ADDRESS
+        })
+      : await findAssociatedTokenPda({
+          owner: address(walletAddress),
+          mint: address(mintAddress),
+          tokenProgram: TOKEN_PROGRAM_ADDRESS
+        });
+    
+    return ataAddress;
+  }
+
+  // ============================================================================
   // PRIVATE HELPER METHODS
   // ============================================================================
 
@@ -287,7 +589,9 @@ export class ModernSolanaMintService {
    * Get Solana Explorer URL for transaction
    */
   private getExplorerUrl(signature: string, network: SolanaNetwork): string {
-    const cluster = network === 'mainnet-beta' ? '' : `?cluster=${network}`;
+    // Normalize network (remove 'solana-' prefix if present)
+    const normalizedNetwork = network.replace('solana-', '') as SolanaNetwork;
+    const cluster = normalizedNetwork === 'mainnet-beta' ? '' : `?cluster=${normalizedNetwork}`;
     return `https://explorer.solana.com/tx/${signature}${cluster}`;
   }
 

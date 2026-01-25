@@ -24,8 +24,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   ArrowLeft,
   Send,
@@ -33,14 +41,16 @@ import {
   AlertTriangle,
   CheckCircle,
   ExternalLink,
-  Info
+  Info,
+  Wallet
 } from 'lucide-react';
 import { modernSolanaTokenTransferService } from '@/services/wallet/solana/ModernSolanaTokenTransferService';
 import { solanaTokenTransactionService } from '@/services/tokens/SolanaTokenTransactionService';
 import { solanaExplorer } from '@/infrastructure/web3/solana';
 import { address, type Address } from '@solana/kit';
 import { logActivity } from '@/infrastructure/activityLogger';
-import { SolanaWalletSelector, type SelectedSolanaWallet } from './SolanaWalletSelector';
+import { useSolanaWallet } from './contexts/SolanaWalletContext';
+import type { ProjectWalletData } from '@/services/project/project-wallet-service';
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -58,16 +68,21 @@ interface TokenInfo {
 
 interface TransferTokenFormProps {
   projectId: string;
+  tokenId?: string; // Optional for backward compatibility with routing
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
-  const { tokenId } = useParams<{ tokenId: string }>();
+export function TransferTokenForm({ projectId, tokenId: tokenIdProp }: TransferTokenFormProps) {
+  const { tokenId: tokenIdParam } = useParams<{ tokenId: string }>();
+  const tokenId = tokenIdProp || tokenIdParam; // Prefer prop over param
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Get wallet from context (already selected in dashboard header)
+  const { selectedWallet, network } = useSolanaWallet();
 
   const [token, setToken] = useState<TokenInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -89,7 +104,9 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
   // Form state
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
-  const [selectedWallet, setSelectedWallet] = useState<SelectedSolanaWallet | null>(null);
+  const [destinationWalletId, setDestinationWalletId] = useState<string>('manual');
+  const [availableWallets, setAvailableWallets] = useState<ProjectWalletData[]>([]);
+  const [isLoadingWallets, setIsLoadingWallets] = useState(false);
 
   // Validation state
   const [recipientError, setRecipientError] = useState('');
@@ -105,6 +122,13 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
       loadToken();
     }
   }, [tokenId]);
+  
+  // Load destination wallets
+  useEffect(() => {
+    if (projectId && selectedWallet) {
+      loadDestinationWallets();
+    }
+  }, [projectId, selectedWallet]);
 
   /**
    * Load token from database
@@ -127,7 +151,7 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
         .from('token_deployments')
         .select('contract_address, network')
         .eq('token_id', tokenId)
-        .eq('status', 'deployed')
+        .in('status', ['success', 'deployed', 'SUCCESS', 'DEPLOYED'])
         .order('deployed_at', { ascending: false })
         .limit(1)
         .single();
@@ -150,6 +174,58 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
       navigate(-1);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  /**
+   * Load destination wallets from project_wallets
+   * Excludes the currently selected funding wallet
+   */
+  const loadDestinationWallets = async () => {
+    if (!selectedWallet) return;
+    
+    try {
+      setIsLoadingWallets(true);
+
+      const { data: wallets, error } = await supabase
+        .from('project_wallets')
+        .select('*')
+        .eq('project_id', projectId)
+        .eq('non_evm_network', 'solana')
+        .neq('id', selectedWallet.id) // Exclude funding wallet
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setAvailableWallets(wallets || []);
+    } catch (error: any) {
+      console.error('Error loading destination wallets:', error);
+      toast({
+        title: 'Warning',
+        description: 'Could not load project wallets',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoadingWallets(false);
+    }
+  };
+
+  /**
+   * Handle destination wallet selection
+   */
+  const handleDestinationWalletChange = (value: string) => {
+    setDestinationWalletId(value);
+    
+    if (value === 'manual') {
+      // Clear recipient for manual entry
+      setRecipient('');
+    } else {
+      // Set recipient to selected wallet address
+      const wallet = availableWallets.find(w => w.id === value);
+      if (wallet) {
+        setRecipient(wallet.wallet_address);
+        setRecipientError(''); // Clear any existing error
+      }
     }
   };
 
@@ -205,10 +281,10 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
       return;
     }
 
-    if (!selectedWallet) {
+    if (!selectedWallet || !selectedWallet.decryptedPrivateKey) {
       toast({
         title: 'Wallet Required',
-        description: 'Please select a wallet to transfer from',
+        description: 'Please select a wallet in the dashboard header',
         variant: 'destructive'
       });
       return;
@@ -232,14 +308,14 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
       const result = await modernSolanaTokenTransferService.transferTokens(
         {
           mint: address(token.deployment.contract_address),
-          from: address(selectedWallet.address),
+          from: address(selectedWallet.wallet_address),
           to: address(recipient),
           amount: amountInSmallestUnit,
           decimals: decimals
         },
         {
           network: token.deployment.network as any,
-          signerPrivateKey: selectedWallet.privateKey,
+          signerPrivateKey: selectedWallet.decryptedPrivateKey,
           createDestinationATA: true
         }
       );
@@ -255,7 +331,7 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
         token_id: token.id,
         token_address: token.deployment.contract_address,
         token_symbol: token.symbol,
-        from_address: selectedWallet.address,
+        from_address: selectedWallet.wallet_address,
         to_address: recipient,
         amount: amountInSmallestUnit.toString(),
         decimals: decimals,
@@ -401,7 +477,7 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
               setTransactionHash('');
               setRecipient('');
               setAmount('');
-              setSelectedWallet(null);
+              setDestinationWalletId('manual');
             }}
           >
             Transfer More Tokens
@@ -448,7 +524,65 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Recipient */}
+          {/* Funding Wallet (Read-only, from Dashboard Header) */}
+          <div className="space-y-2">
+            <Label>Funding Wallet</Label>
+            <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">
+                  {selectedWallet?.project_wallet_name || 'Wallet'}
+                </p>
+                <p className="text-xs text-muted-foreground font-mono">
+                  {selectedWallet?.wallet_address ? 
+                    `${selectedWallet.wallet_address.slice(0, 8)}...${selectedWallet.wallet_address.slice(-8)}` : 
+                    'No wallet selected'}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {network}
+              </Badge>
+            </div>
+            {!selectedWallet && (
+              <p className="text-sm text-destructive">
+                Please select a wallet in the dashboard header
+              </p>
+            )}
+          </div>
+          
+          {/* Destination Wallet Selector */}
+          <div className="space-y-2">
+            <Label htmlFor="destination-wallet">Destination</Label>
+            <Select
+              value={destinationWalletId}
+              onValueChange={handleDestinationWalletChange}
+            >
+              <SelectTrigger id="destination-wallet">
+                <SelectValue placeholder="Select destination wallet or enter manually" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="manual">Manual Address Entry</SelectItem>
+                {isLoadingWallets ? (
+                  <SelectItem value="loading" disabled>
+                    Loading wallets...
+                  </SelectItem>
+                ) : availableWallets.length === 0 ? (
+                  <SelectItem value="no-wallets" disabled>
+                    No other project wallets available
+                  </SelectItem>
+                ) : (
+                  availableWallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={wallet.id}>
+                      {wallet.project_wallet_name || wallet.wallet_address.slice(0, 8)}...
+                      {wallet.wallet_address.slice(-4)}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          {/* Recipient Address (manual or from selected wallet) */}
           <div className="space-y-2">
             <Label htmlFor="recipient">Recipient Address</Label>
             <Input
@@ -461,9 +595,15 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
               }}
               onBlur={() => validateRecipient(recipient)}
               className={recipientError ? 'border-red-500' : ''}
+              disabled={destinationWalletId !== 'manual'} // Disable when wallet selected
             />
             {recipientError && (
               <p className="text-sm text-red-500">{recipientError}</p>
+            )}
+            {destinationWalletId !== 'manual' && (
+              <p className="text-xs text-muted-foreground">
+                Using address from selected project wallet
+              </p>
             )}
           </div>
 
@@ -493,21 +633,8 @@ export function TransferTokenForm({ projectId }: TransferTokenFormProps) {
             </p>
           </div>
 
-          {/* Wallet Selector */}
-          <SolanaWalletSelector
-            projectId={projectId}
-            network={token.deployment.network as any}
-            onWalletSelected={(wallet) => setSelectedWallet(wallet)}
-            onError={(error) => toast({
-              title: 'Wallet Error',
-              description: error,
-              variant: 'destructive'
-            })}
-            label="Source Wallet"
-            description="Select the wallet to transfer from"
-            required
-            autoSelectFirst
-          />
+          {/* Wallet is now provided by context from dashboard header */}
+
 
           {/* Submit */}
           <Button

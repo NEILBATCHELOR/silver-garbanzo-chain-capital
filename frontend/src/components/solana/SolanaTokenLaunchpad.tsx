@@ -28,9 +28,10 @@ import {
   Plus,
   TrendingUp,
   Activity,
-  ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Wallet
 } from 'lucide-react';
+import { modernSolanaBlockchainQueryService } from '@/services/wallet/solana';
 
 // ============================================================================
 // TYPES
@@ -43,25 +44,21 @@ interface LaunchpadStats {
   splTokens: number;
   token2022Count: number;
   totalDeployed: number;
-}
-
-interface RecentToken {
-  id: string;
-  name: string;
-  symbol: string;
-  solana_token_type: string | null;
-  deployed_at: string;
+  totalValueLocked: string; // Total SOL across all wallets
+  activeWallets: number; // Number of unique wallet addresses with tokens
 }
 
 interface SolanaTokenLaunchpadProps {
   projectId: string;
+  selectedWallet?: string; // Wallet address for dynamic stats
+  network?: string; // Network (DEVNET, MAINNET, TESTNET)
 }
 
 // ============================================================================
 // COMPONENT
 // ============================================================================
 
-export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
+export function SolanaTokenLaunchpad({ projectId, selectedWallet, network: networkProp }: SolanaTokenLaunchpadProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -69,24 +66,31 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
     totalTokens: 0,
     splTokens: 0,
     token2022Count: 0,
-    totalDeployed: 0
+    totalDeployed: 0,
+    totalValueLocked: '0',
+    activeWallets: 0
   });
-  const [recentTokens, setRecentTokens] = useState<RecentToken[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Normalize network for blockchain queries
+  const normalizedNetwork = (networkProp === 'MAINNET' ? 'mainnet-beta' 
+    : networkProp === 'DEVNET' ? 'devnet' 
+    : networkProp === 'TESTNET' ? 'testnet'
+    : 'devnet') as 'mainnet-beta' | 'devnet' | 'testnet';
 
-  // Load data on mount
+  // Load data on mount and when wallet/network changes
   useEffect(() => {
     loadDashboardData();
-  }, [projectId]);
+  }, [projectId, selectedWallet, networkProp]);
 
   /**
-   * Load dashboard statistics and recent tokens
+   * Load dashboard statistics and fetch LIVE blockchain data
    */
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
 
-      // Load tokens
+      // Load tokens from database
       const { data: tokens, error: tokensError } = await supabase
         .from('tokens')
         .select('id, name, symbol, standard')
@@ -95,56 +99,95 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
 
       if (tokensError) throw tokensError;
 
-      // Load deployments
+      // Load ALL deployments from database (no limit for accurate counting)
       const { data: deployments, error: deploymentsError } = await supabase
         .from('token_deployments')
-        .select('token_id, solana_token_type, deployed_at')
-        .eq('status', 'deployed')
+        .select('token_id, solana_token_type, deployed_at, deployed_by, network')
+        .in('status', ['deployed', 'DEPLOYED', 'success', 'SUCCESS'])
         .in('token_id', (tokens || []).map(t => t.id))
-        .order('deployed_at', { ascending: false })
-        .limit(5);
+        .order('deployed_at', { ascending: false });
 
       if (deploymentsError) throw deploymentsError;
 
-      // Calculate stats
+      // Filter deployments by current network
+      const currentNetworkDeployments = (deployments || []).filter((d: any) => {
+        const deploymentNetwork = d.network.replace('solana-', '');
+        return deploymentNetwork === normalizedNetwork;
+      });
+
+      // Calculate stats from filtered deployments
       const totalTokens = tokens?.length || 0;
-      const totalDeployed = deployments?.length || 0;
+      const totalDeployed = currentNetworkDeployments.length;
       
-      const deploymentMap = new Map<string, TokenDeployment>(
-        (deployments || []).map(d => [d.token_id, d as TokenDeployment])
-      );
-
-      const splTokens = deployments?.filter((d: TokenDeployment) => 
+      const splTokens = currentNetworkDeployments.filter((d: any) => 
         !d.solana_token_type || d.solana_token_type === 'SPL'
-      ).length || 0;
+      ).length;
 
-      const token2022Count = deployments?.filter((d: TokenDeployment) => 
+      const token2022Count = currentNetworkDeployments.filter((d: any) => 
         d.solana_token_type === 'Token2022'
-      ).length || 0;
+      ).length;
+
+      // Fetch LIVE blockchain data for wallet
+      let totalValueLocked = '0';
+      let activeWallets = 0;
+      let blockchainSPLCount = 0;
+      let blockchainToken2022Count = 0;
+
+      if (selectedWallet) {
+        try {
+          // ✅ FETCH LIVE DATA FROM BLOCKCHAIN
+          const balance = await modernSolanaBlockchainQueryService.getWalletBalance(
+            selectedWallet,
+            normalizedNetwork
+          );
+          totalValueLocked = balance.solFormatted;
+          
+          // ✅ COUNT ACTUAL TOKENS BY PROGRAM TYPE FROM BLOCKCHAIN
+          blockchainSPLCount = balance.tokens.filter(t => t.tokenProgram === 'spl-token').length;
+          blockchainToken2022Count = balance.tokens.filter(t => t.tokenProgram === 'token-2022').length;
+          
+          // Count unique wallet holders from current network deployments
+          const uniqueWallets = new Set<string>();
+          for (const deployment of currentNetworkDeployments) {
+            if (deployment.deployed_by) {
+              uniqueWallets.add(deployment.deployed_by);
+            }
+          }
+          activeWallets = uniqueWallets.size;
+
+          console.log('✅ LIVE BLOCKCHAIN DATA LOADED:', {
+            wallet: selectedWallet,
+            network: normalizedNetwork,
+            solBalance: totalValueLocked,
+            totalTokens: balance.tokens.length,
+            splTokens: blockchainSPLCount,
+            token2022Tokens: blockchainToken2022Count,
+            dbSPL: splTokens,
+            dbToken2022: token2022Count
+          });
+        } catch (blockchainError) {
+          console.error('Failed to fetch blockchain data:', blockchainError);
+          toast({
+            title: 'Warning',
+            description: 'Could not fetch live blockchain data. Showing database info only.',
+            variant: 'default'
+          });
+        }
+      }
+
+      // Use blockchain counts if wallet is selected, otherwise fall back to database
+      const finalSPLCount = selectedWallet ? blockchainSPLCount : splTokens;
+      const finalToken2022Count = selectedWallet ? blockchainToken2022Count : token2022Count;
 
       setStats({
         totalTokens,
-        splTokens,
-        token2022Count,
-        totalDeployed
+        splTokens: finalSPLCount,
+        token2022Count: finalToken2022Count,
+        totalDeployed,
+        totalValueLocked,
+        activeWallets
       });
 
-      // Get recent tokens with deployment info
-      const recent = (tokens || [])
-        .filter(t => deploymentMap.has(t.id))
-        .slice(0, 5)
-        .map(t => {
-          const deployment = deploymentMap.get(t.id)!;
-          return {
-            id: t.id,
-            name: t.name,
-            symbol: t.symbol,
-            solana_token_type: deployment.solana_token_type,
-            deployed_at: deployment.deployed_at
-          };
-        });
-
-      setRecentTokens(recent);
     } catch (error: any) {
       console.error('Error loading dashboard:', error);
       toast({
@@ -155,17 +198,6 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  /**
-   * Format date
-   */
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
   };
 
   // ============================================================================
@@ -199,20 +231,7 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
       </div>
 
       {/* Statistics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
-            <Coins className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalTokens}</div>
-            <p className="text-xs text-muted-foreground">
-              {stats.totalDeployed} deployed
-            </p>
-          </CardContent>
-        </Card>
-
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">SPL Tokens</CardTitle>
@@ -221,7 +240,7 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
           <CardContent>
             <div className="text-2xl font-bold">{stats.splTokens}</div>
             <p className="text-xs text-muted-foreground">
-              Basic fungible tokens
+              {selectedWallet ? '✅ Tokens in wallet' : 'Basic fungible tokens'}
             </p>
           </CardContent>
         </Card>
@@ -234,20 +253,20 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
           <CardContent>
             <div className="text-2xl font-bold">{stats.token2022Count}</div>
             <p className="text-xs text-muted-foreground">
-              With extensions
+              {selectedWallet ? '✅ With extensions' : 'With extensions'}
             </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Activity</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Wallet Balance</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{recentTokens.length}</div>
+            <div className="text-2xl font-bold">{stats.totalValueLocked} SOL</div>
             <p className="text-xs text-muted-foreground">
-              Recent deployments
+              {selectedWallet ? '✅ Live from blockchain' : 'Select wallet to view'}
             </p>
           </CardContent>
         </Card>
@@ -281,74 +300,6 @@ export function SolanaTokenLaunchpad({ projectId }: SolanaTokenLaunchpadProps) {
           </CardHeader>
         </Card>
       </div>
-
-      {/* Recent Tokens */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Recent Deployments</CardTitle>
-              <CardDescription>
-                Your most recently deployed tokens
-              </CardDescription>
-            </div>
-            <Button
-              variant="ghost"
-              onClick={() => navigate('list')}
-            >
-              View All
-              <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : recentTokens.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                No tokens deployed yet
-              </p>
-              <Button onClick={() => navigate('deploy')}>
-                <Plus className="h-4 w-4 mr-2" />
-                Deploy Your First Token
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recentTokens.map((token) => (
-                <div
-                  key={token.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
-                  onClick={() => navigate(`${token.id}/details`)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Coins className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium">{token.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {token.symbol}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={token.solana_token_type === 'Token2022' ? 'default' : 'secondary'}>
-                      {token.solana_token_type || 'SPL'}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {formatDate(token.deployed_at)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
       {/* Getting Started */}
       {stats.totalTokens === 0 && !isLoading && (

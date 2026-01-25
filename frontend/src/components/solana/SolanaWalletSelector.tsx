@@ -109,8 +109,8 @@ export function SolanaWalletSelector({
         .from('project_wallets')
         .select('*')
         .eq('project_id', projectId)
-        .eq('wallet_type', 'solana')
-        .eq('non_evm_network', network)
+        .eq('wallet_type', 'Solana') // Capital S!
+        .eq('net', network) // Use 'net' field, not 'non_evm_network'
         .order('created_at', { ascending: false });
 
       if (dbError) throw dbError;
