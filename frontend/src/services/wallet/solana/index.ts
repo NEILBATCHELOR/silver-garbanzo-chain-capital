@@ -92,6 +92,16 @@ export {
 } from './ModernSolanaTokenAccountService';
 
 export {
+  ModernSolanaAccountExtensionsService,
+  modernSolanaAccountExtensionsService,
+  type EnableMemoTransferConfig,
+  type DisableMemoTransferConfig,
+  type AccountExtensionOptions,
+  type AccountExtensionResult,
+  type MemoTransferStatus
+} from './ModernSolanaAccountExtensionsService';
+
+export {
   ModernSolanaTokenBurnService,
   modernSolanaTokenBurnService,
   type TokenBurnParams,

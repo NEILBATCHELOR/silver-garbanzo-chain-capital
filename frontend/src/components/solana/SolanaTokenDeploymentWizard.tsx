@@ -14,6 +14,7 @@ import { TokenTypeSelector, type SolanaTokenType } from './TokenTypeSelector';
 import { BasicTokenConfigForm, type BasicTokenConfig } from './BasicTokenConfigForm';
 import { ExtensionsSelector, type Token2022Extension } from './ExtensionsSelector';
 import { TransferFeeConfig, type TransferFeeConfiguration } from './TransferFeeConfig';
+import { InterestBearingConfig, type InterestBearingConfiguration } from './InterestBearingConfig';
 import { DeploymentPreview } from './DeploymentPreview';
 import { unifiedSolanaTokenDeploymentService } from '@/components/tokens/services/unifiedSolanaTokenDeploymentService';
 import { supabase } from '@/infrastructure/database/client';
@@ -36,6 +37,7 @@ interface WizardState {
   selectedWallet: SelectedSolanaWallet | null;
   extensions: Token2022Extension[];
   transferFeeConfig: TransferFeeConfiguration | null;
+  interestBearingConfig: InterestBearingConfiguration | null;
 }
 
 const steps: { id: WizardStep; label: string; description: string }[] = [
@@ -71,7 +73,8 @@ export function SolanaTokenDeploymentWizard({
     basicConfig: null,
     selectedWallet: null,
     extensions: [], // Will be auto-populated when Token2022 is selected
-    transferFeeConfig: null
+    transferFeeConfig: null,
+    interestBearingConfig: null
   });
   const [deploymentResult, setDeploymentResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +92,8 @@ export function SolanaTokenDeploymentWizard({
     if (state.tokenType === 'Token2022') {
       sequence.push('extensions');
       
-      // Only show extension config if transfer fee is selected
-      if (state.extensions.includes('TransferFee')) {
+      // Show extension config if transfer fee or interest-bearing is selected
+      if (state.extensions.includes('TransferFee') || state.extensions.includes('InterestBearing')) {
         sequence.push('extensionConfig');
       }
     }
@@ -185,10 +188,15 @@ export function SolanaTokenDeploymentWizard({
           metadata: {
             uri: state.basicConfig.metadataUri || null,
             on_chain_metadata: state.tokenType === 'Token2022' && state.extensions.includes('Metadata'),
+            extensions: state.tokenType === 'Token2022' ? state.extensions : [],
             transfer_fee: state.transferFeeConfig ? {
               fee_basis_points: state.transferFeeConfig.feeBasisPoints,
               max_fee: state.transferFeeConfig.maxFee
-            } : null
+            } : null,
+            interest_bearing: state.interestBearingConfig ? {
+              rate: state.interestBearingConfig.rate
+            } : null,
+            non_transferable: state.extensions.includes('NonTransferable') || false
           }
         })
         .select()
@@ -347,11 +355,22 @@ export function SolanaTokenDeploymentWizard({
         />
       )}
 
-      {currentStep === 'extensionConfig' && state.extensions.includes('TransferFee') && (
-        <TransferFeeConfig
-          value={state.transferFeeConfig || { feeBasisPoints: 100, maxFee: '10000000000' }}
-          onChange={(transferFeeConfig) => setState({ ...state, transferFeeConfig })}
-        />
+      {currentStep === 'extensionConfig' && (
+        <div className="space-y-6">
+          {state.extensions.includes('TransferFee') && (
+            <TransferFeeConfig
+              value={state.transferFeeConfig || { feeBasisPoints: 100, maxFee: '10000000000' }}
+              onChange={(transferFeeConfig) => setState({ ...state, transferFeeConfig })}
+            />
+          )}
+          
+          {state.extensions.includes('InterestBearing') && (
+            <InterestBearingConfig
+              value={state.interestBearingConfig || { rate: 500 }}
+              onChange={(interestBearingConfig) => setState({ ...state, interestBearingConfig })}
+            />
+          )}
+        </div>
       )}
 
       {currentStep === 'preview' && state.basicConfig && (
@@ -360,6 +379,7 @@ export function SolanaTokenDeploymentWizard({
           basicConfig={state.basicConfig}
           extensions={state.extensions}
           transferFeeConfig={state.transferFeeConfig}
+          interestBearingConfig={state.interestBearingConfig}
           network={network}
         />
       )}

@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -91,6 +92,8 @@ export function CreateAccountForm({ projectId, tokenId: tokenIdProp }: CreateAcc
 
   // Form state
   const [predictedATAAddress, setPredictedATAAddress] = useState<string>('');
+  const [enableImmutableOwner, setEnableImmutableOwner] = useState(false);
+  const [useToken2022, setUseToken2022] = useState(false);
 
   // Transaction state
   const [transactionHash, setTransactionHash] = useState('');
@@ -198,18 +201,40 @@ export function CreateAccountForm({ projectId, tokenId: tokenIdProp }: CreateAcc
       setIsCreating(true);
       setCreationStage('validating');
 
-      // Create ATA (idempotent - won't fail if exists)
+      // Create Token Account
       setCreationStage('creating');
-      const result = await modernSolanaTokenAccountService.createATAIdempotent(
-        {
-          mint: address(token.deployment.contract_address),
-          owner: address(selectedWallet.wallet_address)
-        },
-        {
-          network: token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta',
-          payerPrivateKey: selectedWallet.decryptedPrivateKey
-        }
-      );
+      
+      let result;
+      
+      if (enableImmutableOwner) {
+        // Create regular token account with ImmutableOwner extension
+        // Note: ATAs cannot have extensions, must use regular token account
+        result = await modernSolanaTokenAccountService.createTokenAccount(
+          {
+            mint: address(token.deployment.contract_address),
+            owner: address(selectedWallet.wallet_address),
+            generateAccountKeypair: true,
+            enableImmutableOwner: true,
+            useToken2022: true
+          },
+          {
+            network: token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta',
+            payerPrivateKey: selectedWallet.decryptedPrivateKey
+          }
+        );
+      } else {
+        // Create ATA (idempotent - won't fail if exists)
+        result = await modernSolanaTokenAccountService.createATAIdempotent(
+          {
+            mint: address(token.deployment.contract_address),
+            owner: address(selectedWallet.wallet_address)
+          },
+          {
+            network: token.deployment.network as 'devnet' | 'testnet' | 'mainnet-beta',
+            payerPrivateKey: selectedWallet.decryptedPrivateKey
+          }
+        );
+      }
 
       if (!result.success) {
         throw new Error(result.errors?.join(', ') || 'Account creation failed');
@@ -351,7 +376,7 @@ export function CreateAccountForm({ projectId, tokenId: tokenIdProp }: CreateAcc
           </div>
 
           {/* Predicted ATA Address */}
-          {selectedWallet && predictedATAAddress && (
+          {selectedWallet && predictedATAAddress && !enableImmutableOwner && (
             <div className="space-y-2">
               <Label>Token Account Address (ATA)</Label>
               <div className="flex gap-2">
@@ -373,6 +398,54 @@ export function CreateAccountForm({ projectId, tokenId: tokenIdProp }: CreateAcc
               </p>
             </div>
           )}
+
+          {/* ImmutableOwner Extension Option */}
+          <div className="space-y-4">
+            <div className="flex items-start space-x-2">
+              <Checkbox
+                id="immutableOwner"
+                checked={enableImmutableOwner}
+                onCheckedChange={(checked) => {
+                  setEnableImmutableOwner(checked as boolean);
+                  setUseToken2022(checked as boolean);
+                }}
+                disabled={isCreating}
+              />
+              <div className="grid gap-1.5 leading-none">
+                <Label
+                  htmlFor="immutableOwner"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Enable ImmutableOwner Extension (Token-2022)
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Prevent the account owner from being reassigned (enhanced security)
+                </p>
+              </div>
+            </div>
+
+            {enableImmutableOwner && (
+              <Alert className="border-blue-200 bg-blue-50">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertTitle className="text-blue-800">ImmutableOwner Extension</AlertTitle>
+                <AlertDescription className="text-blue-700 text-sm space-y-2">
+                  <p>
+                    When enabled, the account owner <strong>cannot be changed</strong> after creation.
+                    This provides additional security against ownership transfer attacks.
+                  </p>
+                  <p className="text-xs mt-2">
+                    <strong>Note:</strong> This creates a regular token account (not ATA) with the extension.
+                    The account address will be randomly generated.
+                  </p>
+                  <div className="mt-2">
+                    <Badge variant="outline" className="text-xs">
+                      Token-2022 Only
+                    </Badge>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
 
           {/* Create Button */}
           <div className="flex gap-3">

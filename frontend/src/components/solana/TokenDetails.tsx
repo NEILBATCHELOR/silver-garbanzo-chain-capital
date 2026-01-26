@@ -48,7 +48,7 @@ import { TokenMetadataManager } from './TokenMetadataManager';
 import { TokenHolderAnalytics } from './TokenHolderAnalytics';
 import { BlockchainTokenTransactionHistory } from './BlockchainTokenTransactionHistory';
 import { TransactionSearch } from './TransactionSearch';
-import { BatchTransfer } from './BatchTransfer';
+import { UnifiedSolanaTransfer } from './UnifiedSolanaTransfer';
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { FullPageLoader } from './LoadingStates';
 import { modernSolanaTokenQueryService, type TokenOnChainData } from '@/services/wallet/solana';
@@ -745,22 +745,20 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
 
         {/* TRANSFER TAB */}
         <TabsContent value="transfer">
-          {token.deployment && (
-            <BatchTransfer
-              tokenAddress={token.deployment.contract_address}
-              tokenSymbol={token.symbol}
-              decimals={token.decimals}
-              availableBalance={balance}
-              network={token.deployment.network as 'mainnet-beta' | 'devnet' | 'testnet'}
-              onTransferComplete={(results) => {
-                toast({
-                  title: 'Batch Transfer Complete',
-                  description: `Processed ${results.length} transfers`
-                });
-                setActiveTab('history');
-              }}
-            />
-          )}
+          <UnifiedSolanaTransfer
+            projectId={token.project_id}
+            tokenId={token.id}
+            onTransferComplete={() => {
+              toast({
+                title: 'Transfer Complete',
+                description: 'Token transfer completed successfully'
+              });
+              // Refresh token data to update balances
+              loadToken();
+              // Switch to history tab to see the transaction
+              setActiveTab('history');
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

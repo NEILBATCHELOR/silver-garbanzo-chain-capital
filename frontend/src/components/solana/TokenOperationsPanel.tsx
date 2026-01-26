@@ -35,11 +35,13 @@ import {
   UserCheck,
   UserX,
   Key,
-  Snowflake
+  Snowflake,
+  Shield,
+  Mail
 } from 'lucide-react';
 
 // Import form components
-import { TransferTokenForm } from './TransferTokenForm';
+import { UnifiedSolanaTransfer } from './UnifiedSolanaTransfer';
 import { MintTokenForm } from './MintTokenForm';
 import { BurnTokenForm } from './BurnTokenForm';
 import { CreateAccountForm } from './CreateAccountForm';
@@ -49,6 +51,8 @@ import { RevokeDelegateForm } from './RevokeDelegateForm';
 import { SetAuthorityForm } from './SetAuthorityForm';
 import { FreezeAccountForm } from './FreezeAccountForm';
 import { ThawAccountForm } from './ThawAccountForm';
+import { CpiGuardForm } from './CpiGuardForm';
+import { MemoTransferForm } from './MemoTransferForm';
 
 interface TokenOperationsPanelProps {
   tokenId: string;
@@ -85,7 +89,7 @@ export function TokenOperationsPanel({
           <Info className="h-4 w-4" />
           <AlertTitle>Available Operations</AlertTitle>
           <AlertDescription className="text-sm">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
               <div>
                 <p className="font-semibold mb-2">Token Operations</p>
                 <div className="space-y-1 text-xs">
@@ -108,6 +112,14 @@ export function TokenOperationsPanel({
                   <div>• Approve/revoke delegates</div>
                   <div>• Set authorities</div>
                   <div>• Freeze/thaw accounts</div>
+                  <div>• CPI Guard protection</div>
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold mb-2">Account Extensions</p>
+                <div className="space-y-1 text-xs">
+                  <div>• Memo Transfer (Token-2022)</div>
+                  <div>• ImmutableOwner (at creation)</div>
                 </div>
               </div>
             </div>
@@ -150,7 +162,7 @@ export function TokenOperationsPanel({
 
             {/* Row 3: Permissions & Control */}
             <div className="text-xs text-muted-foreground font-medium mb-1">Permissions & Control</div>
-            <TabsList className="grid w-full grid-cols-5 mb-4">
+            <TabsList className="grid w-full grid-cols-6 mb-4">
               <TabsTrigger value="approve" className="flex items-center gap-2">
                 <UserCheck className="h-4 w-4" />
                 Approve
@@ -171,6 +183,19 @@ export function TokenOperationsPanel({
                 <Flame className="h-4 w-4" />
                 Thaw
               </TabsTrigger>
+              <TabsTrigger value="cpiguard" className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                CPI Guard
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Row 4: Account Extensions (Token-2022) */}
+            <div className="text-xs text-muted-foreground font-medium mb-1">Account Extensions</div>
+            <TabsList className="grid w-full grid-cols-1 mb-4">
+              <TabsTrigger value="memotransfer" className="flex items-center gap-2">
+                <Mail className="h-4 w-4" />
+                Memo Transfer
+              </TabsTrigger>
             </TabsList>
           </div>
 
@@ -178,7 +203,14 @@ export function TokenOperationsPanel({
           
           {/* Token Operations */}
           <TabsContent value="transfer" className="mt-6">
-            <TransferTokenForm projectId={projectId} tokenId={tokenId} />
+            <UnifiedSolanaTransfer 
+              projectId={projectId} 
+              tokenId={tokenId}
+              onTransferComplete={() => {
+                // Optional: Could trigger a refresh or show a success message
+                console.log('Transfer completed in token operations');
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="mint" className="mt-6">
@@ -217,6 +249,15 @@ export function TokenOperationsPanel({
 
           <TabsContent value="thaw" className="mt-6">
             <ThawAccountForm projectId={projectId} tokenId={tokenId} />
+          </TabsContent>
+
+          <TabsContent value="cpiguard" className="mt-6">
+            <CpiGuardForm projectId={projectId} tokenId={tokenId} />
+          </TabsContent>
+
+          {/* Account Extensions */}
+          <TabsContent value="memotransfer" className="mt-6">
+            <MemoTransferForm projectId={projectId} tokenId={tokenId} />
           </TabsContent>
         </Tabs>
       </div>

@@ -44,6 +44,12 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ADDRESS
 } from '@solana-program/token';
 
+import {
+  TOKEN_2022_PROGRAM_ADDRESS,
+  extension,
+  getInitializeImmutableOwnerInstruction,
+} from '@solana-program/token-2022';
+
 import { createModernRpc, createCustomRpc, type ModernSolanaRpc } from '@/infrastructure/web3/solana';
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { handleSolanaError } from '@/infrastructure/web3/solana/ModernSolanaErrorHandler';
@@ -62,6 +68,8 @@ export interface TokenAccountConfig {
   owner: Address; // Account owner who can transfer tokens
   generateAccountKeypair?: boolean; // true = generate new, false = provide keypair
   accountKeypair?: KeyPairSigner; // Provide specific account keypair
+  enableImmutableOwner?: boolean; // Enable ImmutableOwner extension (Token-2022 only)
+  useToken2022?: boolean; // Use Token-2022 program (required for extensions)
 }
 
 /**
@@ -153,17 +161,34 @@ export class ModernSolanaTokenAccountService {
         details: {
           mint: config.mint,
           owner: config.owner,
-          network: options.network
+          network: options.network,
+          enableImmutableOwner: config.enableImmutableOwner || false,
+          useToken2022: config.useToken2022 || false
         }
       });
 
-      // Step 4: Get token account size and rent
-      const tokenAccountSpace = BigInt(getTokenSize());
+      // Step 4: Determine token program and account size
+      const tokenProgram = config.useToken2022 ? TOKEN_2022_PROGRAM_ADDRESS : TOKEN_PROGRAM_ADDRESS;
+      
+      // Calculate space with extensions if needed
+      let tokenAccountSpace: bigint;
+      
+      if (config.useToken2022 && config.enableImmutableOwner) {
+        // ImmutableOwner extension for Token-2022
+        const immutableOwnerExtension = extension('ImmutableOwner', {});
+        const { getTokenSize: getToken2022Size } = await import('@solana-program/token-2022');
+        tokenAccountSpace = BigInt(getToken2022Size([immutableOwnerExtension]));
+      } else {
+        tokenAccountSpace = BigInt(getTokenSize());
+      }
+
       const tokenAccountRent = await rpc.getRpc()
         .getMinimumBalanceForRentExemption(tokenAccountSpace)
         .send();
 
       // Step 5: Build instructions
+      const instructions: Instruction[] = [];
+      
       // Instruction to create new account for token account (token program)
       // Invokes the system program
       const createTokenAccountInstruction = getCreateAccountInstruction({
@@ -171,8 +196,17 @@ export class ModernSolanaTokenAccountService {
         newAccount: tokenAccount,
         lamports: tokenAccountRent,
         space: tokenAccountSpace,
-        programAddress: TOKEN_PROGRAM_ADDRESS
+        programAddress: tokenProgram
       });
+      instructions.push(createTokenAccountInstruction);
+
+      // If ImmutableOwner extension is enabled, add initialization instruction BEFORE account initialization
+      if (config.useToken2022 && config.enableImmutableOwner) {
+        const initImmutableOwnerInstruction = getInitializeImmutableOwnerInstruction({
+          account: tokenAccount.address
+        });
+        instructions.push(initImmutableOwnerInstruction);
+      }
 
       // Instruction to initialize token account data
       // Invokes the token program
@@ -181,11 +215,7 @@ export class ModernSolanaTokenAccountService {
         mint: config.mint,
         owner: config.owner
       });
-
-      const instructions = [
-        createTokenAccountInstruction,
-        initializeTokenAccountInstruction
-      ];
+      instructions.push(initializeTokenAccountInstruction);
 
       // Step 6: Get latest blockhash
       const { value: latestBlockhash } = await rpc.getRpc().getLatestBlockhash().send();
@@ -222,7 +252,9 @@ export class ModernSolanaTokenAccountService {
           signature,
           mint: config.mint,
           owner: config.owner,
-          network: options.network
+          network: options.network,
+          enableImmutableOwner: config.enableImmutableOwner || false,
+          useToken2022: config.useToken2022 || false
         }
       });
 

@@ -1,6 +1,10 @@
 /**
  * Token-2022 Extensions Selector
  * Allows users to enable advanced Token-2022 features
+ * 
+ * NOTE: CPI Guard has been removed from this selector as it is an ACCOUNT-LEVEL extension,
+ * not a mint-level extension. CPI Guard must be enabled on individual token accounts
+ * after deployment via the Token Operations panel.
  */
 
 import { Checkbox } from '@/components/ui/checkbox';
@@ -8,14 +12,17 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Info } from 'lucide-react';
 
 export type Token2022Extension = 
   | 'Metadata' 
   | 'TransferFee' 
   | 'MetadataPointer' 
   | 'MintCloseAuthority' 
-  | 'DefaultAccountState';
+  | 'DefaultAccountState'
+  | 'NonTransferable'
+  | 'InterestBearing'
+  | 'PermanentDelegate';
 
 interface ExtensionsSelectorProps {
   selectedExtensions: Token2022Extension[];
@@ -63,6 +70,27 @@ const extensionInfo: Record<Token2022Extension, {
     priority: 'MEDIUM',
     permanent: true,
     costImpact: 'Low'
+  },
+  NonTransferable: {
+    label: 'Non-Transferable',
+    description: 'Tokens cannot be transferred between accounts (soulbound tokens, certificates)',
+    priority: 'MEDIUM',
+    permanent: true,
+    costImpact: 'Low'
+  },
+  InterestBearing: {
+    label: 'Interest-Bearing',
+    description: 'Tokens accrue interest over time (yield-bearing tokens, DeFi applications)',
+    priority: 'MEDIUM',
+    permanent: true,
+    costImpact: 'Low'
+  },
+  PermanentDelegate: {
+    label: 'Permanent Delegate',
+    description: 'Authority with unlimited transfer/burn privileges over any account (compliance, stablecoins)',
+    priority: 'MEDIUM',
+    permanent: true,
+    costImpact: 'Low'
   }
 };
 
@@ -88,6 +116,16 @@ export function ExtensionsSelector({ selectedExtensions, onChange }: ExtensionsS
       newExtensions = newExtensions.filter(e => e !== 'MetadataPointer');
     }
     
+    // NonTransferable conflicts with TransferFee
+    if (extension === 'NonTransferable' && !selectedExtensions.includes('NonTransferable')) {
+      // Remove TransferFee if adding NonTransferable
+      newExtensions = newExtensions.filter(e => e !== 'TransferFee');
+    }
+    if (extension === 'TransferFee' && !selectedExtensions.includes('TransferFee')) {
+      // Remove NonTransferable if adding TransferFee
+      newExtensions = newExtensions.filter(e => e !== 'NonTransferable');
+    }
+    
     onChange(newExtensions);
   };
 
@@ -107,11 +145,25 @@ export function ExtensionsSelector({ selectedExtensions, onChange }: ExtensionsS
           </AlertDescription>
         </Alert>
 
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            ℹ️ <strong>CPI Guard</strong> is an account-level extension. Enable it on individual token accounts after deployment via the Token Operations panel.
+          </AlertDescription>
+        </Alert>
+
         <div className="space-y-3">
           {(Object.keys(extensionInfo) as Token2022Extension[]).map((extension) => {
             const info = extensionInfo[extension];
             const isSelected = selectedExtensions.includes(extension);
+            
+            // MetadataPointer is auto-selected with Metadata
             const isDisabled = extension === 'MetadataPointer' && selectedExtensions.includes('Metadata');
+            
+            // NonTransferable and TransferFee are mutually exclusive
+            const isConflicted = 
+              (extension === 'NonTransferable' && selectedExtensions.includes('TransferFee')) ||
+              (extension === 'TransferFee' && selectedExtensions.includes('NonTransferable'));
 
             return (
               <div 
@@ -122,7 +174,7 @@ export function ExtensionsSelector({ selectedExtensions, onChange }: ExtensionsS
                   id={extension}
                   checked={isSelected}
                   onCheckedChange={() => handleToggle(extension)}
-                  disabled={isDisabled}
+                  disabled={isDisabled || isConflicted}
                 />
                 <Label htmlFor={extension} className="flex-1 cursor-pointer">
                   <div className="flex items-center gap-2 mb-1">
@@ -142,6 +194,11 @@ export function ExtensionsSelector({ selectedExtensions, onChange }: ExtensionsS
                   {isDisabled && (
                     <p className="text-xs text-muted-foreground mt-1">
                       ℹ️ Automatically included with Metadata extension
+                    </p>
+                  )}
+                  {isConflicted && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠️ Cannot be used with {extension === 'NonTransferable' ? 'Transfer Fees' : 'Non-Transferable tokens'}
                     </p>
                   )}
                 </Label>

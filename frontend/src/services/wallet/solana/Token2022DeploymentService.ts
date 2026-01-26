@@ -36,6 +36,10 @@ import {
   getUpdateTokenMetadataFieldInstruction,
   tokenMetadataField,
   getInitializeTransferFeeConfigInstruction,
+  getInitializeNonTransferableMintInstruction,
+  getInitializeInterestBearingMintInstruction,
+  getInitializePermanentDelegateInstruction,
+  getInitializeMintCloseAuthorityInstruction,
   AccountState
 } from '@solana-program/token-2022';
 import { getCreateAccountInstruction } from '@solana-program/system';
@@ -66,6 +70,13 @@ export interface TransferFeeConfig {
   withdrawWithheldAuthority?: string;
 }
 
+export interface InterestBearingConfig {
+  rate: number; // Interest rate in basis points (e.g., 500 = 5.00% APY)
+  rateAuthority?: string;
+  initializationTimestamp?: bigint; // Unix timestamp when interest started accruing
+  lastUpdateTimestamp?: bigint; // Last time the rate was updated
+}
+
 export interface Token2022Config {
   name: string;
   symbol: string;
@@ -77,16 +88,22 @@ export interface Token2022Config {
   mintAuthority?: string | null;
   freezeAuthority?: string | null;
   updateAuthority?: string | null;
+  permanentDelegate?: string | null; // Authority with unlimited delegate privileges
   
   // Extensions
   enableMetadata?: boolean;
   enableTransferFee?: boolean;
   enableMintCloseAuthority?: boolean;
   enableDefaultAccountState?: 'initialized' | 'frozen';
+  enableNonTransferable?: boolean;
+  enableInterestBearing?: boolean;
+  enablePermanentDelegate?: boolean;
+  enableCpiGuard?: boolean;
   
   // Extension configs
   metadata?: MetadataConfig;
   transferFee?: TransferFeeConfig;
+  interestBearing?: InterestBearingConfig;
 }
 
 export interface Token2022DeploymentOptions {
@@ -371,6 +388,49 @@ export class Token2022DeploymentService {
       );
     }
 
+    // Non-Transferable
+    if (config.enableNonTransferable) {
+      extensions.push(
+        extension('NonTransferable', {})
+      );
+    }
+
+    // Interest-Bearing
+    if (config.enableInterestBearing && config.interestBearing) {
+      const rateAuthority = config.interestBearing.rateAuthority
+        ? toAddress(config.interestBearing.rateAuthority)
+        : authorityAddress;
+      
+      const currentTimestamp = BigInt(Math.floor(new Date().getTime() / 1000));
+      
+      extensions.push(
+        extension('InterestBearingConfig', {
+          rateAuthority,
+          initializationTimestamp: currentTimestamp,
+          lastUpdateTimestamp: currentTimestamp,
+          preUpdateAverageRate: config.interestBearing.rate,
+          currentRate: config.interestBearing.rate,
+        })
+      );
+    }
+
+    // Permanent Delegate
+    if (config.enablePermanentDelegate) {
+      const delegate = config.permanentDelegate
+        ? toAddress(config.permanentDelegate)
+        : authorityAddress;
+        
+      extensions.push(
+        extension('PermanentDelegate', {
+          delegate,
+        })
+      );
+    }
+
+    // NOTE: CPI Guard is NOT a mint extension - it's a token account extension
+    // CPI Guard must be enabled separately on individual token accounts after creation
+    // See ModernSolanaCpiGuardService.ts for token account CPI Guard operations
+
     return extensions;
   }
 
@@ -458,7 +518,55 @@ export class Token2022DeploymentService {
       );
     }
 
-    // 4. Initialize Mint
+    // 4. Initialize Non-Transferable (BEFORE initialize mint)
+    if (config.enableNonTransferable) {
+      instructions.push(
+        getInitializeNonTransferableMintInstruction({
+          mint: mintAddress,
+        })
+      );
+    }
+
+    // 5. Initialize Interest-Bearing (BEFORE initialize mint)
+    if (config.enableInterestBearing && config.interestBearing) {
+      const rateAuthority = config.interestBearing.rateAuthority
+        ? toAddress(config.interestBearing.rateAuthority)
+        : payer.address;
+      
+      instructions.push(
+        getInitializeInterestBearingMintInstruction({
+          mint: mintAddress,
+          rateAuthority,
+          rate: config.interestBearing.rate,
+        })
+      );
+    }
+
+    // 5a. Initialize Permanent Delegate (BEFORE initialize mint)
+    if (config.enablePermanentDelegate) {
+      const delegate = config.permanentDelegate
+        ? toAddress(config.permanentDelegate)
+        : payer.address;
+        
+      instructions.push(
+        getInitializePermanentDelegateInstruction({
+          mint: mintAddress,
+          delegate,
+        })
+      );
+    }
+
+    // 5b. Initialize Mint Close Authority (BEFORE initialize mint)
+    if (config.enableMintCloseAuthority) {
+      instructions.push(
+        getInitializeMintCloseAuthorityInstruction({
+          mint: mintAddress,
+          closeAuthority: payer.address,
+        })
+      );
+    }
+
+    // 6. Initialize Mint
     instructions.push(
       getInitializeMintInstruction({
         mint: mintAddress,
@@ -468,7 +576,7 @@ export class Token2022DeploymentService {
       })
     );
 
-    // 5. Initialize Token Metadata (AFTER initialize mint)
+    // 7. Initialize Token Metadata (AFTER initialize mint)
     if (config.enableMetadata && config.metadata) {
       const updateAuthority = config.updateAuthority
         ? toAddress(config.updateAuthority)
@@ -486,7 +594,7 @@ export class Token2022DeploymentService {
         })
       );
 
-      // 6. Add additional metadata fields (AFTER initialize token metadata)
+      // 8. Add additional metadata fields (AFTER initialize token metadata)
       if (config.metadata.additionalMetadata) {
         for (const [key, value] of config.metadata.additionalMetadata.entries()) {
           instructions.push(
@@ -720,6 +828,27 @@ export class Token2022DeploymentService {
       });
     }
 
+    if (config.enableInterestBearing && config.interestBearing) {
+      details.push({
+        type: 'InterestBearing',
+        data: {
+          rate: config.interestBearing.rate,
+          rateAuthority: config.interestBearing.rateAuthority,
+          initializationTimestamp: config.interestBearing.initializationTimestamp?.toString() || Date.now().toString(),
+          lastUpdateTimestamp: config.interestBearing.lastUpdateTimestamp?.toString() || Date.now().toString()
+        }
+      });
+    }
+
+    if (config.enablePermanentDelegate) {
+      details.push({
+        type: 'PermanentDelegate',
+        data: {
+          delegate: config.permanentDelegate || 'Default Authority'
+        }
+      });
+    }
+
     return details;
   }
 
@@ -747,6 +876,18 @@ export class Token2022DeploymentService {
     if (config.enableDefaultAccountState) {
       extensions.push('DefaultAccountState');
     }
+    if (config.enableNonTransferable) {
+      extensions.push('NonTransferable');
+    }
+    if (config.enableInterestBearing) {
+      extensions.push('InterestBearing');
+    }
+    if (config.enablePermanentDelegate) {
+      extensions.push('PermanentDelegate');
+    }
+    if (config.enableCpiGuard) {
+      extensions.push('CpiGuard');
+    }
 
     return extensions;
   }
@@ -769,6 +910,22 @@ export class Token2022DeploymentService {
 
     if (!config.enableMetadata) {
       warnings.push('No on-chain metadata - token may not display properly in wallets');
+    }
+
+    if (config.enableNonTransferable && config.enableTransferFee) {
+      warnings.push('Conflicting extensions: NonTransferable and TransferFee cannot be used together');
+    }
+
+    if (config.enableNonTransferable) {
+      warnings.push('Tokens will be permanently non-transferable (soulbound) - ensure this is intended');
+    }
+
+    if (config.enableInterestBearing && config.decimals === 0) {
+      warnings.push('Interest-bearing tokens with 0 decimals may have limited precision for interest calculations');
+    }
+
+    if (config.enablePermanentDelegate) {
+      warnings.push('Permanent delegate has unlimited authority to transfer or burn tokens from any account - use with caution');
     }
 
     return warnings;

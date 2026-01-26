@@ -10,12 +10,14 @@ import type { SolanaTokenType } from './TokenTypeSelector';
 import type { BasicTokenConfig } from './BasicTokenConfigForm';
 import type { Token2022Extension } from './ExtensionsSelector';
 import type { TransferFeeConfiguration } from './TransferFeeConfig';
+import type { InterestBearingConfiguration } from './InterestBearingConfig';
 
 interface DeploymentPreviewProps {
   tokenType: SolanaTokenType;
   basicConfig: BasicTokenConfig;
   extensions: Token2022Extension[];
   transferFeeConfig: TransferFeeConfiguration | null;
+  interestBearingConfig: InterestBearingConfiguration | null;
   network: 'mainnet-beta' | 'devnet' | 'testnet';
 }
 
@@ -24,6 +26,7 @@ export function DeploymentPreview({
   basicConfig,
   extensions,
   transferFeeConfig,
+  interestBearingConfig,
   network
 }: DeploymentPreviewProps) {
   return (
@@ -112,6 +115,29 @@ export function DeploymentPreview({
           </>
         )}
 
+        {/* Interest-Bearing Config */}
+        {tokenType === 'Token2022' && interestBearingConfig && extensions.includes('InterestBearing') && (
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <h3 className="font-semibold">Interest-Bearing Configuration</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Annual Interest Rate</p>
+                  <p className="font-medium">{(interestBearingConfig.rate / 100).toFixed(2)}% APY</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Rate (Basis Points)</p>
+                  <p className="font-medium">{interestBearingConfig.rate}</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Token balances will automatically accrue interest over time based on this rate.
+              </p>
+            </div>
+          </>
+        )}
+
         {/* Estimated Cost */}
         <Separator />
         <div className="space-y-3">
@@ -148,7 +174,15 @@ export function DeploymentPreview({
               <h3 className="font-semibold text-amber-600">⚠️ Important Warnings</h3>
               <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
                 <li>Extensions are permanent and cannot be removed after deployment</li>
-                <li>Transfer fees will apply to ALL transfers, including your own</li>
+                {extensions.includes('TransferFee') && (
+                  <li>Transfer fees will apply to ALL transfers, including your own</li>
+                )}
+                {extensions.includes('NonTransferable') && (
+                  <li>Non-transferable tokens cannot be moved between accounts after minting</li>
+                )}
+                {extensions.includes('InterestBearing') && (
+                  <li>Interest rate can be updated by the rate authority but the extension is permanent</li>
+                )}
                 <li>Carefully verify all configuration before proceeding</li>
                 {network !== 'devnet' && (
                   <li className="text-amber-600 font-medium">

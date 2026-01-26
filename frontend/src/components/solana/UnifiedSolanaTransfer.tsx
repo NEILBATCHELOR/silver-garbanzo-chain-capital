@@ -84,6 +84,7 @@ interface UnifiedTransferProps {
   projectId: string;
   tokenId?: string; // If provided, transfer this token; otherwise transfer SOL
   onTransferComplete?: () => void;
+  embedded?: boolean; // If true, skip header/back button (for use in tabs)
 }
 
 interface BatchRecipient {
@@ -101,7 +102,8 @@ interface BatchRecipient {
 export function UnifiedSolanaTransfer({ 
   projectId, 
   tokenId,
-  onTransferComplete 
+  onTransferComplete,
+  embedded = true // Default to true since we're primarily using in tabs
 }: UnifiedTransferProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -685,30 +687,46 @@ export function UnifiedSolanaTransfer({
   // Transfer form
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h2 className="text-2xl font-bold">Transfer {assetSymbol}</h2>
-          <p className="text-muted-foreground">Send {assetName} to other wallets</p>
-        </div>
-      </div>
+      {/* Header - Only show if not embedded */}
+      {!embedded && (
+        <>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h2 className="text-2xl font-bold">Transfer {assetSymbol}</h2>
+              <p className="text-muted-foreground">Send {assetName} to other wallets</p>
+            </div>
+          </div>
 
-      {/* Warning */}
-      <Alert>
-        <AlertTriangle className="h-4 w-4" />
-        <AlertTitle>Important</AlertTitle>
-        <AlertDescription>
-          Double-check recipient addresses before sending. Transactions on Solana are
-          irreversible.
-        </AlertDescription>
-      </Alert>
+          {/* Warning */}
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Important</AlertTitle>
+            <AlertDescription>
+              Double-check recipient addresses before sending. Transactions on Solana are
+              irreversible.
+            </AlertDescription>
+          </Alert>
+        </>
+      )}
+
+      {/* Warning for embedded mode */}
+      {embedded && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Important</AlertTitle>
+          <AlertDescription>
+            Double-check recipient addresses before sending. Transactions on Solana are
+            irreversible.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Transfer Form */}
       <Card>
