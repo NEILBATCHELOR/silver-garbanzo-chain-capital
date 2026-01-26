@@ -153,6 +153,9 @@ export class BalanceService {
     // 'solana-testnet': solanaTestnetBalanceService,
     'sol': solanaBalanceService,
     'sol-devnet': solanaDevnetBalanceService,
+    'devnet': solanaDevnetBalanceService, // Fallback for Solana devnet
+    'mainnet-beta': solanaBalanceService, // Fallback for Solana mainnet-beta
+    // 'testnet': solanaTestnetBalanceService, // Fallback for Solana testnet (when implemented)
     
     // Aptos networks
     'aptos': aptosBalanceService,

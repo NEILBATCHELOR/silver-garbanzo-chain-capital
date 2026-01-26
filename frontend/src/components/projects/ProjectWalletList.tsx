@@ -278,10 +278,28 @@ export const ProjectWalletList: React.FC<ProjectWalletListProps> = ({ projectId,
             console.log(`⚠️ Unknown chain ID ${chainIdStr}, using wallet_type: ${networkKey}`);
           }
         }
-        // If we have a non-EVM network, use it directly
+        // If we have a non-EVM network, map it to service key format
         else if (w.non_evm_network) {
-          networkKey = w.non_evm_network.toLowerCase();
-          console.log(`🌐 Using non-EVM network: ${networkKey}`);
+          const nonEvmNet = w.non_evm_network.toLowerCase();
+          
+          // Special handling for Solana networks
+          if (w.wallet_type?.toLowerCase() === 'solana' || w.wallet_type?.toLowerCase() === 'sol') {
+            if (nonEvmNet === 'devnet') {
+              networkKey = 'solana-devnet';
+            } else if (nonEvmNet === 'testnet') {
+              networkKey = 'solana-testnet';
+            } else if (nonEvmNet === 'mainnet-beta' || nonEvmNet === 'mainnet') {
+              networkKey = 'solana';
+            } else {
+              // Default to the non_evm_network value
+              networkKey = nonEvmNet;
+            }
+            console.log(`◎ Mapped Solana ${nonEvmNet} to service key: ${networkKey}`);
+          } else {
+            // For other non-EVM networks, use directly
+            networkKey = nonEvmNet;
+            console.log(`🌐 Using non-EVM network: ${networkKey}`);
+          }
         }
         // Use computed environment to determine if testnet
         else if (w.environment === 'testnet' && w.wallet_type) {

@@ -2,7 +2,7 @@
  * Solana Project Wallet Generator Component
  * 
  * Handles Solana wallet generation for projects
- * Uses ModernSolanaWalletGenerator for wallet creation
+ * Uses enhanced project wallet service for proper encryption
  */
 
 import React, { useState, useCallback } from 'react';
@@ -23,8 +23,7 @@ import {
   Key
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-import { modernSolanaWalletGenerator } from '@/services/wallet/generators/ModernSolanaWalletGenerator';
-import { supabase } from '@/infrastructure/database/client';
+import { enhancedProjectWalletService } from '@/services/project/project-wallet-service';
 import { useAuth } from "@/hooks/auth/useAuth";
 
 interface SolanaProjectWalletGeneratorProps {
@@ -34,7 +33,7 @@ interface SolanaProjectWalletGeneratorProps {
   onWalletGenerated?: (wallet: any) => void;
 }
 
-type SolanaNetwork = 'mainnet-beta' | 'devnet' | 'testnet';
+type SolanaNetwork = 'mainnet' | 'devnet' | 'testnet';
 
 export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGeneratorProps> = ({
   projectId,
@@ -53,7 +52,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
   const [includeMnemonic, setIncludeMnemonic] = useState(true);
 
   const networks: { value: SolanaNetwork; label: string; isTestnet: boolean }[] = [
-    { value: 'mainnet-beta', label: '🟢 Solana Mainnet', isTestnet: false },
+    { value: 'mainnet', label: '🟢 Solana Mainnet', isTestnet: false },
     { value: 'devnet', label: '🟡 Solana Devnet', isTestnet: true },
     { value: 'testnet', label: '🟡 Solana Testnet', isTestnet: true },
   ];
@@ -74,45 +73,22 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
     try {
       console.log(`[SolanaWalletGenerator] Generating ${selectedNetwork} wallet for project ${projectId}`);
       
-      // Generate wallet using ModernSolanaWalletGenerator
-      const wallet = await modernSolanaWalletGenerator.generateWallet({
+      // ✅ FIX: Use enhancedProjectWalletService which properly encrypts keys
+      const result = await enhancedProjectWalletService.generateWalletForProject({
+        projectId,
+        projectName,
+        projectType,
+        network: 'solana', // ✅ Always use 'solana' for WalletGeneratorFactory
+        networkEnvironment: selectedNetwork as 'mainnet' | 'testnet' | 'devnet',
+        nonEvmNetwork: 'solana',
+        includePrivateKey,
         includeMnemonic,
-        mnemonicStrength: 128 // 12 words
+        userId: user.id
       });
 
-      // Store wallet in database
-      const { data: projectWallet, error: projectWalletError } = await supabase
-        .from('project_wallets')
-        .insert({
-          project_id: projectId,
-          wallet_address: wallet.address,
-          public_key: wallet.publicKey,
-          private_key: includePrivateKey ? wallet.privateKey : null,
-          mnemonic: includeMnemonic ? wallet.mnemonic : null,
-          wallet_type: 'solana',
-          non_evm_network: selectedNetwork,
-          chain_id: null, // Solana doesn't use chain IDs
-          network_environment: selectedNetwork === 'mainnet-beta' ? 'mainnet' : 'testnet',
-          created_by: user.id
-        })
-        .select()
-        .single();
-
-      if (projectWalletError) {
-        throw projectWalletError;
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate wallet');
       }
-
-      const result = {
-        success: true,
-        walletAddress: wallet.address,
-        publicKey: wallet.publicKey,
-        privateKey: includePrivateKey ? wallet.privateKey : undefined,
-        mnemonic: includeMnemonic ? wallet.mnemonic : undefined,
-        network: 'solana',
-        nonEvmNetwork: selectedNetwork,
-        chainId: null,
-        projectWalletId: projectWallet.id
-      };
 
       setGeneratedWallet(result);
 
@@ -122,7 +98,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
 
       toast({
         title: "Success",
-        description: `Solana ${selectedNetwork} wallet generated successfully`,
+        description: `Solana ${selectedNetwork} wallet generated and encrypted successfully`,
       });
     } catch (error) {
       console.error('Error generating Solana wallet:', error);
@@ -134,7 +110,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
     } finally {
       setIsGenerating(false);
     }
-  }, [selectedNetwork, projectId, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user]);
+  }, [selectedNetwork, projectId, projectName, projectType, includePrivateKey, includeMnemonic, onWalletGenerated, toast, user]);
 
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
@@ -180,7 +156,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
                 ))}
               </SelectContent>
             </Select>
-            {selectedNetwork === 'mainnet-beta' && (
+            {selectedNetwork === 'mainnet' && (
               <Alert variant="destructive" className="mt-2">
                 <AlertDescription>
                   ⚠️ Warning: Mainnet wallets control real SOL and assets. Use with caution.
@@ -200,7 +176,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
                   onCheckedChange={(checked) => setIncludePrivateKey(checked === true)}
                 />
                 <label htmlFor="include-private-key" className="text-sm">
-                  Include private key (base58 format)
+                  Include private key (encrypted in database)
                 </label>
               </div>
               <div className="flex items-center space-x-2">
@@ -210,11 +186,19 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
                   onCheckedChange={(checked) => setIncludeMnemonic(checked === true)}
                 />
                 <label htmlFor="include-mnemonic" className="text-sm">
-                  Include mnemonic phrase (12 words)
+                  Include mnemonic phrase (encrypted in database)
                 </label>
               </div>
             </div>
           </div>
+
+          {/* Security Notice */}
+          <Alert>
+            <Shield className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              🔒 All private keys and mnemonics are encrypted using AES-256-GCM before storage
+            </AlertDescription>
+          </Alert>
 
           {/* Generate Button */}
           <Button 
@@ -227,7 +211,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
             ) : (
               <Wallet className="mr-2 h-4 w-4" />
             )}
-            {isGenerating ? 'Generating...' : 'Generate Wallet'}
+            {isGenerating ? 'Generating...' : 'Generate Encrypted Wallet'}
           </Button>
         </CardContent>
       </Card>
@@ -253,8 +237,14 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
               </Badge>
               <Badge variant="outline" className="flex items-center space-x-1">
                 <Shield className="h-3 w-3" />
-                <span>Stored in Database</span>
+                <span>Encrypted in Database</span>
               </Badge>
+              {generatedWallet.privateKeyVaultId && (
+                <Badge variant="outline" className="flex items-center space-x-1">
+                  <Key className="h-3 w-3" />
+                  <span>Key Vault</span>
+                </Badge>
+              )}
             </div>
 
             {/* Wallet Address */}
@@ -297,7 +287,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
               </div>
             </div>
 
-            {/* Private Key */}
+            {/* Private Key (Unencrypted for display only - still encrypted in DB) */}
             {generatedWallet.privateKey && (
               <div className="space-y-2">
                 <label className="text-sm font-medium flex items-center">
@@ -323,6 +313,11 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
+                <Alert className="mt-2">
+                  <AlertDescription className="text-xs">
+                    🔒 This key is displayed unencrypted for your convenience, but is stored encrypted in the database using AES-256-GCM
+                  </AlertDescription>
+                </Alert>
               </div>
             )}
 
@@ -355,7 +350,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
                 <Alert className="mt-2">
                   <AlertDescription className="text-xs">
                     <strong>⚠️ Security Warning:</strong> Store this mnemonic phrase securely. 
-                    It can be used to recover your wallet and access all funds.
+                    It can be used to recover your wallet and access all funds. This is encrypted in the database.
                   </AlertDescription>
                 </Alert>
               </div>
@@ -367,7 +362,7 @@ export const SolanaProjectWalletGenerator: React.FC<SolanaProjectWalletGenerator
                 variant="outline"
                 className="w-full"
                 onClick={() => {
-                  const explorerUrl = `https://explorer.solana.com/address/${generatedWallet.walletAddress}${selectedNetwork !== 'mainnet-beta' ? `?cluster=${selectedNetwork}` : ''}`;
+                  const explorerUrl = `https://explorer.solana.com/address/${generatedWallet.walletAddress}${selectedNetwork !== 'mainnet' ? `?cluster=${selectedNetwork}` : ''}`;
                   window.open(explorerUrl, '_blank');
                 }}
               >

@@ -24,6 +24,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Wallet, Loader2, AlertCircle } from 'lucide-react';
 import { projectWalletService, ProjectWalletData } from '@/services/project/project-wallet-service';
+import { WalletEncryptionClient } from '@/services/security/walletEncryptionService';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/utils/utils';
 
@@ -137,22 +138,20 @@ export function WalletSelector({
 
   const decryptPrivateKey = async (encryptedKey: string): Promise<string | null> => {
     try {
-      const response = await fetch('/api/wallet/decrypt', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ encrypted: encryptedKey }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Decryption failed');
-      }
-
-      const data = await response.json();
-      return data.plaintext;
+      // Use WalletEncryptionClient which handles API base URL and proper formatting
+      return await WalletEncryptionClient.decrypt(encryptedKey);
     } catch (err: any) {
       console.error('Error decrypting private key:', err);
+      
+      // Provide more helpful error message
+      if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+        toast({
+          title: 'Backend Not Available',
+          description: 'Unable to reach decryption service. Please ensure the backend server is running on port 3001.',
+          variant: 'destructive'
+        });
+      }
+      
       return null;
     }
   };

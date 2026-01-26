@@ -55,6 +55,17 @@ export {
 } from './ModernSolanaTokenTransferService';
 
 export {
+  ModernSolanaNativeTransferService,
+  modernSolanaNativeTransferService,
+  type SolTransferParams,
+  type BatchSolTransferParams,
+  type ModernSolTransferOptions,
+  type SolTransferResult,
+  type BatchSolTransferResult,
+  type SolFeeEstimate
+} from './ModernSolanaNativeTransferService';
+
+export {
   SimpleSolanaTokenTransferService,
   simpleSolanaTokenTransferService,
   type SimpleTransferParams,
@@ -113,11 +124,42 @@ export type {
 // TOKEN OPERATIONS SERVICES
 // ============================================================================
 
-// NOTE: Additional token operation services will be added as needed:
-// - ModernSolanaTokenDelegateService (approve/revoke delegates)
-// - ModernSolanaTokenMintService (mint additional tokens)
-// - ModernSolanaAuthorityService (set mint/freeze authority)
-// - ModernSolanaFreezeService (freeze/thaw accounts)
+export {
+  ModernSolanaDelegateService,
+  modernSolanaDelegateService,
+  type ApproveDelegateConfig,
+  type ApproveDelegateOptions,
+  type ApproveDelegateResult,
+  type RevokeDelegateConfig,
+  type RevokeDelegateOptions,
+  type RevokeDelegateResult
+} from './ModernSolanaDelegateService';
+
+export {
+  ModernSolanaAuthorityService,
+  modernSolanaAuthorityService,
+  type SolanaAuthorityType,
+  type SetAuthorityConfig,
+  type SetAuthorityOptions,
+  type SetAuthorityResult
+} from './ModernSolanaAuthorityService';
+
+export {
+  ModernSolanaAccountCloseService,
+  modernSolanaAccountCloseService,
+  type CloseAccountParams,
+  type ModernCloseAccountOptions,
+  type CloseAccountResult
+} from './ModernSolanaAccountCloseService';
+
+export {
+  ModernSolanaFreezeService,
+  modernSolanaFreezeService,
+  type FreezeAccountParams,
+  type ModernFreezeOptions,
+  type FreezeAccountResult,
+  type FreezeStatusResult
+} from './ModernSolanaFreezeService';
 
 // ============================================================================
 // LEGACY SERVICES (Backward compatibility - delegate to modern)

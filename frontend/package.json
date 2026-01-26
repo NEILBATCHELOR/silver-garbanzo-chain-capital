@@ -282,6 +282,7 @@
     "abortcontroller-polyfill": "^1.7.8",
     "aes-js": "^3.1.2",
     "aria-hidden": "^1.2.6",
+    "arweave": "^1.15.7",
     "assert": "^2.1.0",
     "axios": "^1.9.0",
     "base-x": "^5.0.1",

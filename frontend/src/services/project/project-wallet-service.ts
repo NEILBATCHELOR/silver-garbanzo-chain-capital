@@ -259,7 +259,15 @@ export const enhancedProjectWalletService = {
         finalChainId = networkEnvironment === 'mainnet' ? 'injective-1' : 'injective-888';
         finalNonEvmNetwork = 'injective';
         console.log(`[ProjectWalletService] Injective wallet - using Cosmos chain ID '${finalChainId}' and non_evm_network 'injective'`);
-      } else if (!finalChainId && !finalNonEvmNetwork) {
+      }
+      // Special handling for Solana - use network environment in chain_id
+      else if (network === 'solana') {
+        finalNonEvmNetwork = 'solana';
+        // Set chain_id to indicate network environment (null for mainnet, 'solana-devnet'/'solana-testnet' for testnets)
+        finalChainId = networkEnvironment === 'mainnet' ? null : `solana-${networkEnvironment}`;
+        console.log(`[ProjectWalletService] Solana wallet - using chain_id '${finalChainId}' and non_evm_network 'solana' for ${networkEnvironment}`);
+      }
+      else if (!finalChainId && !finalNonEvmNetwork) {
         // If chainId not provided and this is an EVM network, get from chain config
         const envConfig = getChainEnvironment(network, environmentType);
         if (!envConfig) {
@@ -681,15 +689,24 @@ export const enhancedProjectWalletService = {
         let mnemonicVaultId: string | undefined;
 
         // Determine chain IDs for metadata - use Cosmos chain ID format for Injective
-        const metadataChainId = (network === 'injective' || network === 'injective-testnet')
-          ? (environment.name === 'mainnet' ? 'injective-1' : 'injective-888')
-          : environment.chainId;
-        const metadataNonEvmNetwork = (network === 'injective' || network === 'injective-testnet')
-          ? 'injective'
-          : environment.net;
-        const metadataEvmChainId = (network === 'injective' || network === 'injective-testnet')
-          ? (environment.name === 'mainnet' ? '1776' : '1439')
-          : undefined;
+        let metadataChainId: string | null;
+        let metadataNonEvmNetwork: string | null;
+        let metadataEvmChainId: string | undefined;
+
+        if (network === 'injective' || network === 'injective-testnet') {
+          metadataChainId = environment.name === 'mainnet' ? 'injective-1' : 'injective-888';
+          metadataNonEvmNetwork = 'injective';
+          metadataEvmChainId = environment.name === 'mainnet' ? '1776' : '1439';
+        } else if (network === 'solana') {
+          // Solana: mainnet → null, devnet/testnet → 'solana-{env}'
+          metadataNonEvmNetwork = 'solana';
+          metadataChainId = environment.name === 'mainnet' ? null : `solana-${environment.name}`;
+          metadataEvmChainId = undefined;
+        } else {
+          metadataChainId = environment.chainId;
+          metadataNonEvmNetwork = environment.net;
+          metadataEvmChainId = undefined;
+        }
 
         if (encryptedPrivateKey) {
           const { data: privateKeyRecord, error: pkError } = await supabase
@@ -774,6 +791,13 @@ export const enhancedProjectWalletService = {
           finalChainId = environment.name === 'mainnet' ? 'injective-1' : 'injective-888';
           finalNonEvmNetwork = 'injective';
           console.log(`[ProjectWalletService] Injective wallet - using Cosmos chain ID '${finalChainId}' and non_evm_network 'injective'`);
+        }
+        // Special handling for Solana - use network environment in chain_id
+        else if (network === 'solana') {
+          finalNonEvmNetwork = 'solana';
+          // Set chain_id to indicate network environment (null for mainnet, 'solana-devnet'/'solana-testnet' for testnets)
+          finalChainId = environment.name === 'mainnet' ? null : `solana-${environment.name}`;
+          console.log(`[ProjectWalletService] Solana wallet - using chain_id '${finalChainId}' and non_evm_network 'solana' for ${environment.name}`);
         }
 
         const walletData: ProjectWalletData = {
