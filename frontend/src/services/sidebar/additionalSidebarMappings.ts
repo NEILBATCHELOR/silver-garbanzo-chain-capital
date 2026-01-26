@@ -30,7 +30,15 @@ import {
   Factory,
   Layers,
   ReceiptText,
-  Percent
+  Percent,
+  Store,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  Briefcase,
+  List,
+  Package,
+  History,
+  TrendingDown
 } from 'lucide-react';
 import type { SidebarSection } from '@/types/sidebar';
 
@@ -226,7 +234,7 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
   // DERIVATIVES TRADING SECTION
   {
     id: 'derivatives',
-    title: 'DERIVATIVES (PERPS/FUTURES/OPTIONS)',
+    title: 'DERIVATIVES MARKETS',
     permissions: ['wallet.view'],
     roles: ['Agent', 'Operations', 'Owner', 'Super Admin'],
     minRolePriority: 60,
@@ -236,6 +244,45 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         label: 'Derivatives Dashboard',
         href: '/derivatives',
         icon: TrendingUp,
+        permissions: ['wallet.view']
+      }
+    ]
+  },
+
+  // TRADE FINANCE SECTION
+  {
+    id: 'trade-finance',
+    title: 'TRADE FINANCE',
+    permissions: ['wallet.view'],
+    roles: ['Agent', 'Operations', 'Owner', 'Super Admin', 'Investor'],
+    minRolePriority: 50,
+    items: [
+      {
+        id: 'trade-finance-marketplace',
+        label: 'Marketplace',
+        href: '/trade-finance/marketplace',
+        icon: Store,
+        permissions: ['wallet.view']
+      },
+      {
+        id: 'trade-finance-supply',
+        label: 'Supply',
+        href: '/trade-finance/supply',
+        icon: ArrowUpCircle,
+        permissions: ['wallet.view']
+      },
+      {
+        id: 'trade-finance-borrow',
+        label: 'Borrow',
+        href: '/trade-finance/borrow',
+        icon: ArrowDownCircle,
+        permissions: ['wallet.view']
+      },
+      {
+        id: 'trade-finance-portfolio',
+        label: 'Portfolio',
+        href: '/trade-finance/portfolio',
+        icon: Briefcase,
         permissions: ['wallet.view']
       }
     ]
@@ -400,6 +447,15 @@ export const ADDITIONAL_SIDEBAR_SECTIONS: SidebarSection[] = [
         label: 'Factory Contract Configuration',
         href: 'admin/factory-config',
         icon: Factory,
+        permissions: ['system.configure'],
+        roles: ['Super Admin'],
+        minRolePriority: 100
+      },
+      {
+        id: 'trade-finance-admin',
+        label: 'Trade Finance Admin',
+        href: '/admin/trade-finance',
+        icon: Settings,
         permissions: ['system.configure'],
         roles: ['Super Admin'],
         minRolePriority: 100

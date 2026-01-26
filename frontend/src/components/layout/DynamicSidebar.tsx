@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/infrastructure/database/client";
 import { sessionManager } from "@/infrastructure/sessionManager";
-import { Loader2, LogOut, AlertCircle, Database, FileText, RefreshCw, Home, User } from "lucide-react";
+import { Loader2, LogOut, AlertCircle, Database, FileText, RefreshCw, Home, User, ChevronRight } from "lucide-react";
 import { useSidebarConfig } from "@/hooks/sidebar";
 import type { SidebarItem as SidebarItemType, SidebarSection } from "@/types/sidebar";
 import { substituteUrlParameters, type UrlParameters } from "@/utils/sidebar";
@@ -14,6 +14,7 @@ import { substituteUrlParameters, type UrlParameters } from "@/utils/sidebar";
 interface SidebarItemProps {
   item: SidebarItemType;
   urlParameters: UrlParameters;
+  itemRef?: React.RefObject<HTMLAnchorElement>;
 }
 
 interface UserDisplayProps {
@@ -25,6 +26,9 @@ interface UserInfo {
   name: string;
   email: string;
 }
+
+// LocalStorage key for persisting collapsed state
+const SIDEBAR_COLLAPSED_KEY = 'sidebarCollapsedSections';
 
 // Fallback sidebar configuration when database config fails
 const FALLBACK_SIDEBAR: SidebarSection[] = [
@@ -48,7 +52,7 @@ const FALLBACK_SIDEBAR: SidebarSection[] = [
   }
 ];
 
-const SidebarItem = ({ item, urlParameters }: SidebarItemProps) => {
+const SidebarItem = ({ item, urlParameters, itemRef }: SidebarItemProps) => {
   const location = useLocation();
   
   // Apply URL parameter substitution to the item's href
@@ -83,12 +87,15 @@ const SidebarItem = ({ item, urlParameters }: SidebarItemProps) => {
     return false;
   };
 
+  const active = isActive();
+
   return (
     <Link
+      ref={itemRef}
       to={processedHref}
       className={cn(
         "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-primary/10",
-        isActive()
+        active
           ? "bg-primary/10 text-primary font-medium"
           : "text-muted-foreground",
       )}
@@ -152,9 +159,15 @@ const UserDisplay = ({ userInfo, isLoading }: UserDisplayProps) => {
 const DynamicSidebar = React.memo(() => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isLoadingUserInfo, setIsLoadingUserInfo] = useState(true);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  
+  // Refs for active item scrolling
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const activeItemRef = useRef<HTMLAnchorElement>(null);
   
   // Get URL parameters for substitution
   const urlParams = useParams();
+  const location = useLocation();
   
   // Convert URL params to our UrlParameters interface
   const urlParameters: UrlParameters = useMemo(() => ({
@@ -185,6 +198,136 @@ const DynamicSidebar = React.memo(() => {
     configurationSource
   } = useSidebarConfig(sidebarConfigOptions);
 
+  // Load collapsed sections from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setCollapsedSections(new Set(parsed));
+      } else {
+        // Default: all sections collapsed
+        if (sidebarConfig?.sections) {
+          setCollapsedSections(new Set(sidebarConfig.sections.map(s => s.id)));
+        }
+      }
+    } catch (error) {
+      console.error('[❌ Sidebar] Error loading collapsed state:', error);
+    }
+  }, [sidebarConfig]);
+
+  // Save collapsed sections to localStorage
+  const saveCollapsedState = useCallback((newCollapsedSet: Set<string>) => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(Array.from(newCollapsedSet)));
+    } catch (error) {
+      console.error('[❌ Sidebar] Error saving collapsed state:', error);
+    }
+  }, []);
+
+  // Toggle section collapse
+  const toggleSection = useCallback((sectionId: string) => {
+    setCollapsedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      saveCollapsedState(newSet);
+      return newSet;
+    });
+  }, [saveCollapsedState]);
+
+  // Find which section contains the active route
+  const findActiveSectionId = useCallback((sections: SidebarSection[]): string | null => {
+    const currentPath = location.pathname;
+    
+    for (const section of sections) {
+      for (const item of section.items) {
+        const processedHref = substituteUrlParameters(item.href, urlParameters, 'fallback-route');
+        if (!processedHref) continue;
+        
+        // Check for exact match
+        if (currentPath === processedHref) {
+          return section.id;
+        }
+        
+        // Check for prefix match
+        if (processedHref !== "/" && currentPath.startsWith(processedHref + "/")) {
+          return section.id;
+        }
+        
+        // Handle dynamic URLs
+        const projectIdPattern = /\/projects\/[a-zA-Z0-9-]+/g;
+        if (item.href.includes('{projectId}')) {
+          const normalizedItemPath = processedHref.replace(projectIdPattern, '/projects/[PROJECT_ID]');
+          const normalizedCurrentPath = currentPath.replace(projectIdPattern, '/projects/[PROJECT_ID]');
+          if (normalizedCurrentPath.startsWith(normalizedItemPath)) {
+            return section.id;
+          }
+        }
+      }
+    }
+    
+    return null;
+  }, [location.pathname, urlParameters]);
+
+  // Auto-expand section containing active route
+  useEffect(() => {
+    if (isSidebarLoading || !sidebarConfig?.sections) return;
+    
+    const activeSectionId = findActiveSectionId(sidebarConfig.sections);
+    
+    if (activeSectionId && collapsedSections.has(activeSectionId)) {
+      // Auto-expand the section containing the active item
+      setCollapsedSections(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(activeSectionId);
+        saveCollapsedState(newSet);
+        return newSet;
+      });
+    }
+  }, [location.pathname, sidebarConfig, isSidebarLoading, findActiveSectionId, saveCollapsedState, collapsedSections]);
+
+  // Auto-scroll to active item - runs after section expansion
+  useEffect(() => {
+    if (isSidebarLoading || !sidebarConfig?.sections) return;
+    
+    const activeSectionId = findActiveSectionId(sidebarConfig.sections);
+    
+    // Only scroll if the section is expanded (not collapsed)
+    if (activeSectionId && !collapsedSections.has(activeSectionId)) {
+      // Wait for DOM to fully settle after expansion
+      const scrollTimer = setTimeout(() => {
+        if (activeItemRef.current && scrollAreaRef.current) {
+          const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollContainer) {
+            const itemTop = activeItemRef.current.offsetTop;
+            const itemHeight = activeItemRef.current.offsetHeight;
+            const containerHeight = scrollContainer.clientHeight;
+            const scrollTop = scrollContainer.scrollTop;
+            
+            // Check if item is outside visible area
+            const isAboveView = itemTop < scrollTop;
+            const isBelowView = (itemTop + itemHeight) > (scrollTop + containerHeight);
+            
+            if (isAboveView || isBelowView) {
+              // Scroll to center the item in view
+              const scrollPosition = itemTop - (containerHeight / 2) + (itemHeight / 2);
+              scrollContainer.scrollTo({
+                top: Math.max(0, scrollPosition),
+                behavior: 'smooth'
+              });
+            }
+          }
+        }
+      }, 300); // Increased delay to ensure DOM has settled
+      
+      return () => clearTimeout(scrollTimer);
+    }
+  }, [location.pathname, collapsedSections, sidebarConfig, isSidebarLoading, findActiveSectionId]);
+
   // Diagnostic logging for sidebar state
   useEffect(() => {
     const debugSidebarState = async () => {
@@ -208,6 +351,7 @@ const DynamicSidebar = React.memo(() => {
           hasSidebarConfig: !!sidebarConfig,
           sectionsCount: sidebarConfig?.sections.length || 0,
           totalItems: sidebarConfig?.sections.reduce((sum, s) => sum + s.items.length, 0) || 0,
+          collapsedCount: collapsedSections.size,
         },
         userContext: {
           profileType: userContext.profileType,
@@ -243,7 +387,7 @@ const DynamicSidebar = React.memo(() => {
     };
     
     debugSidebarState();
-  }, [isSidebarLoading, sidebarConfig, sidebarError, configurationSource, userContext, userInfo, isLoadingUserInfo, urlParameters]);
+  }, [isSidebarLoading, sidebarConfig, sidebarError, configurationSource, userContext, userInfo, isLoadingUserInfo, urlParameters, collapsedSections]);
 
   // Process sidebar sections with URL parameter substitution
   const processedSidebarConfig = useMemo(() => {
@@ -308,7 +452,7 @@ const DynamicSidebar = React.memo(() => {
         }
 
         if (userData) {
-          console.log('[âœ… Sidebar] User info loaded:', userData.name);
+          console.log('[✅ Sidebar] User info loaded:', userData.name);
           setUserInfo({
             name: userData.name,
             email: userData.email
@@ -322,7 +466,7 @@ const DynamicSidebar = React.memo(() => {
             .limit(1);
 
           if (!rolesError && userRoles && userRoles.length === 0) {
-            console.warn('[ðŸš¨ Sidebar] User has NO roles assigned!', {
+            console.warn('[🚨 Sidebar] User has NO roles assigned!', {
               userId: session.user.id,
               email: session.user.email,
               action: 'Contact administrator to assign appropriate role'
@@ -341,7 +485,7 @@ const DynamicSidebar = React.memo(() => {
 
   const handleLogout = useCallback(async () => {
     try {
-      console.log('[ðŸš  Sidebar] Logging out...');
+      console.log('[🚪 Sidebar] Logging out...');
       // Clear local storage
       localStorage.clear();
       // Clear session storage
@@ -367,7 +511,7 @@ const DynamicSidebar = React.memo(() => {
     
     // Use fallback if there's an error or no sections after loading
     if (!isSidebarLoading && (sidebarError || !sidebarConfig?.sections?.length)) {
-      console.log('[ðŸ"„ Sidebar] Using fallback navigation');
+      console.log('[🔄 Sidebar] Using fallback navigation');
       return FALLBACK_SIDEBAR;
     }
     
@@ -376,6 +520,30 @@ const DynamicSidebar = React.memo(() => {
 
   // Determine if we should show the admin configured indicator
   const showAdminConfigured = !isSidebarLoading && configurationSource === 'database';
+
+  // Check if item is active
+  const isItemActive = useCallback((item: SidebarItemType): boolean => {
+    const currentPath = location.pathname;
+    const processedHref = substituteUrlParameters(item.href, urlParameters, 'fallback-route');
+    
+    if (!processedHref) return false;
+    
+    // Exact match
+    if (currentPath === processedHref) return true;
+    
+    // Prefix match
+    if (processedHref !== "/" && currentPath.startsWith(processedHref + "/")) return true;
+    
+    // Dynamic URLs
+    const projectIdPattern = /\/projects\/[a-zA-Z0-9-]+/g;
+    if (item.href.includes('{projectId}')) {
+      const normalizedItemPath = processedHref.replace(projectIdPattern, '/projects/[PROJECT_ID]');
+      const normalizedCurrentPath = currentPath.replace(projectIdPattern, '/projects/[PROJECT_ID]');
+      return normalizedCurrentPath.startsWith(normalizedItemPath);
+    }
+    
+    return false;
+  }, [location.pathname, urlParameters]);
 
   // Show error state
   if (sidebarError && !isSidebarLoading) {
@@ -433,8 +601,8 @@ const DynamicSidebar = React.memo(() => {
           <p className="text-xs text-muted-foreground">Tokenization Platform</p>
         </div>
 
-        {/* Navigation - Added top padding for spacing */}
-        <ScrollArea className="flex-1 px-4">
+        {/* Navigation */}
+        <ScrollArea ref={scrollAreaRef} className="flex-1 px-4">
           {isSidebarLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="text-center">
@@ -443,23 +611,50 @@ const DynamicSidebar = React.memo(() => {
               </div>
             </div>
           ) : (
-            <div className="space-y-6 pt-4"> {/* Added pt-4 for top spacing */}
-              {displaySections.map((section) => (
-                <div key={section.id}>
-                  <h3 className="mb-2 px-3 text-xs font-semibold text-muted-foreground">
-                    {section.title}
-                  </h3>
-                  <div className="space-y-1">
-                    {section.items.map((item) => (
-                      <SidebarItem 
-                        key={item.id} 
-                        item={item} 
-                        urlParameters={urlParameters}
+            <div className="space-y-6 pt-4">
+              {displaySections.map((section) => {
+                const isCollapsed = collapsedSections.has(section.id);
+                const hasActiveItem = section.items.some(item => isItemActive(item));
+                
+                return (
+                  <div key={section.id}>
+                    {/* Collapsible Section Header */}
+                    <button
+                      onClick={() => toggleSection(section.id)}
+                      className={cn(
+                        "w-full flex items-center justify-between mb-2 px-3 text-xs font-semibold transition-colors rounded-lg py-1.5",
+                        "hover:bg-primary/5",
+                        hasActiveItem ? "text-primary" : "text-muted-foreground"
+                      )}
+                    >
+                      <span>{section.title}</span>
+                      <ChevronRight 
+                        className={cn(
+                          "h-3 w-3 transition-transform duration-200",
+                          !isCollapsed && "rotate-90"
+                        )} 
                       />
-                    ))}
+                    </button>
+                    
+                    {/* Section Items - Conditionally rendered */}
+                    {!isCollapsed && (
+                      <div className="space-y-1">
+                        {section.items.map((item) => {
+                          const isActive = isItemActive(item);
+                          return (
+                            <SidebarItem 
+                              key={item.id} 
+                              item={item} 
+                              urlParameters={urlParameters}
+                              itemRef={isActive ? activeItemRef : undefined}
+                            />
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
               
               {/* Show message if no sections are available after loading */}
               {!isSidebarLoading && displaySections.length === 0 && (
