@@ -52,6 +52,7 @@ import { BatchTransfer } from './BatchTransfer';
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 import { FullPageLoader } from './LoadingStates';
 import { modernSolanaTokenQueryService, type TokenOnChainData } from '@/services/wallet/solana';
+import { modernSolanaBlockchainQueryService } from '@/services/wallet/solana/ModernSolanaBlockchainQueryService';
 
 // ============================================================================
 // TYPES
@@ -148,7 +149,8 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
   }, [tokenId]);
 
   /**
-   * Load token details from database
+   * Load token details from database AND fetch live blockchain data
+   * CRITICAL: Always prioritize on-chain metadata over database
    */
   const loadToken = async () => {
     try {
@@ -180,7 +182,7 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
         deployment: deployment || null
       });
       
-      // Fetch real-time on-chain data if deployed
+      // ALWAYS fetch real-time on-chain data if deployed
       if (deployment?.contract_address) {
         await loadOnChainData(deployment.contract_address, deployment.network);
       }
@@ -199,6 +201,7 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
 
   /**
    * Load real-time data from Solana blockchain
+   * CRITICAL: This fetches LIVE metadata including name/symbol from Token-2022 extension
    */
   const loadOnChainData = async (mintAddress: string, network: string) => {
     try {
@@ -207,19 +210,40 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
       // Normalize network
       const normalizedNetwork = network.replace('solana-', '') as 'devnet' | 'testnet' | 'mainnet-beta';
       
-      // Fetch mint data from blockchain
-      const mintData = await modernSolanaTokenQueryService.getMintData(
+      // Fetch complete on-chain metadata (includes name, symbol, supply, authorities)
+      const metadata = await modernSolanaBlockchainQueryService.getOnChainMetadata(
         mintAddress,
         normalizedNetwork
       );
       
-      setOnChainData(mintData);
+      // Format into TokenOnChainData structure
+      const onChainInfo: TokenOnChainData = {
+        mintAddress,
+        supply: metadata.supply.toString(),
+        decimals: metadata.decimals,
+        mintAuthority: metadata.mintAuthority,
+        freezeAuthority: metadata.freezeAuthority,
+        supplyFormatted: formatSupply(metadata.supply.toString(), metadata.decimals),
+        // CRITICAL: Include metadata fields
+        name: metadata.name,
+        symbol: metadata.symbol,
+        uri: metadata.uri,
+        extensions: metadata.extensions
+      };
+      
+      setOnChainData(onChainInfo);
+      
+      console.log('✅ Loaded live on-chain data:', {
+        name: metadata.name,
+        symbol: metadata.symbol,
+        supply: onChainInfo.supplyFormatted
+      });
       
     } catch (error) {
       console.error('Error loading on-chain data:', error);
       toast({
         title: 'Warning',
-        description: 'Could not fetch live blockchain data',
+        description: 'Could not fetch live blockchain data. Showing database values.',
         variant: 'default'
       });
     } finally {
@@ -351,8 +375,23 @@ export function TokenDetails({ projectId }: TokenDetailsProps) {
           </Button>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold">{token.name}</h2>
-              <Badge variant="secondary">{token.symbol}</Badge>
+              {/* ALWAYS prioritize on-chain metadata over database */}
+              <h2 className="text-2xl font-bold">
+                {onChainData?.name || token.name}
+              </h2>
+              <Badge variant="secondary">
+                {onChainData?.symbol || token.symbol}
+              </Badge>
+              {isLoadingOnChain && (
+                <Badge variant="outline" className="animate-pulse">
+                  ↻ Loading live data...
+                </Badge>
+              )}
+              {onChainData && !isLoadingOnChain && (
+                <Badge variant="outline" className="text-green-600 border-green-600">
+                  ✓ Live
+                </Badge>
+              )}
               {token.deployment && (
                 <Badge variant="outline">
                   {token.deployment.solana_token_type || 'SPL'}
@@ -739,6 +778,39 @@ function InfoRow({ label, value }: { label: string; value: string }) {
       <p className="text-lg mt-1">{value}</p>
     </div>
   );
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Format token supply with decimals
+ */
+function formatSupply(supply: string, decimals: number): string {
+  try {
+    const supplyBigInt = BigInt(supply);
+    const divisor = BigInt(10 ** decimals);
+    
+    // Calculate integer and fractional parts
+    const integerPart = supplyBigInt / divisor;
+    const remainder = supplyBigInt % divisor;
+    
+    // Format fractional part with proper padding
+    const fractionalPart = remainder.toString().padStart(decimals, '0');
+    
+    // Combine and remove trailing zeros
+    const combined = `${integerPart}.${fractionalPart}`;
+    const formatted = parseFloat(combined).toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: decimals > 4 ? 4 : decimals
+    });
+    
+    return formatted;
+  } catch (error) {
+    console.error('Error formatting supply:', error);
+    return supply;
+  }
 }
 
 export default TokenDetails;

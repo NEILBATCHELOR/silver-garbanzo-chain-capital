@@ -99,30 +99,41 @@ export interface BurnValidation {
 
 export class ModernSolanaTokenBurnService {
   /**
-   * Detect which token program a mint uses by attempting to fetch it
+   * Detect which token program a mint uses by checking the account owner
    * Returns TOKEN_2022_PROGRAM_ADDRESS or TOKEN_PROGRAM_ADDRESS
+   * 
+   * This is the RELIABLE method - checking the mint account's owner directly
+   * (Same method used by ModernSolanaMintService)
    */
   private async detectTokenProgram(
     mintAddress: Address,
     rpc: ModernSolanaRpc
   ): Promise<Address> {
     try {
-      // Try Token-2022 first (most likely for new tokens)
-      try {
-        await fetchToken2022Mint(rpc.getRpc(), mintAddress);
-        console.log('🎯 Detected Token-2022 mint:', mintAddress);
-        return TOKEN_2022_PROGRAM_ADDRESS;
-      } catch (token2022Error) {
-        // If Token-2022 fetch fails, try SPL Token
-        try {
-          await fetchMint(rpc.getRpc(), mintAddress);
-          console.log('🎯 Detected SPL Token mint:', mintAddress);
-          return TOKEN_PROGRAM_ADDRESS;
-        } catch (splError) {
-          // If both fail, the mint doesn't exist
-          throw new Error(`Mint account ${mintAddress} not found or invalid`);
-        }
+      // Get the mint account info to check its owner
+      const accountInfo = await rpc.getRpc().getAccountInfo(mintAddress, { encoding: 'base64' }).send();
+      
+      if (!accountInfo.value) {
+        throw new Error(`Mint account ${mintAddress} not found`);
       }
+      
+      const owner = accountInfo.value.owner;
+      
+      // Check if owner matches Token-2022 program
+      if (owner === TOKEN_2022_PROGRAM_ADDRESS) {
+        console.log('🎯 Detected Token-2022 mint (owner check):', mintAddress);
+        return TOKEN_2022_PROGRAM_ADDRESS;
+      }
+      
+      // Check if owner matches SPL Token program
+      if (owner === TOKEN_PROGRAM_ADDRESS) {
+        console.log('🎯 Detected SPL Token mint (owner check):', mintAddress);
+        return TOKEN_PROGRAM_ADDRESS;
+      }
+      
+      // Unknown token program
+      throw new Error(`Mint ${mintAddress} has unknown owner: ${owner}`);
+      
     } catch (error) {
       console.error('Error detecting token program:', error);
       throw error;

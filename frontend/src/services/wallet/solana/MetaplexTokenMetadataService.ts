@@ -270,8 +270,39 @@ class MetaplexTokenMetadataService {
         collectionDetails: null
       });
 
-      // Step 5: Send transaction
-      const result = await metadataBuilder.sendAndConfirm(umi);
+      // Step 5: Send transaction with retry logic for blockhash expiration
+      let result;
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (retries < maxRetries) {
+        try {
+          result = await metadataBuilder.sendAndConfirm(umi, {
+            confirm: { commitment: 'confirmed' },
+            send: { skipPreflight: false }
+          });
+          break; // Success - exit retry loop
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Check if blockhash expired
+          if (errorMessage.includes('block height exceeded') || errorMessage.includes('has expired')) {
+            retries++;
+            if (retries < maxRetries) {
+              console.log(`⚠️ Blockhash expired, retrying (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+              continue;
+            }
+          }
+          
+          // If not a blockhash error or max retries reached, throw
+          throw error;
+        }
+      }
+      
+      if (!result) {
+        throw new Error('Transaction failed after maximum retries');
+      }
       
       // Extract signature (Umi signatures are Uint8Arrays)
       const signature = bs58.encode(result.signature);
@@ -596,8 +627,40 @@ class MetaplexTokenMetadataService {
           : undefined
       });
 
-      // Send transaction
-      const result = await updateBuilder.sendAndConfirm(umi);
+      // Send transaction with retry logic for blockhash expiration
+      let result;
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (retries < maxRetries) {
+        try {
+          result = await updateBuilder.sendAndConfirm(umi, {
+            confirm: { commitment: 'confirmed' },
+            send: { skipPreflight: false }
+          });
+          break; // Success - exit retry loop
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          
+          // Check if blockhash expired
+          if (errorMessage.includes('block height exceeded') || errorMessage.includes('has expired')) {
+            retries++;
+            if (retries < maxRetries) {
+              console.log(`⚠️ Blockhash expired, retrying (${retries}/${maxRetries})...`);
+              await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before retry
+              continue;
+            }
+          }
+          
+          // If not a blockhash error or max retries reached, throw
+          throw error;
+        }
+      }
+      
+      if (!result) {
+        throw new Error('Transaction failed after maximum retries');
+      }
+      
       const signature = bs58.encode(result.signature);
 
       await logActivity({

@@ -39,6 +39,12 @@ export interface TokenOnChainData {
   mintAuthority: string | null;
   freezeAuthority: string | null;
   
+  // Token metadata (from Token-2022 extension or Metaplex)
+  name?: string;
+  symbol?: string;
+  uri?: string;
+  extensions?: string[];
+  
   // For display
   supplyFormatted: string; // With decimals applied
 }

@@ -280,8 +280,10 @@ export class ModernSolanaMintService {
   // ============================================================================
 
   /**
-   * Detect which token program a mint uses by attempting to fetch it
+   * Detect which token program a mint uses by checking the account owner
    * Returns TOKEN_2022_PROGRAM_ADDRESS or TOKEN_PROGRAM_ADDRESS
+   * 
+   * This is the ONLY reliable way to detect the program - check the owner field
    */
   private async detectTokenProgram(
     mintAddress: string,
@@ -290,22 +292,30 @@ export class ModernSolanaMintService {
     try {
       const rpc = createSolanaRpc(rpcUrl);
       
-      // Try Token-2022 first (most likely for new tokens)
-      try {
-        await fetchToken2022Mint(rpc, address(mintAddress));
-        console.log('🎯 Detected Token-2022 mint:', mintAddress);
-        return TOKEN_2022_PROGRAM_ADDRESS;
-      } catch (token2022Error) {
-        // If Token-2022 fetch fails, try SPL Token
-        try {
-          await fetchMint(rpc, address(mintAddress));
-          console.log('🎯 Detected SPL Token mint:', mintAddress);
-          return TOKEN_PROGRAM_ADDRESS;
-        } catch (splError) {
-          // If both fail, the mint doesn't exist
-          throw new Error(`Mint account ${mintAddress} not found or invalid`);
-        }
+      // Get the mint account info to check its owner
+      const accountInfo = await rpc.getAccountInfo(address(mintAddress), { encoding: 'base64' }).send();
+      
+      if (!accountInfo.value) {
+        throw new Error(`Mint account ${mintAddress} not found`);
       }
+      
+      const owner = accountInfo.value.owner;
+      
+      // Check if owner matches Token-2022 program
+      if (owner === TOKEN_2022_PROGRAM_ADDRESS) {
+        console.log('🎯 Detected Token-2022 mint (owner check):', mintAddress);
+        return TOKEN_2022_PROGRAM_ADDRESS;
+      }
+      
+      // Check if owner matches SPL Token program
+      if (owner === TOKEN_PROGRAM_ADDRESS) {
+        console.log('🎯 Detected SPL Token mint (owner check):', mintAddress);
+        return TOKEN_PROGRAM_ADDRESS;
+      }
+      
+      // Unknown token program
+      throw new Error(`Mint ${mintAddress} has unknown owner: ${owner}`);
+      
     } catch (error) {
       console.error('Error detecting token program:', error);
       throw error;
@@ -346,7 +356,11 @@ export class ModernSolanaMintService {
       console.log('🔧 Token Program Detection:', {
         mint: config.mintAddress,
         program: isToken2022 ? 'Token-2022' : 'SPL Token',
-        programAddress: tokenProgramAddress
+        programAddress: tokenProgramAddress,
+        TOKEN_PROGRAM_ADDRESS,
+        TOKEN_2022_PROGRAM_ADDRESS,
+        matches_SPL: tokenProgramAddress === TOKEN_PROGRAM_ADDRESS,
+        matches_2022: tokenProgramAddress === TOKEN_2022_PROGRAM_ADDRESS
       });
       
       const rpc = createSolanaRpc(rpcUrl);
@@ -409,13 +423,20 @@ export class ModernSolanaMintService {
               payer: mintAuthority,
               ata: destinationATA,
               owner: address(config.destinationAddress),
-              mint: address(config.mintAddress)
+              mint: address(config.mintAddress),
+              tokenProgram: TOKEN_PROGRAM_ADDRESS
             });
+        
+        console.log('📝 ATA Instruction:', {
+          programAddress: createATAInstruction.programAddress,
+          accounts: createATAInstruction.accounts.length
+        });
         
         instructions.push(createATAInstruction);
       }
 
       // Mint tokens to the ATA using correct instruction
+      // Note: Program address is embedded in the function from the respective package
       const mintToInstruction = isToken2022
         ? getToken2022MintToCheckedInstruction({
             mint: address(config.mintAddress),
@@ -431,6 +452,13 @@ export class ModernSolanaMintService {
             amount: config.amount,
             decimals: config.decimals
           });
+
+      console.log('📝 Mint Instruction:', {
+        programAddress: mintToInstruction.programAddress,
+        accounts: mintToInstruction.accounts.length,
+        amount: config.amount.toString(),
+        decimals: config.decimals
+      });
 
       instructions.push(mintToInstruction);
 
