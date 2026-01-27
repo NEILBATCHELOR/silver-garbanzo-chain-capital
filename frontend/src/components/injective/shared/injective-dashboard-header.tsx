@@ -1,24 +1,24 @@
 /**
  * Injective Dashboard Header
- * Matches Trade Finance Dashboard Header style with wallet/network/project selectors
+ * Matches Solana Dashboard Header pattern for consistency
  * 
  * Features:
  * - Project selector for multi-tenancy
- * - Network selector (Mainnet/Testnet/Devnet)
+ * - Network selector (Mainnet/Testnet)
  * - Wallet selector with project filtering and auto-decryption
- * - Action buttons (MPT, NFT, Payment features)
+ * - Action buttons (Deploy Token, Manage Tokens, Launch Market)
  * - Refresh functionality
  * - Real-time badge
- * - Wallet balance display
+ * - Wallet balance display with loading state
  */
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { 
   RefreshCw, 
+  Rocket,
   Coins,
-  Image,
-  Send,
+  TrendingUp,
   AlertCircle,
   Briefcase
 } from 'lucide-react'
@@ -35,48 +35,54 @@ import { useEffect } from 'react'
 import type { ProjectWalletData } from '@/services/project/project-wallet-service'
 
 export interface InjectiveDashboardHeaderProps {
-  network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
+  network?: 'MAINNET' | 'TESTNET'
   walletAddress?: string
   walletBalance?: string
+  walletId?: string // Track selected wallet ID
   title?: string
   subtitle?: string
   projectId?: string
+  projectName?: string
   onRefresh?: () => void
-  onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
+  onNetworkChange?: (network: 'MAINNET' | 'TESTNET') => void
   onProjectChange?: (projectId: string) => void
   onWalletSelect?: (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => void
   actions?: React.ReactNode
   isLoading?: boolean
-  showMPT?: boolean
-  showNFT?: boolean
-  showPayments?: boolean
-  onMPT?: () => void
-  onNFT?: () => void
-  onPayments?: () => void
+  isLoadingBalance?: boolean
+  showDeploy?: boolean
+  showManage?: boolean
+  showMarket?: boolean
+  onDeploy?: () => void
+  onManage?: () => void
+  onMarket?: () => void
 }
 
 export function InjectiveDashboardHeader({
   network = 'TESTNET',
   walletAddress,
   walletBalance,
-  title = 'Injective Integration',
-  subtitle = 'Injective blockchain integration and asset management',
+  walletId,
+  title = 'Injective Token Launchpad',
+  subtitle = 'Deploy and manage native tokens and markets on Injective',
   projectId,
+  projectName,
   onRefresh,
   onNetworkChange,
   onProjectChange,
   onWalletSelect,
   actions,
   isLoading = false,
-  showMPT = true,
-  showNFT = true,
-  showPayments = true,
-  onMPT,
-  onNFT,
-  onPayments
+  isLoadingBalance = false,
+  showDeploy = true,
+  showManage = true,
+  showMarket = true,
+  onDeploy,
+  onManage,
+  onMarket
 }: InjectiveDashboardHeaderProps) {
   
-  const { primaryProject, loadPrimaryProject } = usePrimaryProject({ loadOnMount: true })
+  const { primaryProject } = usePrimaryProject({ loadOnMount: true })
   
   // Load primary project on mount and notify parent
   useEffect(() => {
@@ -88,10 +94,8 @@ export function InjectiveDashboardHeader({
   const getNetworkBadge = (net: string) => {
     if (net === 'MAINNET') {
       return <Badge variant="default" className="bg-green-500 text-white">Mainnet</Badge>
-    } else if (net === 'TESTNET') {
-      return <Badge variant="default" className="bg-blue-500 text-white">Testnet</Badge>
     } else {
-      return <Badge variant="default" className="bg-purple-500 text-white">Devnet</Badge>
+      return <Badge variant="default" className="bg-blue-500 text-white">Testnet</Badge>
     }
   }
 
@@ -102,6 +106,7 @@ export function InjectiveDashboardHeader({
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-3">
+              <Coins className="h-6 w-6 text-primary" />
               <h1 className="text-2xl font-bold text-foreground">
                 {title}
               </h1>
@@ -111,13 +116,20 @@ export function InjectiveDashboardHeader({
               {getNetworkBadge(network)}
               {walletAddress && walletBalance && (
                 <Badge variant="outline" className="text-xs font-mono">
-                  {walletBalance} INJ
+                  {isLoadingBalance ? (
+                    <div className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Loading...</span>
+                    </div>
+                  ) : (
+                    `${walletBalance} INJ`
+                  )}
                 </Badge>
               )}
-              {primaryProject && (
+              {(projectId || projectName) && (
                 <Badge variant="outline" className="text-xs">
                   <Briefcase className="h-3 w-3 mr-1" />
-                  {primaryProject.name}
+                  {projectName || primaryProject?.name || 'Project'}
                 </Badge>
               )}
             </div>
@@ -152,7 +164,6 @@ export function InjectiveDashboardHeader({
               <SelectContent>
                 <SelectItem value="MAINNET">Mainnet</SelectItem>
                 <SelectItem value="TESTNET">Testnet</SelectItem>
-                <SelectItem value="DEVNET">Devnet</SelectItem>
               </SelectContent>
             </Select>
 
@@ -162,6 +173,7 @@ export function InjectiveDashboardHeader({
                 projectId={projectId}
                 blockchain="injective"
                 network={network.toLowerCase() as 'mainnet' | 'testnet' | 'all'}
+                value={walletId}
                 onWalletSelect={onWalletSelect}
                 placeholder="Select wallet"
                 showBalance={true}
@@ -183,36 +195,37 @@ export function InjectiveDashboardHeader({
             </Button>
 
             {/* Action Buttons */}
-            {showMPT && onMPT && walletAddress && projectId && (
+            {showDeploy && onDeploy && walletAddress && projectId && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onMPT}
+                onClick={onDeploy}
               >
-                <Coins className="h-4 w-4 mr-2" />
-                MPT Tokens
+                <Rocket className="h-4 w-4 mr-2" />
+                Deploy Token
               </Button>
             )}
 
-            {showNFT && onNFT && walletAddress && projectId && (
+            {showManage && onManage && walletAddress && projectId && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={onNFT}
-              >
-                <Image className="h-4 w-4 mr-2" />
-                NFTs
-              </Button>
-            )}
-
-            {showPayments && onPayments && walletAddress && projectId && (
-              <Button
-                size="sm"
-                onClick={onPayments}
+                onClick={onManage}
                 disabled={isLoading}
               >
-                <Send className="h-4 w-4 mr-2" />
-                Send Payment
+                <Coins className="h-4 w-4 mr-2" />
+                Manage Tokens
+              </Button>
+            )}
+
+            {showMarket && onMarket && walletAddress && projectId && (
+              <Button
+                size="sm"
+                onClick={onMarket}
+                disabled={isLoading}
+              >
+                <TrendingUp className="h-4 w-4 mr-2" />
+                Launch Market
               </Button>
             )}
 

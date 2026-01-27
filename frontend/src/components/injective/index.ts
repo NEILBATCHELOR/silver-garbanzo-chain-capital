@@ -7,6 +7,10 @@ export { InjectiveMTSTransfer } from './InjectiveMTSTransfer';
 export { InjectiveProjectWrapper } from './InjectiveProjectWrapper';
 export { InjectiveWalletManager } from './InjectiveWalletManager';
 export { InjectiveTransactions } from './InjectiveTransactions';
+export { InjectiveWalletSelector } from './InjectiveWalletSelector';
 
 // Navigation components from shared/ (horizontal tabs)
 export * from './shared';
+
+// Contexts
+export * from './contexts';

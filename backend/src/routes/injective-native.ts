@@ -11,13 +11,13 @@ import { getSupabaseClient } from '../infrastructure/database/supabase';
 // JSON Schemas for validation
 const CreateTokenSchema = {
   type: 'object',
-  required: ['subdenom', 'metadata', 'creatorAddress', 'privateKey'],
+  required: ['subdenom', 'metadata'],
   properties: {
     subdenom: {
       type: 'string',
       minLength: 3,
       maxLength: 44,
-      pattern: '^[a-z0-9-]+$',
+      pattern: '^[a-z0-9.-]+$',
       description: 'Token subdenom (lowercase, numbers, dashes only)'
     },
     initialSupply: {
@@ -32,22 +32,33 @@ const CreateTokenSchema = {
         name: { type: 'string', minLength: 2, maxLength: 100 },
         symbol: { type: 'string', minLength: 2, maxLength: 10 },
         decimals: { type: 'integer', minimum: 0, maximum: 18 },
-        description: { type: 'string', maxLength: 500 }
+        description: { type: 'string', maxLength: 500 },
+        uri: { 
+          type: 'string', 
+          maxLength: 500,
+          description: 'Logo URI (IPFS hosted webp recommended)'
+        },
+        uriHash: { 
+          type: 'string', 
+          maxLength: 100,
+          description: 'Hash of the URI (optional)'
+        },
+        displayDenom: {
+          type: 'string',
+          maxLength: 50,
+          description: 'Custom display denom (defaults to subdenom if not provided)'
+        }
       }
     },
-    creatorAddress: {
+    walletId: {
       type: 'string',
-      pattern: '^inj1[a-z0-9]{38}$',
-      description: 'Injective address (inj1...)'
+      format: 'uuid',
+      description: 'Wallet ID for signing (private key will be decrypted from database)'
     },
-    privateKey: {
+    network: {
       type: 'string',
-      description: 'Private key for signing (will be handled securely)'
-    },
-    useHSM: {
-      type: 'boolean',
-      default: false,
-      description: 'Use HSM for signing'
+      enum: ['mainnet', 'testnet'],
+      default: 'testnet'
     },
     projectId: {
       type: 'string',
@@ -59,13 +70,8 @@ const CreateTokenSchema = {
 
 const MintTokensSchema = {
   type: 'object',
-  required: ['denom', 'amount', 'adminAddress', 'privateKey'],
+  required: ['amount', 'walletId'],
   properties: {
-    denom: {
-      type: 'string',
-      pattern: '^factory/inj1[a-z0-9]{38}/[a-z0-9-]+$',
-      description: 'TokenFactory denom (factory/{creator}/{subdenom})'
-    },
     amount: {
       type: 'string',
       pattern: '^[0-9]+$',
@@ -76,34 +82,28 @@ const MintTokensSchema = {
       pattern: '^inj1[a-z0-9]{38}$',
       description: 'Recipient address (optional, defaults to admin)'
     },
-    adminAddress: {
+    walletId: {
       type: 'string',
-      pattern: '^inj1[a-z0-9]{38}$'
-    },
-    privateKey: { type: 'string' },
-    useHSM: { type: 'boolean', default: false }
+      format: 'uuid',
+      description: 'Wallet ID for signing (must be token admin wallet)'
+    }
   }
 };
 
 const BurnTokensSchema = {
   type: 'object',
-  required: ['denom', 'amount', 'holderAddress', 'privateKey'],
+  required: ['amount', 'walletId'],
   properties: {
-    denom: {
-      type: 'string',
-      pattern: '^factory/inj1[a-z0-9]{38}/[a-z0-9-]+$'
-    },
     amount: {
       type: 'string',
       pattern: '^[0-9]+$',
       description: 'Amount to burn (in base units)'
     },
-    holderAddress: {
+    walletId: {
       type: 'string',
-      pattern: '^inj1[a-z0-9]{38}$'
-    },
-    privateKey: { type: 'string' },
-    useHSM: { type: 'boolean', default: false }
+      format: 'uuid',
+      description: 'Wallet ID for signing (must be token admin wallet)'
+    }
   }
 };
 
@@ -185,12 +185,124 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
     try {
       const body = request.body as any;
       
+      // Validate walletId is provided
+      if (!body.walletId) {
+        return reply.code(400).send({
+          error: 'Validation error',
+          message: 'walletId is required'
+        });
+      }
+
+      // Fetch wallet from project_wallets table (Injective-specific)
+      // Note: wallet_type is stored in lowercase in the database
+      const { data: wallet, error: walletError } = await getSupabaseClient()
+        .from('project_wallets')
+        .select('id, wallet_address, private_key_vault_id, net, non_evm_network')
+        .eq('id', body.walletId)
+        .eq('wallet_type', 'injective')
+        .single();
+
+      if (walletError || !wallet) {
+        return reply.code(404).send({
+          error: 'Wallet not found',
+          message: 'The specified Injective wallet does not exist'
+        });
+      }
+
+      // Validate wallet is Injective wallet
+      if (!wallet.wallet_address.startsWith('inj1')) {
+        return reply.code(400).send({
+          error: 'Invalid wallet',
+          message: 'Selected wallet is not an Injective address'
+        });
+      }
+
+      // Fetch encrypted private key from key vault
+      if (!wallet.private_key_vault_id) {
+        return reply.code(500).send({
+          error: 'Key vault not configured',
+          message: 'This wallet does not have a key vault entry'
+        });
+      }
+
+      const { data: keyVaultEntry, error: keyVaultError } = await getSupabaseClient()
+        .from('key_vault_keys')
+        .select('encrypted_key')
+        .eq('id', wallet.private_key_vault_id)
+        .single();
+
+      if (keyVaultError || !keyVaultEntry) {
+        return reply.code(500).send({
+          error: 'Key vault error',
+          message: 'Failed to retrieve private key from key vault'
+        });
+      }
+
+      // Decrypt private key using backend encryption service
+      const { WalletEncryptionService } = await import('../services/security/walletEncryptionService');
+      let privateKey: string;
+      
+      try {
+        // Decrypt from key vault
+        privateKey = await WalletEncryptionService.decrypt(keyVaultEntry.encrypted_key);
+        
+        // Validate decrypted key is not empty
+        if (!privateKey || privateKey.trim() === '') {
+          throw new Error('Decrypted private key is empty');
+        }
+        
+        // Remove 0x prefix if present (Injective SDK expects hex without prefix)
+        if (privateKey.startsWith('0x') || privateKey.startsWith('0X')) {
+          privateKey = privateKey.slice(2);
+        }
+        
+        // Validate it looks like a hex private key (64 hex characters)
+        if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
+          fastify.log.error({ 
+            keyLength: privateKey.length,
+            keyPrefix: privateKey.substring(0, 10)
+          }, 'Decrypted key does not look like a valid private key');
+          throw new Error('Decrypted private key is not in valid hex format');
+        }
+        
+        fastify.log.info('✅ Private key decrypted and validated successfully');
+      } catch (decryptError: any) {
+        fastify.log.error({ 
+          error: decryptError,
+          errorMessage: decryptError.message,
+          walletId: body.walletId,
+          vaultId: wallet.private_key_vault_id
+        }, 'Failed to decrypt private key from key vault');
+        
+        // Check if it's a master password issue
+        if (decryptError.message && decryptError.message.includes('WALLET_MASTER_PASSWORD')) {
+          return reply.code(500).send({
+            error: 'Configuration error',
+            message: 'Server encryption is not configured. Please contact support.',
+            details: {
+              code: 'MASTER_PASSWORD_MISSING',
+              suggestion: 'The WALLET_MASTER_PASSWORD environment variable must be configured on the server.'
+            }
+          });
+        }
+        
+        return reply.code(500).send({
+          error: 'Decryption failed',
+          message: 'Failed to decrypt wallet private key from key vault',
+          details: {
+            code: 'DECRYPTION_ERROR',
+            message: decryptError.message,
+            suggestion: 'The wallet encryption key may be corrupted or the master password may have changed. Please contact support.'
+          }
+        });
+      }
+
       // Import service from backend services
       const { injectiveNativeTokenServiceTestnet, injectiveNativeTokenServiceMainnet } = 
         await import('../services/injective');
       
       // Determine network (default to testnet for safety)
-      const network = body.network || 'testnet';
+      const network = body.network || wallet.net || 'testnet';
       const service = network === 'mainnet' 
         ? injectiveNativeTokenServiceMainnet 
         : injectiveNativeTokenServiceTestnet;
@@ -202,15 +314,52 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
           initialSupply: body.initialSupply,
           metadata: body.metadata
         },
-        body.creatorAddress,
-        body.privateKey,
-        body.useHSM
+        wallet.wallet_address, // Use wallet address as creator
+        privateKey,
+        false // useHSM - always false when using wallet service
       );
 
       if (!result.success) {
+        // Provide detailed error messages
+        let errorMessage = result.error || 'Token creation failed';
+        let errorDetails = {};
+
+        // Check for common error patterns and provide guidance
+        if (errorMessage.includes('insufficient funds')) {
+          errorDetails = {
+            code: 'INSUFFICIENT_FUNDS',
+            suggestion: network === 'testnet' 
+              ? 'Get testnet INJ from: https://testnet.faucet.injective.network/'
+              : 'Your wallet needs more INJ for gas fees'
+          };
+        } else if (errorMessage.includes('subdenom')) {
+          errorDetails = {
+            code: 'INVALID_SUBDENOM',
+            suggestion: 'Subdenom must be 3-44 characters with only lowercase letters, numbers, periods, and dashes'
+          };
+        } else if (errorMessage.includes('metadata')) {
+          errorDetails = {
+            code: 'INVALID_METADATA',
+            suggestion: 'Check that token name and symbol are provided and within length limits'
+          };
+        } else if (errorMessage.includes('already exists')) {
+          errorDetails = {
+            code: 'DENOM_EXISTS',
+            suggestion: 'This subdenom has already been used. Try a different subdenom.'
+          };
+        }
+
+        fastify.log.error({ 
+          error: result.error,
+          subdenom: body.subdenom,
+          network,
+          creatorAddress: wallet.wallet_address
+        }, 'Token creation failed');
+
         return reply.code(400).send({
           error: 'Token creation failed',
-          message: result.error
+          message: errorMessage,
+          details: errorDetails
         });
       }
 
@@ -221,14 +370,14 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
           project_id: body.projectId || null,
           denom: result.denom,
           subdenom: body.subdenom,
-          creator_address: body.creatorAddress,
+          creator_address: wallet.wallet_address, // Use wallet address
           total_supply: body.initialSupply || '0',
           circulating_supply: body.initialSupply || '0',
           name: body.metadata.name,
           symbol: body.metadata.symbol,
           decimals: body.metadata.decimals,
           description: body.metadata.description,
-          admin_address: body.creatorAddress,
+          admin_address: wallet.wallet_address, // Use wallet address
           network,
           chain_id: network === 'mainnet' ? 'injective-1' : 'injective-888',
           creation_tx_hash: result.txHash,
@@ -238,8 +387,29 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
         .single();
 
       if (dbError) {
-        fastify.log.error({ error: dbError }, 'Failed to save token to database');
+        fastify.log.error({ 
+          error: dbError,
+          denom: result.denom,
+          txHash: result.txHash 
+        }, 'Failed to save token to database');
+        
+        // Token was created on-chain but database save failed
+        // Still return success but warn about database issue
+        return reply.send({
+          success: true,
+          denom: result.denom,
+          txHash: result.txHash,
+          tokenId: null,
+          warning: 'Token created successfully but failed to save to database. Please contact support.'
+        });
       }
+
+      fastify.log.info({
+        tokenId: tokenRecord.id,
+        denom: result.denom,
+        network,
+        creatorAddress: wallet.wallet_address
+      }, 'Token created and saved successfully');
 
       return reply.send({
         success: true,
@@ -249,10 +419,47 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
       });
 
     } catch (error: any) {
-      fastify.log.error({ error }, 'Error creating Injective token');
+      fastify.log.error({ 
+        error,
+        errorMessage: error.message,
+        errorStack: error.stack,
+        subdenom: request.body ? (request.body as any).subdenom : 'unknown',
+        walletId: request.body ? (request.body as any).walletId : 'unknown'
+      }, 'Error creating Injective token');
+      
+      // Provide user-friendly error messages
+      let userMessage = 'An unexpected error occurred while creating the token';
+      let errorDetails: any = {
+        code: 'INTERNAL_ERROR',
+        suggestion: 'Please try again. If the problem persists, contact support.'
+      };
+
+      if (error.message) {
+        if (error.message.includes('timeout')) {
+          userMessage = 'Request timed out';
+          errorDetails = {
+            code: 'TIMEOUT',
+            suggestion: 'The blockchain network may be congested. Please wait a moment and try again.'
+          };
+        } else if (error.message.includes('network')) {
+          userMessage = 'Network connection error';
+          errorDetails = {
+            code: 'NETWORK_ERROR',
+            suggestion: 'Check your internet connection and ensure the Injective RPC is accessible.'
+          };
+        } else if (error.message.includes('parse') || error.message.includes('JSON')) {
+          userMessage = 'Invalid response from blockchain';
+          errorDetails = {
+            code: 'PARSE_ERROR',
+            suggestion: 'The blockchain returned an unexpected response. Please try again.'
+          };
+        }
+      }
+
       return reply.code(500).send({
         error: 'Internal server error',
-        message: error.message
+        message: userMessage,
+        details: errorDetails
       });
     }
   });
@@ -351,31 +558,108 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
       const { denom } = request.params as { denom: string };
       const body = request.body as any;
 
+      // Get token from database
+      const { data: token, error: tokenError } = await getSupabaseClient()
+        .from('injective_native_tokens')
+        .select('network, admin_address')
+        .eq('denom', denom)
+        .single();
+
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          error: 'Token not found',
+          message: 'The specified token does not exist'
+        });
+      }
+
+      // Fetch wallet from project_wallets
+      const { data: wallet, error: walletError } = await getSupabaseClient()
+        .from('project_wallets')
+        .select('id, wallet_address, private_key_vault_id')
+        .eq('id', body.walletId)
+        .eq('wallet_type', 'injective')
+        .single();
+
+      if (walletError || !wallet) {
+        return reply.code(404).send({
+          error: 'Wallet not found',
+          message: 'The specified wallet does not exist'
+        });
+      }
+
+      // Verify wallet is the token admin
+      if (wallet.wallet_address !== token.admin_address) {
+        return reply.code(403).send({
+          error: 'Unauthorized',
+          message: 'This wallet is not authorized to mint tokens for this denom'
+        });
+      }
+
+      // Fetch encrypted private key
+      if (!wallet.private_key_vault_id) {
+        return reply.code(500).send({
+          error: 'Key vault not configured',
+          message: 'This wallet does not have a key vault entry'
+        });
+      }
+
+      const { data: keyVaultEntry, error: keyVaultError } = await getSupabaseClient()
+        .from('key_vault_keys')
+        .select('encrypted_key')
+        .eq('id', wallet.private_key_vault_id)
+        .single();
+
+      if (keyVaultError || !keyVaultEntry) {
+        return reply.code(500).send({
+          error: 'Key vault error',
+          message: 'Failed to retrieve private key from key vault'
+        });
+      }
+
+      // Decrypt private key
+      const { WalletEncryptionService } = await import('../services/security/walletEncryptionService');
+      let privateKey: string;
+      
+      try {
+        privateKey = await WalletEncryptionService.decrypt(keyVaultEntry.encrypted_key);
+        
+        if (!privateKey || privateKey.trim() === '') {
+          throw new Error('Decrypted private key is empty');
+        }
+        
+        if (privateKey.startsWith('0x') || privateKey.startsWith('0X')) {
+          privateKey = privateKey.slice(2);
+        }
+        
+        if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
+          throw new Error('Decrypted private key is not in valid hex format');
+        }
+      } catch (decryptError: any) {
+        fastify.log.error({ error: decryptError }, 'Failed to decrypt private key');
+        return reply.code(500).send({
+          error: 'Decryption failed',
+          message: 'Failed to decrypt wallet private key'
+        });
+      }
+
       // Import service
       const { injectiveNativeTokenServiceTestnet, injectiveNativeTokenServiceMainnet } = 
         await import('../services/injective');
 
-      // Get token to determine network
-      const { data: token } = await getSupabaseClient()
-        .from('injective_native_tokens')
-        .select('network')
-        .eq('denom', denom)
-        .single();
-
-      const service = token?.network === 'mainnet'
+      const service = token.network === 'mainnet'
         ? injectiveNativeTokenServiceMainnet
         : injectiveNativeTokenServiceTestnet;
 
       // Mint tokens
       const txHash = await service.mintTokens(
         {
-          denom: body.denom,
+          denom: denom,
           amount: body.amount,
-          recipient: body.recipient
+          recipient: body.recipient || wallet.wallet_address
         },
-        body.adminAddress,
-        body.privateKey,
-        body.useHSM
+        wallet.wallet_address,
+        privateKey,
+        false
       );
 
       // Update total supply in database
@@ -387,6 +671,12 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
       if (updateError) {
         fastify.log.error({ error: updateError }, 'Failed to update token supply');
       }
+
+      fastify.log.info({
+        denom,
+        amount: body.amount,
+        txHash
+      }, 'Tokens minted successfully');
 
       return reply.send({
         success: true,
@@ -417,30 +707,107 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
       const { denom } = request.params as { denom: string };
       const body = request.body as any;
 
+      // Get token from database
+      const { data: token, error: tokenError } = await getSupabaseClient()
+        .from('injective_native_tokens')
+        .select('network, admin_address')
+        .eq('denom', denom)
+        .single();
+
+      if (tokenError || !token) {
+        return reply.code(404).send({
+          error: 'Token not found',
+          message: 'The specified token does not exist'
+        });
+      }
+
+      // Fetch wallet from project_wallets
+      const { data: wallet, error: walletError } = await getSupabaseClient()
+        .from('project_wallets')
+        .select('id, wallet_address, private_key_vault_id')
+        .eq('id', body.walletId)
+        .eq('wallet_type', 'injective')
+        .single();
+
+      if (walletError || !wallet) {
+        return reply.code(404).send({
+          error: 'Wallet not found',
+          message: 'The specified wallet does not exist'
+        });
+      }
+
+      // Verify wallet is the token admin
+      if (wallet.wallet_address !== token.admin_address) {
+        return reply.code(403).send({
+          error: 'Unauthorized',
+          message: 'This wallet is not authorized to burn tokens for this denom'
+        });
+      }
+
+      // Fetch encrypted private key
+      if (!wallet.private_key_vault_id) {
+        return reply.code(500).send({
+          error: 'Key vault not configured',
+          message: 'This wallet does not have a key vault entry'
+        });
+      }
+
+      const { data: keyVaultEntry, error: keyVaultError } = await getSupabaseClient()
+        .from('key_vault_keys')
+        .select('encrypted_key')
+        .eq('id', wallet.private_key_vault_id)
+        .single();
+
+      if (keyVaultError || !keyVaultEntry) {
+        return reply.code(500).send({
+          error: 'Key vault error',
+          message: 'Failed to retrieve private key from key vault'
+        });
+      }
+
+      // Decrypt private key
+      const { WalletEncryptionService } = await import('../services/security/walletEncryptionService');
+      let privateKey: string;
+      
+      try {
+        privateKey = await WalletEncryptionService.decrypt(keyVaultEntry.encrypted_key);
+        
+        if (!privateKey || privateKey.trim() === '') {
+          throw new Error('Decrypted private key is empty');
+        }
+        
+        if (privateKey.startsWith('0x') || privateKey.startsWith('0X')) {
+          privateKey = privateKey.slice(2);
+        }
+        
+        if (!/^[0-9a-fA-F]{64}$/.test(privateKey)) {
+          throw new Error('Decrypted private key is not in valid hex format');
+        }
+      } catch (decryptError: any) {
+        fastify.log.error({ error: decryptError }, 'Failed to decrypt private key');
+        return reply.code(500).send({
+          error: 'Decryption failed',
+          message: 'Failed to decrypt wallet private key'
+        });
+      }
+
       // Import service
       const { injectiveNativeTokenServiceTestnet, injectiveNativeTokenServiceMainnet } = 
         await import('../services/injective');
 
-      // Get token to determine network
-      const { data: token } = await getSupabaseClient()
-        .from('injective_native_tokens')
-        .select('network')
-        .eq('denom', denom)
-        .single();
-
-      const service = token?.network === 'mainnet'
+      const service = token.network === 'mainnet'
         ? injectiveNativeTokenServiceMainnet
         : injectiveNativeTokenServiceTestnet;
 
       // Burn tokens
       const txHash = await service.burnTokens(
         {
-          denom: body.denom,
+          denom: denom,
           amount: body.amount
         },
-        body.holderAddress,
-        body.privateKey,
-        body.useHSM
+        wallet.wallet_address,
+        privateKey,
+        false
       );
 
       // Update total supply in database
@@ -452,6 +819,12 @@ export async function injectiveNativeRoutes(fastify: FastifyInstance) {
       if (updateError) {
         fastify.log.error({ error: updateError }, 'Failed to update token supply');
       }
+
+      fastify.log.info({
+        denom,
+        amount: body.amount,
+        txHash
+      }, 'Tokens burned successfully');
 
       return reply.send({
         success: true,

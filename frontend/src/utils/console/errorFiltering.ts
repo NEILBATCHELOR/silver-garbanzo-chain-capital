@@ -69,6 +69,9 @@ const NON_CRITICAL_PATTERNS = [
   /failed to bootstrap network detection.*event=.*initial-network-discovery.*code=NETWORK_ERROR/i,
   /Provider error for wallet.*failed to bootstrap network detection/i,
   /NETWORK_ERROR.*initial-network-discovery/i,
+  // Injective Token Manager auth errors - Added January 27, 2026
+  /\[InjectiveTokenManager\].*No auth token found/i,
+  /No auth token found in localStorage/i,
 ];
 
 // Enhanced console.error that filters non-critical messages

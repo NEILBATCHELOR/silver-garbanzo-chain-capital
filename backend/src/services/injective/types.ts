@@ -15,9 +15,12 @@ export interface TokenMetadata {
   name: string;
   symbol: string;
   decimals: number;
-  description: string;
-  displayDenom?: string;
-  uri?: string;  // Optional logo URI (IPFS recommended)
+  description?: string;        // Optional description
+  uri?: string;                // Optional logo URI (IPFS hosted webp recommended)
+  uriHash?: string;            // Optional hash of the URI
+  
+  // Display configuration (usually auto-generated from subdenom)
+  displayDenom?: string;       // Custom display denom (defaults to subdenom)
 }
 
 export interface TokenConfig {

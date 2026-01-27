@@ -71,9 +71,12 @@ export interface TokenMetadata {
   name: string;
   symbol: string;
   decimals: number;
-  description: string;
-  displayDenom?: string;
-  uri?: string;  // Optional logo URI (IPFS recommended)
+  description?: string;        // Optional description
+  uri?: string;                // Optional logo URI (IPFS hosted webp recommended)
+  uriHash?: string;            // Optional hash of the URI
+  
+  // Display configuration (usually auto-generated from subdenom)
+  displayDenom?: string;       // Custom display denom (defaults to subdenom)
 }
 
 export interface InjectiveMintParams {
@@ -538,37 +541,68 @@ export class InjectiveNativeTokenService {
 
   /**
    * Create metadata message
-   * FIXED: Explicitly type params to avoid TypeScript inference issues
+   * 
+   * CRITICAL: Proper metadata structure according to Injective docs:
+   * - display: Should be the subdenom (the unit with highest decimals)
+   * - denomUnits[0]: Base unit with exponent 0, aliases include subdenom
+   * - denomUnits[1]: Display unit with subdenom as denom, exponent = decimals
+   * 
+   * Example for 6 decimals:
+   * - base: factory/inj1.../bond
+   * - display: bond  (the subdenom)
+   * - denomUnits[0]: { denom: factory/inj1.../bond, exponent: 0, aliases: ['bond'] }
+   * - denomUnits[1]: { denom: 'bond', exponent: 6, aliases: [] }
    */
   private createMetadataMessage(
     denom: string,
     metadata: TokenMetadata,
     sender: string
   ): MsgSetDenomMetadata {
+    // Extract subdenom from full denom
+    // Format: factory/{creator}/{subdenom}
+    const parts = denom.split('/');
+    const subdenom = parts[2] || metadata.symbol.toLowerCase();
+    
+    // Determine display denom (prefer subdenom over custom displayDenom)
+    const displayDenom = metadata.displayDenom || subdenom;
+    
+    // Create denom units array based on decimals
+    const denomUnits = metadata.decimals === 0
+      ? [
+          // For 0 decimals: Single unit
+          {
+            denom: denom,
+            exponent: 0,
+            aliases: [subdenom]
+          }
+        ]
+      : [
+          // For N decimals: Base unit + display unit
+          {
+            denom: denom,              // Full denom (factory/...)
+            exponent: 0,
+            aliases: [subdenom]
+          },
+          {
+            denom: subdenom,           // Subdenom (bond, test-token, etc.)
+            exponent: metadata.decimals,
+            aliases: []
+          }
+        ];
+    
     // Create params object with explicit structure
     const params = {
       sender,
       metadata: {
-        denomUnits: [
-          {
-            denom,
-            exponent: 0,
-            aliases: [metadata.symbol.toLowerCase()]
-          },
-          {
-            denom: metadata.displayDenom || metadata.symbol,
-            exponent: metadata.decimals,
-            aliases: []
-          }
-        ],
-        base: denom,
-        display: metadata.displayDenom || metadata.symbol,
-        name: metadata.name,
-        symbol: metadata.symbol,
-        description: metadata.description,
-        uri: metadata.uri || '',
-        uriHash: '',
-        decimals: metadata.decimals
+        base: denom,                           // Full denom (factory/...)
+        display: displayDenom,                 // Display alias (usually subdenom)
+        name: metadata.name,                   // Token name
+        symbol: metadata.symbol,               // Token symbol
+        description: metadata.description || '', // Description (optional)
+        uri: metadata.uri || '',               // Logo URI (IPFS hosted webp)
+        uriHash: metadata.uriHash || '',       // Hash of URI (optional)
+        denomUnits: denomUnits,
+        decimals: metadata.decimals            // Shorthand decimal count
       }
     };
 

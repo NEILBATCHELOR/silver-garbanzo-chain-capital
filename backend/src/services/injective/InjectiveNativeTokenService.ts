@@ -83,10 +83,17 @@ export class InjectiveNativeTokenService {
    * Create a new TokenFactory denom
    * Format: factory/{creator_address}/{subdenom}
    * 
-   * IMPORTANT: This creates the token in multiple steps:
-   * 1. Create denom (MsgCreateDenom)
-   * 2. Set metadata (MsgSetDenomMetadata) - separate transaction
-   * 3. Mint initial supply (MsgMint) - if specified, separate transaction
+   * CORRECT APPROACH (per official Injective docs):
+   * Single atomic transaction with multiple messages:
+   * 1. MsgCreateDenom - creates denom (subdenom + sender ONLY, no metadata!)
+   * 2. MsgSetDenomMetadata - sets name, symbol, decimals, description, uri, denomUnits
+   * 3. MsgMint - mints initial supply (optional)
+   * 
+   * CRITICAL: The TypeScript SDK's MsgCreateDenom.fromJSON() does NOT accept
+   * name, symbol, or decimals parameters. These MUST be set via MsgSetDenomMetadata.
+   * 
+   * All messages are broadcast in ONE transaction for atomicity - either all
+   * succeed or all fail. No partial states.
    * 
    * @param config - Token configuration
    * @param creatorAddress - Injective address (inj1...)
@@ -109,39 +116,41 @@ export class InjectiveNativeTokenService {
       // Generate denom
       const denom = `factory/${creatorAddress}/${config.subdenom}`;
 
-      // Step 1: Create denom
+      console.log(`\n🚀 Creating token: ${denom}`);
+      console.log(`   Name: ${config.metadata.name}`);
+      console.log(`   Symbol: ${config.metadata.symbol}`);
+      console.log(`   Decimals: ${config.metadata.decimals}`);
+
+      // ========================================================================
+      // ATOMIC TRANSACTION: All messages in ONE transaction
+      // Based on official Injective docs pattern
+      // ========================================================================
+      console.log('\n📤 Building atomic transaction with all messages...\n');
+      
+      const messages: any[] = [];
+
+      // Message 1: Create denom (NO metadata in this message!)
+      console.log('  📝 Message 1: MsgCreateDenom (subdenom only)');
       const msgCreateDenom = MsgCreateDenom.fromJSON({
         sender: creatorAddress,
         subdenom: config.subdenom
+        // ❌ DO NOT include name, symbol, or decimals here!
+        // The SDK does not support these parameters in fromJSON
       });
+      messages.push(msgCreateDenom);
 
-      const createTxHash = await this.broadcastSingleMessage(
-        msgCreateDenom,
-        creatorAddress,
-        privateKey,
-        useHSM
-      );
-
-      console.log(`✅ Token denom created: ${denom}, TX: ${createTxHash}`);
-
-      // Step 2: Set metadata (separate transaction)
+      // Message 2: Set metadata (name, symbol, decimals, description, uri, denomUnits)
+      console.log('  📝 Message 2: MsgSetDenomMetadata (name, symbol, decimals, etc.)');
       const msgSetMetadata = this.createMetadataMessage(
         denom,
         config.metadata,
         creatorAddress
       );
+      messages.push(msgSetMetadata);
 
-      const metadataTxHash = await this.broadcastSingleMessage(
-        msgSetMetadata,
-        creatorAddress,
-        privateKey,
-        useHSM
-      );
-
-      console.log(`✅ Metadata set, TX: ${metadataTxHash}`);
-
-      // Step 3: Mint initial supply if specified (separate transaction)
-      if (config.initialSupply) {
+      // Message 3: Mint initial supply (if specified)
+      if (config.initialSupply && config.initialSupply !== '0') {
+        console.log('  📝 Message 3: MsgMint (initial supply)');
         const msgMint = MsgMint.fromJSON({
           sender: creatorAddress,
           amount: {
@@ -149,24 +158,43 @@ export class InjectiveNativeTokenService {
             amount: config.initialSupply
           }
         });
-
-        const mintTxHash = await this.broadcastSingleMessage(
-          msgMint,
-          creatorAddress,
-          privateKey,
-          useHSM
-        );
-
-        console.log(`✅ Initial supply minted, TX: ${mintTxHash}`);
+        messages.push(msgMint);
+      } else {
+        console.log('  ⏭️  Message 3: Skipped (no initial supply)');
       }
+
+      // Broadcast ALL messages in ONE atomic transaction
+      console.log(`\n📤 Broadcasting ${messages.length} messages in ONE transaction...`);
+      const txHash = await this.broadcastMultipleMessages(
+        messages,
+        creatorAddress,
+        privateKey,
+        useHSM
+      );
+
+      console.log(`\n✅ Token creation complete!`);
+      console.log(`   Denom: ${denom}`);
+      console.log(`   Name: ${config.metadata.name}`);
+      console.log(`   Symbol: ${config.metadata.symbol}`);
+      console.log(`   Decimals: ${config.metadata.decimals}`);
+      if (config.metadata.description) {
+        console.log(`   Description: ${config.metadata.description.substring(0, 50)}...`);
+      }
+      if (config.metadata.uri) {
+        console.log(`   URI: ${config.metadata.uri}`);
+      }
+      if (config.initialSupply) {
+        console.log(`   Initial Supply: ${config.initialSupply}`);
+      }
+      console.log(`   Transaction: ${txHash}`);
 
       return {
         denom,
-        txHash: createTxHash,
+        txHash,
         success: true
       };
     } catch (error) {
-      console.error('Token creation failed:', error);
+      console.error('\n❌ Token creation failed:', error);
       return {
         denom: '',
         txHash: '',
@@ -476,36 +504,68 @@ export class InjectiveNativeTokenService {
 
   /**
    * Create metadata message
+   * 
+   * CRITICAL: Proper metadata structure according to Injective docs:
+   * - display: Should be the subdenom (the unit with highest decimals)
+   * - denomUnits[0]: Base unit with exponent 0, aliases include subdenom
+   * - denomUnits[1]: Display unit with subdenom as denom, exponent = decimals
+   * 
+   * Example for 6 decimals:
+   * - base: factory/inj1.../bond
+   * - display: bond  (the subdenom)
+   * - denomUnits[0]: { denom: factory/inj1.../bond, exponent: 0, aliases: ['bond'] }
+   * - denomUnits[1]: { denom: 'bond', exponent: 6, aliases: [] }
    */
   private createMetadataMessage(
     denom: string,
     metadata: TokenMetadata,
     sender: string
   ): MsgSetDenomMetadata {
+    // Extract subdenom from full denom
+    // Format: factory/{creator}/{subdenom}
+    const parts = denom.split('/');
+    const subdenom = parts[2] || metadata.symbol.toLowerCase();
+    
+    // Determine display denom (prefer subdenom over custom displayDenom)
+    const displayDenom = metadata.displayDenom || subdenom;
+    
+    // Create denom units array based on decimals
+    const denomUnits = metadata.decimals === 0
+      ? [
+          // For 0 decimals: Single unit
+          {
+            denom: denom,
+            exponent: 0,
+            aliases: [subdenom]
+          }
+        ]
+      : [
+          // For N decimals: Base unit + display unit
+          {
+            denom: denom,              // Full denom (factory/...)
+            exponent: 0,
+            aliases: [subdenom]
+          },
+          {
+            denom: subdenom,           // Subdenom (bond, test-token, etc.)
+            exponent: metadata.decimals,
+            aliases: []
+          }
+        ];
+    
     // Create params object with explicit structure
     const params = {
       sender,
       metadata: {
-        denomUnits: [
-          {
-            denom,
-            exponent: 0,
-            aliases: [metadata.symbol.toLowerCase()]
-          },
-          {
-            denom: metadata.displayDenom || metadata.symbol,
-            exponent: metadata.decimals,
-            aliases: []
-          }
-        ],
-        base: denom,
-        display: metadata.displayDenom || metadata.symbol,
-        name: metadata.name,
-        symbol: metadata.symbol,
-        description: metadata.description,
-        uri: metadata.uri || '',
-        uriHash: '',
-        decimals: metadata.decimals
+        base: denom,                           // Full denom (factory/...)
+        display: displayDenom,                 // Display alias (usually subdenom)
+        name: metadata.name,                   // Token name
+        symbol: metadata.symbol,               // Token symbol
+        description: metadata.description || '', // Description (optional)
+        uri: metadata.uri || '',               // Logo URI (IPFS hosted webp)
+        uriHash: metadata.uriHash || '',       // Hash of URI (optional)
+        denomUnits: denomUnits,
+        decimals: metadata.decimals            // Shorthand decimal count
       }
     };
 
@@ -527,17 +587,54 @@ export class InjectiveNativeTokenService {
     privateKey: string,
     useHSM: boolean = false
   ): Promise<string> {
+    return this.broadcastMultipleMessages([message], senderAddress, privateKey, useHSM);
+  }
+
+  /**
+   * Broadcast multiple messages in a single transaction
+   * This ensures atomicity - either all messages succeed or all fail
+   * 
+   * @param messages - Array of messages to broadcast
+   * @param senderAddress - Sender address
+   * @param privateKey - Private key (if not using HSM)
+   * @param useHSM - Use HSM for signing
+   * @returns Transaction hash
+   */
+  private async broadcastMultipleMessages(
+    messages: any[],
+    senderAddress: string,
+    privateKey: string,
+    useHSM: boolean = false
+  ): Promise<string> {
     try {
       // Get account details
       const accountDetails = await this.chainRestAuthApi.fetchAccount(senderAddress);
       const baseAccount = accountDetails.account.base_account;
 
-      // Prepare transaction
+      // Derive public key from private key instead of relying on account query
+      // For new wallets, baseAccount.pub_key is null/empty
+      let publicKeyBase64: string;
+      
+      if (useHSM) {
+        // TODO: Implement HSM signing for backend
+        // This would integrate with backend HSM client
+        throw new Error('HSM signing not yet implemented in backend');
+      } else if (privateKey) {
+        // Derive public key from private key
+        const pk = PrivateKey.fromHex(privateKey);
+        const publicKey = pk.toPublicKey();
+        // toBase64() already returns a base64 string
+        publicKeyBase64 = publicKey.toBase64();
+      } else {
+        throw new Error('No signing method provided (privateKey or HSM)');
+      }
+
+      // Prepare transaction with multiple messages
       const { signBytes, txRaw } = createTransaction({
-        message: message,  // Single message
+        message: messages,  // Array of messages for atomicity
         memo: '',
         fee: getDefaultStdFee(),
-        pubKey: baseAccount.pub_key?.key || '',
+        pubKey: publicKeyBase64,  // Use derived public key
         sequence: parseInt(baseAccount.sequence, 10),
         accountNumber: parseInt(baseAccount.account_number, 10),
         chainId: this.chainId
@@ -547,8 +644,7 @@ export class InjectiveNativeTokenService {
       let signature: Uint8Array;
       
       if (useHSM) {
-        // TODO: Implement HSM signing for backend
-        // This would integrate with backend HSM client
+        // Already handled above
         throw new Error('HSM signing not yet implemented in backend');
       } else if (privateKey) {
         // Sign with private key
@@ -601,6 +697,13 @@ export class InjectiveNativeTokenService {
       creator: match[1],
       subdenom: match[2]
     };
+  }
+
+  /**
+   * Sleep helper for waiting between transactions
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
