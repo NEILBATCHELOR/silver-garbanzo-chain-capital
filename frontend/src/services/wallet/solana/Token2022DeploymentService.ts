@@ -853,6 +853,109 @@ export class Token2022DeploymentService {
   }
 
   // ===========================
+  // INTEGRATED DEPLOYMENT WITH METADATA
+  // ===========================
+
+  /**
+   * Deploy Token-2022 with pre-saved metadata
+   * 
+   * This is the RECOMMENDED flow for production deployments:
+   * 
+   * Flow:
+   * 1. TokenMetadataService.saveMetadata() → metadata_id
+   * 2. THIS METHOD → Deploy and link
+   * 3. Automatically links metadata to deployed token
+   * 
+   * @param config - Token configuration
+   * @param options - Deployment options
+   * @param metadataId - The token_metadata.id from TokenMetadataService.saveMetadata()
+   * 
+   * @example
+   * ```typescript
+   * // Step 1: Save metadata
+   * const metadataResult = await TokenMetadataService.saveMetadata({
+   *   name: 'My Token',
+   *   symbol: 'MTK',
+   *   asset_class: 'structured_product',
+   *   instrument_type: 'autocallable',
+   *   metadata_uri: 'https://...',
+   *   metadata_json: { ... }
+   * });
+   * 
+   * // Step 2: Deploy with metadata reference
+   * const deployResult = await token2022DeploymentService.deployToken2022WithMetadata(
+   *   config,
+   *   options,
+   *   metadataResult.data!.id
+   * );
+   * ```
+   */
+  async deployToken2022WithMetadata(
+    config: Token2022Config,
+    options: Token2022DeploymentOptions,
+    metadataId: string
+  ): Promise<Token2022DeploymentResult> {
+    try {
+      // Step 1: Validate metadata exists
+      const { TokenMetadataService } = await import('../../tokens/metadata/TokenMetadataService');
+      const metadataCheck = await TokenMetadataService.getMetadata(metadataId);
+      
+      if (!metadataCheck.success || !metadataCheck.data) {
+        return {
+          success: false,
+          deploymentStrategy: 'Token2022',
+          networkUsed: `solana-${options.network}`,
+          errors: [`Metadata record not found: ${metadataId}`],
+          warnings: []
+        };
+      }
+
+      // Step 2: Deploy token (creates token record in tokens table)
+      const deployResult = await this.deployToken2022(config, options);
+      
+      if (!deployResult.success || !deployResult.tokenId) {
+        return deployResult;
+      }
+
+      // Step 3: Link metadata to deployed token
+      const linkResult = await TokenMetadataService.linkToDeployedToken(
+        metadataId,
+        deployResult.tokenId
+      );
+
+      if (!linkResult.success) {
+        console.warn('Warning: Token deployed but metadata link failed:', linkResult.error);
+        // Don't fail the deployment, just add a warning
+        return {
+          ...deployResult,
+          warnings: [
+            ...(deployResult.warnings || []),
+            `Token deployed successfully but metadata link failed: ${linkResult.error}`
+          ]
+        };
+      }
+
+      // Success! Return deployment result with metadata link confirmation
+      return {
+        ...deployResult,
+        warnings: [
+          ...(deployResult.warnings || []),
+          'Metadata successfully linked to deployed token'
+        ]
+      };
+
+    } catch (error) {
+      return {
+        success: false,
+        deploymentStrategy: 'Token2022',
+        networkUsed: `solana-${options.network}`,
+        errors: [error instanceof Error ? error.message : String(error)],
+        warnings: []
+      };
+    }
+  }
+
+  // ===========================
   // Utility Methods
   // ===========================
 

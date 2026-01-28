@@ -119,6 +119,9 @@ import './OnChainMetadataBuilderExtensions2';
 // Phase 3: Complete deployment service
 export * from './Token2022MetadataDeploymentService';
 
+// Phase 4: Database metadata service (saves to token_metadata table BEFORE blockchain)
+export * from './TokenMetadataService';
+
 // ============================================================================
 // QUICK START EXAMPLES
 // ============================================================================

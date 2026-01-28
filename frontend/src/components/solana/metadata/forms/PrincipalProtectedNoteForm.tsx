@@ -98,7 +98,7 @@ export function PrincipalProtectedNoteForm({ value, onChange }: PrincipalProtect
               <Select value={value.protectionType} onValueChange={(v) => updateField('protectionType', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="hard">Hard (Guaranteed)</SelectItem>\n                <SelectItem value="soft">Soft (Conditional)</SelectItem>
+                  <SelectItem value="hard">Hard (Guaranteed)</SelectItem>                <SelectItem value="soft">Soft (Conditional)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -151,7 +151,7 @@ export function PrincipalProtectedNoteForm({ value, onChange }: PrincipalProtect
               <Select value={value.oracleProvider} onValueChange={(v) => updateField('oracleProvider', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pyth">Pyth</SelectItem>\n                <SelectItem value="chainlink">Chainlink</SelectItem>\n                <SelectItem value="switchboard">Switchboard</SelectItem>
+                  <SelectItem value="pyth">Pyth</SelectItem>                <SelectItem value="chainlink">Chainlink</SelectItem>                <SelectItem value="switchboard">Switchboard</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -174,7 +174,7 @@ export function PrincipalProtectedNoteForm({ value, onChange }: PrincipalProtect
               <Select value={value.redemptionMethod} onValueChange={(v) => updateField('redemptionMethod', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="maturity-only">Maturity Only</SelectItem>\n                <SelectItem value="early-redemption">Early Redemption</SelectItem>
+                  <SelectItem value="maturity-only">Maturity Only</SelectItem>                <SelectItem value="early-redemption">Early Redemption</SelectItem>
                 </SelectContent>
               </Select>
             </div>

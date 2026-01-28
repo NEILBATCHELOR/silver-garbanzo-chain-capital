@@ -97,7 +97,7 @@ export function CommoditySpotForm({ value, onChange }: CommoditySpotFormProps) {
               <Select value={value.form} onValueChange={(v) => updateField('form', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="allocated">Allocated</SelectItem>\n                <SelectItem value="unallocated">Unallocated</SelectItem>
+                  <SelectItem value="allocated">Allocated</SelectItem>                <SelectItem value="unallocated">Unallocated</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -138,7 +138,7 @@ export function CommoditySpotForm({ value, onChange }: CommoditySpotFormProps) {
               <Select value={value.oracleProvider} onValueChange={(v) => updateField('oracleProvider', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pyth">Pyth</SelectItem>\n                <SelectItem value="chainlink">Chainlink</SelectItem>
+                  <SelectItem value="pyth">Pyth</SelectItem>                <SelectItem value="chainlink">Chainlink</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -163,7 +163,7 @@ export function CommoditySpotForm({ value, onChange }: CommoditySpotFormProps) {
               <Select value={value.auditFrequency} onValueChange={(v) => updateField('auditFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>\n                <SelectItem value="annual">Annual</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>                <SelectItem value="annual">Annual</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

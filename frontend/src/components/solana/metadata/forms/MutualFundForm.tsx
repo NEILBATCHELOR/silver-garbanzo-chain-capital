@@ -87,7 +87,7 @@ export function MutualFundForm({ value, onChange }: MutualFundFormProps) {
               <Select value={value.fundType} onValueChange={(v) => updateField('fundType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="open_end">Open-End</SelectItem>\n                <SelectItem value="closed_end">Closed-End</SelectItem>
+                  <SelectItem value="open_end">Open-End</SelectItem>                <SelectItem value="closed_end">Closed-End</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -123,7 +123,7 @@ export function MutualFundForm({ value, onChange }: MutualFundFormProps) {
               <Select value={value.navFrequency} onValueChange={(v) => updateField('navFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>\n                <SelectItem value="weekly">Weekly</SelectItem>\n                <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>                <SelectItem value="weekly">Weekly</SelectItem>                <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -188,7 +188,7 @@ export function MutualFundForm({ value, onChange }: MutualFundFormProps) {
               <Select value={value.subscriptionFrequency} onValueChange={(v) => updateField('subscriptionFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>\n                <SelectItem value="weekly">Weekly</SelectItem>\n                <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>                <SelectItem value="weekly">Weekly</SelectItem>                <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -196,7 +196,7 @@ export function MutualFundForm({ value, onChange }: MutualFundFormProps) {
               <Select value={value.redemptionFrequency} onValueChange={(v) => updateField('redemptionFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>\n                <SelectItem value="weekly">Weekly</SelectItem>\n                <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>                <SelectItem value="weekly">Weekly</SelectItem>                <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

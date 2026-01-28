@@ -35370,6 +35370,7 @@ export type Database = {
           metadata_json: Json
           metadata_uri: string
           name: string
+          project_id: string | null
           prospectus_uri: string | null
           symbol: string
           termsheet_uri: string | null
@@ -35385,6 +35386,7 @@ export type Database = {
           metadata_json: Json
           metadata_uri: string
           name: string
+          project_id?: string | null
           prospectus_uri?: string | null
           symbol: string
           termsheet_uri?: string | null
@@ -35400,6 +35402,7 @@ export type Database = {
           metadata_json?: Json
           metadata_uri?: string
           name?: string
+          project_id?: string | null
           prospectus_uri?: string | null
           symbol?: string
           termsheet_uri?: string | null

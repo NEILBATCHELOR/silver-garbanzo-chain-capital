@@ -88,7 +88,7 @@ export function DirectLendingForm({ value, onChange }: DirectLendingFormProps) {
               <Select value={value.debtType} onValueChange={(v) => updateField('debtType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="senior_secured">Senior Secured</SelectItem>\n                <SelectItem value="mezzanine">Mezzanine</SelectItem>\n                <SelectItem value="unitranche">Unitranche</SelectItem>
+                  <SelectItem value="senior_secured">Senior Secured</SelectItem>                <SelectItem value="mezzanine">Mezzanine</SelectItem>                <SelectItem value="unitranche">Unitranche</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -96,7 +96,7 @@ export function DirectLendingForm({ value, onChange }: DirectLendingFormProps) {
               <Select value={value.borrowerType} onValueChange={(v) => updateField('borrowerType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="sme">SME</SelectItem>\n                <SelectItem value="corporate">Corporate</SelectItem>\n                <SelectItem value="real_estate">Real Estate</SelectItem>
+                  <SelectItem value="sme">SME</SelectItem>                <SelectItem value="corporate">Corporate</SelectItem>                <SelectItem value="real_estate">Real Estate</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -141,7 +141,7 @@ export function DirectLendingForm({ value, onChange }: DirectLendingFormProps) {
               <Select value={value.paymentFrequency} onValueChange={(v) => updateField('paymentFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -191,7 +191,7 @@ export function DirectLendingForm({ value, onChange }: DirectLendingFormProps) {
               <Select value={value.valuationMethod} onValueChange={(v) => updateField('valuationMethod', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="model_based">Model Based</SelectItem>\n                <SelectItem value="mark_to_market">Mark to Market</SelectItem>
+                  <SelectItem value="model_based">Model Based</SelectItem>                <SelectItem value="mark_to_market">Mark to Market</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -213,7 +213,7 @@ export function DirectLendingForm({ value, onChange }: DirectLendingFormProps) {
               <Select value={value.distributionFrequency} onValueChange={(v) => updateField('distributionFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

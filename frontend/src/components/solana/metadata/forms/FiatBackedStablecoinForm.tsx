@@ -129,7 +129,7 @@ export function FiatBackedStablecoinForm({ value, onChange }: FiatBackedStableco
               <Select value={value.attestationFrequency} onValueChange={(v) => updateField('attestationFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="daily">Daily</SelectItem>\n                <SelectItem value="weekly">Weekly</SelectItem>\n                <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>                <SelectItem value="weekly">Weekly</SelectItem>                <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -168,7 +168,7 @@ export function FiatBackedStablecoinForm({ value, onChange }: FiatBackedStableco
               <Select value={value.redemptionMethod} onValueChange={(v) => updateField('redemptionMethod', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="on_demand">On Demand</SelectItem>\n                <SelectItem value="periodic">Periodic</SelectItem>
+                  <SelectItem value="on_demand">On Demand</SelectItem>                <SelectItem value="periodic">Periodic</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

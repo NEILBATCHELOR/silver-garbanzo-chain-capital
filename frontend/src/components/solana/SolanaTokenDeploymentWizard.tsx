@@ -30,6 +30,7 @@ import { SolanaWalletSelector, type SelectedSolanaWallet } from './SolanaWalletS
 import { useToast } from '@/components/ui/use-toast';
 import type { OnChainMetadataResult } from '@/services/tokens/metadata/OnChainMetadataTypes';
 import type { UniversalStructuredProductMetadata } from '@/services/tokens/metadata/universal/UniversalStructuredProductTypes';
+import { TokenMetadataService } from '@/services/tokens/metadata/TokenMetadataService';
 
 type WizardStep = 
   | 'tokenType'
@@ -347,6 +348,7 @@ export function SolanaTokenDeploymentWizard({
     setCurrentStep('deploying');
 
     let tokenRecordId: string | null = null;
+    let metadataRecordId: string | null = null;
 
     try {
       // Get current authenticated user
@@ -358,7 +360,7 @@ export function SolanaTokenDeploymentWizard({
       const currentUserId = userId || authUser.id;
 
       // ========================================================================
-      // BUILD METADATA CONFIGURATION (NEW)
+      // STEP 1: SAVE METADATA TO token_metadata TABLE (NEW INTEGRATED FLOW)
       // ========================================================================
       
       let metadataForToken: {
@@ -368,11 +370,43 @@ export function SolanaTokenDeploymentWizard({
         additionalMetadata?: Map<string, string>;
       } | undefined;
 
+      // Build metadata and save to token_metadata table if metadata is configured
       if (state.metadataApproach === 'enumeration' && state.enumerationMetadata) {
-        // Use enumeration metadata
-        const additionalMetadata = convertEnumerationToMap(state.enumerationMetadata);
+        console.log('[Wizard] Processing enumeration metadata...');
         
-        // Validate size
+        // Extract asset class and instrument type from enumeration metadata
+        const metadataMap = state.enumerationMetadata.additionalMetadata;
+        const assetClass = metadataMap.get('assetClass') || 'structured_product';
+        const instrumentType = metadataMap.get('instrumentType') || 'autocallable';
+        
+        // Convert to metadata input with name/symbol/uri from basicConfig
+        const enumerationData = Object.fromEntries(metadataMap);
+        const metadataInput = TokenMetadataService.createMetadataFromEnumeration(
+          {
+            ...enumerationData,
+            name: state.basicConfig.name,
+            symbol: state.basicConfig.symbol,
+            uri: state.basicConfig.metadataUri || '',
+            metadata_uri: state.basicConfig.metadataUri || ''
+          },
+          assetClass,
+          instrumentType,
+          projectId
+        );
+        
+        // Save to token_metadata table
+        console.log('[Wizard] Saving enumeration metadata to database...');
+        const metadataResult = await TokenMetadataService.saveMetadata(metadataInput);
+        
+        if (!metadataResult.success) {
+          throw new Error(`Failed to save metadata: ${metadataResult.error}`);
+        }
+        
+        metadataRecordId = metadataResult.data!.id;
+        console.log('[Wizard] ✅ Metadata saved with ID:', metadataRecordId);
+        
+        // Also build for Token-2022 on-chain metadata
+        const additionalMetadata = convertEnumerationToMap(state.enumerationMetadata);
         const validation = validateMetadataSize(additionalMetadata);
         if (!validation.valid) {
           throw new Error(
@@ -386,11 +420,35 @@ export function SolanaTokenDeploymentWizard({
           uri: state.basicConfig.metadataUri || '',
           additionalMetadata
         };
-      } else if (state.metadataApproach === 'universal' && state.universalMetadata) {
-        // Use universal metadata
-        const additionalMetadata = convertUniversalToMap(state.universalMetadata);
         
-        // Validate size
+      } else if (state.metadataApproach === 'universal' && state.universalMetadata) {
+        console.log('[Wizard] Processing universal metadata...');
+        
+        // Convert to metadata input with name/symbol/uri from basicConfig
+        const metadataInput = TokenMetadataService.createMetadataFromUniversal(
+          {
+            ...state.universalMetadata,
+            name: state.basicConfig.name,
+            symbol: state.basicConfig.symbol,
+            uri: state.basicConfig.metadataUri || '',
+            prospectusUri: state.universalMetadata.prospectusUri || state.basicConfig.metadataUri
+          },
+          projectId
+        );
+        
+        // Save to token_metadata table
+        console.log('[Wizard] Saving universal metadata to database...');
+        const metadataResult = await TokenMetadataService.saveMetadata(metadataInput);
+        
+        if (!metadataResult.success) {
+          throw new Error(`Failed to save metadata: ${metadataResult.error}`);
+        }
+        
+        metadataRecordId = metadataResult.data!.id;
+        console.log('[Wizard] ✅ Metadata saved with ID:', metadataRecordId);
+        
+        // Also build for Token-2022 on-chain metadata
+        const additionalMetadata = convertUniversalToMap(state.universalMetadata);
         const validation = validateMetadataSize(additionalMetadata);
         if (!validation.valid) {
           throw new Error(
@@ -407,9 +465,10 @@ export function SolanaTokenDeploymentWizard({
       }
 
       // ========================================================================
-      // CREATE TOKEN RECORD WITH METADATA
+      // STEP 2: CREATE TOKEN RECORD IN tokens TABLE
       // ========================================================================
 
+      console.log('[Wizard] Creating token record...');
       const { data: tokenRecord, error: dbError } = await supabase
         .from('tokens')
         .insert({
@@ -436,10 +495,11 @@ export function SolanaTokenDeploymentWizard({
               rate: state.interestBearingConfig.rate
             } : null,
             non_transferable: state.extensions.includes('NonTransferable') || false,
-            // NEW: Store metadata approach and summary
+            // Store metadata approach and reference to token_metadata record
             metadata_approach: state.metadataApproach,
+            metadata_record_id: metadataRecordId, // Link to token_metadata table
             metadata_summary: getMetadataSummary(),
-            // Store actual metadata for Token-2022
+            // Store actual metadata for Token-2022 on-chain
             additional_metadata: metadataForToken?.additionalMetadata 
               ? Object.fromEntries(metadataForToken.additionalMetadata)
               : null
@@ -454,6 +514,26 @@ export function SolanaTokenDeploymentWizard({
       }
 
       tokenRecordId = tokenRecord.id;
+      console.log('[Wizard] ✅ Token record created with ID:', tokenRecordId);
+
+      // ========================================================================
+      // STEP 3: LINK METADATA TO TOKEN (if metadata was saved)
+      // ========================================================================
+      
+      if (metadataRecordId) {
+        console.log('[Wizard] Linking metadata to token...');
+        const linkResult = await TokenMetadataService.linkToDeployedToken(
+          metadataRecordId,
+          tokenRecordId
+        );
+        
+        if (linkResult.success) {
+          console.log('[Wizard] ✅ Metadata linked to token');
+        } else {
+          console.warn('[Wizard] ⚠️ Warning: Failed to link metadata:', linkResult.error);
+          // Don't fail deployment, just log warning
+        }
+      }
 
       // ========================================================================
       // DEPLOY TOKEN USING UNIFIED SERVICE

@@ -97,7 +97,7 @@ export function PrivateEquityForm({ value, onChange }: PrivateEquityFormProps) {
               <Select value={value.securityType} onValueChange={(v) => updateField('securityType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="preferred">Preferred</SelectItem>\n                <SelectItem value="common">Common</SelectItem>
+                  <SelectItem value="preferred">Preferred</SelectItem>                <SelectItem value="common">Common</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -105,7 +105,7 @@ export function PrivateEquityForm({ value, onChange }: PrivateEquityFormProps) {
               <Select value={value.fundingRound} onValueChange={(v) => updateField('fundingRound', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="seed">Seed</SelectItem>\n                <SelectItem value="series-a">Series A</SelectItem>\n                <SelectItem value="series-b">Series B</SelectItem>\n                <SelectItem value="series-c">Series C</SelectItem>
+                  <SelectItem value="seed">Seed</SelectItem>                <SelectItem value="series-a">Series A</SelectItem>                <SelectItem value="series-b">Series B</SelectItem>                <SelectItem value="series-c">Series C</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -127,7 +127,7 @@ export function PrivateEquityForm({ value, onChange }: PrivateEquityFormProps) {
               <Select value={value.valuationMethod} onValueChange={(v) => updateField('valuationMethod', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="dcf">DCF</SelectItem>\n                <SelectItem value="409a">409A Valuation</SelectItem>\n                <SelectItem value="comparable">Comparable Sales</SelectItem>
+                  <SelectItem value="dcf">DCF</SelectItem>                <SelectItem value="409a">409A Valuation</SelectItem>                <SelectItem value="comparable">Comparable Sales</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

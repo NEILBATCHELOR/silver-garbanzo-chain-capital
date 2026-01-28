@@ -88,7 +88,7 @@ export function CommercialRealEstateForm({ value, onChange }: CommercialRealEsta
               <Select value={value.propertyType} onValueChange={(v) => updateField('propertyType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="office">Office</SelectItem>\n                <SelectItem value="retail">Retail</SelectItem>\n                <SelectItem value="industrial">Industrial</SelectItem>\n                <SelectItem value="multifamily">Multifamily</SelectItem>\n                <SelectItem value="hotel">Hotel</SelectItem>
+                  <SelectItem value="office">Office</SelectItem>                <SelectItem value="retail">Retail</SelectItem>                <SelectItem value="industrial">Industrial</SelectItem>                <SelectItem value="multifamily">Multifamily</SelectItem>                <SelectItem value="hotel">Hotel</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -96,7 +96,7 @@ export function CommercialRealEstateForm({ value, onChange }: CommercialRealEsta
               <Select value={value.propertyClass} onValueChange={(v) => updateField('propertyClass', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="class_a">Class A</SelectItem>\n                <SelectItem value="class_b">Class B</SelectItem>\n                <SelectItem value="class_c">Class C</SelectItem>
+                  <SelectItem value="class_a">Class A</SelectItem>                <SelectItem value="class_b">Class B</SelectItem>                <SelectItem value="class_c">Class C</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -176,7 +176,7 @@ export function CommercialRealEstateForm({ value, onChange }: CommercialRealEsta
               <Select value={value.valuationMethod} onValueChange={(v) => updateField('valuationMethod', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cap_rate">Cap Rate</SelectItem>\n                <SelectItem value="dcf">DCF</SelectItem>
+                  <SelectItem value="cap_rate">Cap Rate</SelectItem>                <SelectItem value="dcf">DCF</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -195,7 +195,7 @@ export function CommercialRealEstateForm({ value, onChange }: CommercialRealEsta
               <Select value={value.distributionFrequency} onValueChange={(v) => updateField('distributionFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

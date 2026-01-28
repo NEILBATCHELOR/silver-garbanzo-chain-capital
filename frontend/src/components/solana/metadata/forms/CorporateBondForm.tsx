@@ -94,7 +94,7 @@ export function CorporateBondForm({ value, onChange }: CorporateBondFormProps) {
               <Select value={value.bondType} onValueChange={(v) => updateField('bondType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="senior_unsecured">Senior Unsecured</SelectItem>\n                <SelectItem value="senior_secured">Senior Secured</SelectItem>\n                <SelectItem value="subordinated">Subordinated</SelectItem>\n                <SelectItem value="convertible">Convertible</SelectItem>
+                  <SelectItem value="senior_unsecured">Senior Unsecured</SelectItem>                <SelectItem value="senior_secured">Senior Secured</SelectItem>                <SelectItem value="subordinated">Subordinated</SelectItem>                <SelectItem value="convertible">Convertible</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -125,7 +125,7 @@ export function CorporateBondForm({ value, onChange }: CorporateBondFormProps) {
               <Select value={value.couponFrequency} onValueChange={(v) => updateField('couponFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>\n                <SelectItem value="semi-annual">Semi-Annual</SelectItem>\n                <SelectItem value="annual">Annual</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>                <SelectItem value="semi-annual">Semi-Annual</SelectItem>                <SelectItem value="annual">Annual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -141,7 +141,7 @@ export function CorporateBondForm({ value, onChange }: CorporateBondFormProps) {
               <Select value={value.valuationMethod} onValueChange={(v) => updateField('valuationMethod', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ytm">Yield to Maturity</SelectItem>\n                <SelectItem value="mark_to_market">Mark to Market</SelectItem>
+                  <SelectItem value="ytm">Yield to Maturity</SelectItem>                <SelectItem value="mark_to_market">Mark to Market</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

@@ -87,7 +87,7 @@ export function ETFForm({ value, onChange }: ETFFormProps) {
               <Select value={value.etfType} onValueChange={(v) => updateField('etfType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="equity">Equity</SelectItem>\n                <SelectItem value="fixed_income">Fixed Income</SelectItem>\n                <SelectItem value="commodity">Commodity</SelectItem>\n                <SelectItem value="mixed">Mixed</SelectItem>
+                  <SelectItem value="equity">Equity</SelectItem>                <SelectItem value="fixed_income">Fixed Income</SelectItem>                <SelectItem value="commodity">Commodity</SelectItem>                <SelectItem value="mixed">Mixed</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -123,7 +123,7 @@ export function ETFForm({ value, onChange }: ETFFormProps) {
               <Select value={value.navFrequency} onValueChange={(v) => updateField('navFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="intraday">Intraday</SelectItem>\n                <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="intraday">Intraday</SelectItem>                <SelectItem value="daily">Daily</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

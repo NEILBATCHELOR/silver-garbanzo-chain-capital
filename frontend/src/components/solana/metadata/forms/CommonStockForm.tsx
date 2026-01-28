@@ -97,7 +97,7 @@ export function CommonStockForm({ value, onChange }: CommonStockFormProps) {
               <Select value={value.securityType} onValueChange={(v) => updateField('securityType', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>\n                <SelectItem value="private">Private</SelectItem>
+                  <SelectItem value="public">Public</SelectItem>                <SelectItem value="private">Private</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -125,7 +125,7 @@ export function CommonStockForm({ value, onChange }: CommonStockFormProps) {
               <Select value={value.valuationMethod} onValueChange={(v) => updateField('valuationMethod', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="mark_to_market">Mark to Market</SelectItem>\n                <SelectItem value="dcf">DCF</SelectItem>\n                <SelectItem value="comparable">Comparable Sales</SelectItem>
+                  <SelectItem value="mark_to_market">Mark to Market</SelectItem>                <SelectItem value="dcf">DCF</SelectItem>                <SelectItem value="comparable">Comparable Sales</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -133,7 +133,7 @@ export function CommonStockForm({ value, onChange }: CommonStockFormProps) {
               <Select value={value.oracleProvider} onValueChange={(v) => updateField('oracleProvider', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pyth">Pyth</SelectItem>\n                <SelectItem value="chainlink">Chainlink</SelectItem>\n                <SelectItem value="manual">Manual</SelectItem>
+                  <SelectItem value="pyth">Pyth</SelectItem>                <SelectItem value="chainlink">Chainlink</SelectItem>                <SelectItem value="manual">Manual</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -155,7 +155,7 @@ export function CommonStockForm({ value, onChange }: CommonStockFormProps) {
               <Select value={value.dividendFrequency} onValueChange={(v) => updateField('dividendFrequency', v as any)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>\n                <SelectItem value="semi-annual">Semi-Annual</SelectItem>\n                <SelectItem value="annual">Annual</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>                <SelectItem value="semi-annual">Semi-Annual</SelectItem>                <SelectItem value="annual">Annual</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

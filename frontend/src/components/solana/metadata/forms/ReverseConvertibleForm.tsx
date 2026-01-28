@@ -119,7 +119,7 @@ export function ReverseConvertibleForm({ value, onChange }: ReverseConvertibleFo
               <Select value={value.couponFrequency} onValueChange={(v) => updateField('couponFrequency', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>\n                <SelectItem value="quarterly">Quarterly</SelectItem>\n                <SelectItem value="semi-annual">Semi-Annual</SelectItem>\n                <SelectItem value="annual">Annual</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>                <SelectItem value="quarterly">Quarterly</SelectItem>                <SelectItem value="semi-annual">Semi-Annual</SelectItem>                <SelectItem value="annual">Annual</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -127,7 +127,7 @@ export function ReverseConvertibleForm({ value, onChange }: ReverseConvertibleFo
               <Select value={value.couponType} onValueChange={(v) => updateField('couponType', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="fixed">Fixed</SelectItem>\n                <SelectItem value="conditional">Conditional</SelectItem>
+                  <SelectItem value="fixed">Fixed</SelectItem>                <SelectItem value="conditional">Conditional</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -150,7 +150,7 @@ export function ReverseConvertibleForm({ value, onChange }: ReverseConvertibleFo
               <Select value={value.barrierType} onValueChange={(v) => updateField('barrierType', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="continuous">Continuous</SelectItem>\n                <SelectItem value="discrete">Discrete</SelectItem>
+                  <SelectItem value="continuous">Continuous</SelectItem>                <SelectItem value="discrete">Discrete</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -167,7 +167,7 @@ export function ReverseConvertibleForm({ value, onChange }: ReverseConvertibleFo
               <Select value={value.observationType} onValueChange={(v) => updateField('observationType', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="continuous">Continuous</SelectItem>\n                <SelectItem value="discrete">Discrete</SelectItem>
+                  <SelectItem value="continuous">Continuous</SelectItem>                <SelectItem value="discrete">Discrete</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">
@@ -175,7 +175,7 @@ export function ReverseConvertibleForm({ value, onChange }: ReverseConvertibleFo
               <Select value={value.settlementType} onValueChange={(v) => updateField('settlementType', v as any)}>
                 <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="physical">Physical</SelectItem>\n                <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="physical">Physical</SelectItem>                <SelectItem value="cash">Cash</SelectItem>
                 </SelectContent>
               </Select>
             </div>\n            <div className="space-y-2">

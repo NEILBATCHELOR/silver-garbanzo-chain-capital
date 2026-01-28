@@ -27439,7 +27439,8 @@ CREATE TABLE public.token_metadata (
     description text,
     metadata_json jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    project_id uuid
 );
 
 
