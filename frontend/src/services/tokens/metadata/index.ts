@@ -60,7 +60,54 @@ export { migrationAdapter } from './universal/MigrationAdapter';
 // ============================================================================
 
 // Phase 1: Core types and base builder
-export * from './OnChainMetadataTypes';
+// Export OnChain types with explicit re-export to avoid ambiguity with Universal types
+export type {
+  // Core types
+  AssetClass,
+  OnChainMetadataResult,
+  BaseInput,
+  
+  // Structured Products
+  AutocallableInput,
+  PrincipalProtectedNoteInput,
+  ReverseConvertibleInput,
+  
+  // Supporting types for OnChain metadata
+  UnderlyingAsset as OnChainUnderlyingAsset,
+  BarrierSchedule,
+  CallSchedule,
+  
+  // Other asset classes
+  CommonStockInput,
+  PrivateEquityInput,
+  CorporateBondInput,
+  GovernmentBondInput,
+  CommercialPaperInput,
+  CreditLinkedNoteInput,
+  MutualFundInput,
+  ETFInput,
+  ActivelyManagedCertificateInput,
+  CommoditySpotInput,
+  CommodityFuturesInput,
+  TrackerCertificateInput,
+  VentureCapitalFundInput,
+  DirectLendingInput,
+  CommercialRealEstateInput,
+  REITInput,
+  InfrastructureAssetInput,
+  RenewableEnergyProjectInput,
+  OilGasAssetInput,
+  CollectibleInput,
+  FiatBackedStablecoinInput,
+  CryptoBackedStablecoinInput,
+  AlgorithmicStablecoinInput,
+  RebasingStablecoinInput,
+  CommodityBackedStablecoinInput,
+  CarbonCreditInput,
+  RenewableEnergyCertificateInput,
+  InvoiceReceivableInput
+} from './OnChainMetadataTypes';
+
 export * from './OnChainMetadataBuilder';
 
 // Phase 2: Extended builders Part 1 (Fixed Income, Funds, Commodities)

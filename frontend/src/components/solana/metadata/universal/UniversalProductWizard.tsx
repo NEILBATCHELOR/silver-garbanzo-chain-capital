@@ -3,25 +3,27 @@
  * Part of Universal Structured Product Framework Phase 4
  * 
  * Multi-step wizard that guides users through creating any structured product:
- * 1. Product Category Selection
+ * 1. Product Category Selection ✅ NEW
  * 2. Component Selection
  * 3. Underlying Assets Configuration
  * 4. Feature Configuration (barriers, coupons, etc.)
  * 5. Settlement Configuration
- * 6. Review & Deploy
+ * 6. Review & Deploy ✅ NEW
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { ChevronLeft, ChevronRight, Rocket } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ProductCategorySelector } from './ProductCategorySelector';
 import { ComponentSelector, type ComponentSelectionState } from './ComponentSelector';
 import { UnderlyingBuilder } from './UnderlyingBuilder';
 import { BarrierConfigurator } from './BarrierConfigurator';
 import { CouponBuilder } from './CouponBuilder';
 import { SettlementConfigurator } from './SettlementConfigurator';
+import { ReviewDeployStep } from './ReviewDeployStep';
 import type {
   UniversalStructuredProductMetadata,
   ProductCategory,
@@ -71,6 +73,55 @@ export function UniversalProductWizard({ onComplete, onCancel }: UniversalProduc
     redemptionVault: ''
   });
 
+  // Check for saved draft on component mount
+  useEffect(() => {
+    const latestDraftKey = localStorage.getItem('universal-product-latest-draft');
+    if (latestDraftKey) {
+      const shouldRestore = window.confirm(
+        'A saved draft was found. Would you like to restore it?'
+      );
+      
+      if (shouldRestore) {
+        try {
+          const draftData = localStorage.getItem(latestDraftKey);
+          if (draftData) {
+            const draft = JSON.parse(draftData);
+            
+            // Restore all state
+            setCurrentStep(draft.currentStep || 1);
+            setProductCategory(draft.productCategory || 'autocallable');
+            setProductSubtype(draft.productSubtype || 'barrier_autocallable');
+            setComponentSelection(draft.componentSelection || {
+              barriers: true,
+              coupons: true,
+              callable: true,
+              putable: false,
+              capitalProtection: true,
+              participation: true
+            });
+            setUnderlyings(draft.underlyings || []);
+            setBasket(draft.basket);
+            setBarriers(draft.barriers);
+            setCoupons(draft.coupons);
+            setSettlement(draft.settlement || {
+              settlementType: 'cash',
+              settlementMethod: 'automatic',
+              settlementDays: '2',
+              redemptionVault: ''
+            });
+            
+            console.log('Draft restored successfully');
+          }
+        } catch (error) {
+          console.error('Failed to restore draft:', error);
+        }
+      } else {
+        // User declined, clear the draft reference
+        localStorage.removeItem('universal-product-latest-draft');
+      }
+    }
+  }, []);
+
   const handleNext = () => {
     if (currentStep < 6) {
       setCurrentStep((currentStep + 1) as WizardStep);
@@ -83,7 +134,150 @@ export function UniversalProductWizard({ onComplete, onCancel }: UniversalProduc
     }
   };
 
+  const handleCategoryChange = (category: ProductCategory, subtype: string) => {
+    setProductCategory(category);
+    setProductSubtype(subtype);
+  };
+
+  const handleEdit = (step: number) => {
+    setCurrentStep(step as WizardStep);
+  };
+
+  const handleDeploy = () => {
+    // Build complete metadata object
+    const metadata: UniversalStructuredProductMetadata = {
+      assetClass: 'structured_product',
+      instrumentType: productSubtype,
+      productCategory,
+      productSubtype,
+      underlyings,
+      underlyingBasket: basket,
+      payoffStructure: {
+        payoffType: 'linear',
+        returnCalculation: 'point_to_point'
+      },
+      barriers,
+      coupons,
+      observation: {
+        observationType: 'discrete',
+        valuationMethod: 'end_of_day'
+      },
+      settlement,
+      oracles: underlyings.map(u => ({
+        purpose: 'underlying_price' as const,
+        provider: u.oracleProvider,
+        oracleAddress: u.oracleAddress,
+        updateFrequency: 'realtime' as const,
+        dataType: 'price' as const
+      })),
+      // Base fields from UniversalMetadata
+      decimals: '6',
+      currency: 'USD',
+      issuer: 'Chain Capital LLC',
+      jurisdiction: 'US',
+      issueDate: new Date().toISOString().split('T')[0],
+      prospectusUri: '',
+      termSheetUri: ''
+    };
+
+    onComplete(metadata);
+  };
+
+  const handleSave = () => {
+    // Save draft to localStorage for recovery
+    const draftKey = `universal-product-draft-${Date.now()}`;
+    const draftData = {
+      savedAt: new Date().toISOString(),
+      currentStep,
+      productCategory,
+      productSubtype,
+      componentSelection,
+      underlyings,
+      basket,
+      barriers,
+      coupons,
+      settlement
+    };
+
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+      localStorage.setItem('universal-product-latest-draft', draftKey);
+      
+      // Show success notification
+      console.log('Draft saved successfully:', draftKey);
+      
+      // Optional: Could show a toast notification here
+      // toast.success('Draft saved successfully');
+    } catch (error) {
+      console.error('Failed to save draft:', error);
+      // Optional: Could show error notification
+      // toast.error('Failed to save draft');
+    }
+  };
+
+  const handleExport = () => {
+    // Export complete product configuration as JSON
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      version: '1.0',
+      productConfiguration: {
+        productCategory,
+        productSubtype,
+        componentSelection,
+        underlyings,
+        basket,
+        barriers,
+        coupons,
+        settlement
+      }
+    };
+
+    try {
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { 
+        type: 'application/json' 
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Create descriptive filename
+      const filename = `${productSubtype.replace(/_/g, '-')}-config-${Date.now()}.json`;
+      a.download = filename;
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('Configuration exported:', filename);
+    } catch (error) {
+      console.error('Failed to export configuration:', error);
+    }
+  };
+
   const progress = (currentStep / 6) * 100;
+
+  // Determine if current step is complete
+  const isStepComplete = (step: WizardStep): boolean => {
+    switch (step) {
+      case 1:
+        return !!productCategory && !!productSubtype;
+      case 2:
+        return true; // Component selection always valid
+      case 3:
+        return underlyings.length > 0;
+      case 4:
+        return true; // Features optional
+      case 5:
+        return !!settlement.redemptionVault;
+      case 6:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const canProceed = isStepComplete(currentStep);
 
   return (
     <div className="space-y-6">
@@ -127,17 +321,13 @@ export function UniversalProductWizard({ onComplete, onCancel }: UniversalProduc
         </CardContent>
       </Card>
 
-      {/* Step Content - Will be implemented in next chunk */}
+      {/* Step Content */}
       <div className="min-h-[400px]">
         {currentStep === 1 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Select Product Category</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Product category selection UI (to be implemented)</p>
-            </CardContent>
-          </Card>
+          <ProductCategorySelector
+            value={productCategory}
+            onChange={handleCategoryChange}
+          />
         )}
         
         {currentStep === 2 && (
@@ -171,14 +361,18 @@ export function UniversalProductWizard({ onComplete, onCancel }: UniversalProduc
         )}
         
         {currentStep === 6 && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Review & Deploy</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Review summary UI (to be implemented)</p>
-            </CardContent>
-          </Card>
+          <ReviewDeployStep
+            productCategory={productCategory}
+            productSubtype={productSubtype}
+            underlyings={underlyings}
+            barriers={barriers}
+            coupons={coupons}
+            settlement={settlement}
+            onEdit={handleEdit}
+            onDeploy={handleDeploy}
+            onSave={handleSave}
+            onExport={handleExport}
+          />
         )}
       </div>
 
@@ -198,15 +392,10 @@ export function UniversalProductWizard({ onComplete, onCancel }: UniversalProduc
               Cancel
             </Button>
           )}
-          {currentStep < 6 ? (
-            <Button onClick={handleNext}>
+          {currentStep < 6 && (
+            <Button onClick={handleNext} disabled={!canProceed}>
               Next
               <ChevronRight className="ml-2 h-4 w-4" />
-            </Button>
-          ) : (
-            <Button onClick={() => console.log('Deploy')}>
-              <Rocket className="mr-2 h-4 w-4" />
-              Deploy Product
             </Button>
           )}
         </div>

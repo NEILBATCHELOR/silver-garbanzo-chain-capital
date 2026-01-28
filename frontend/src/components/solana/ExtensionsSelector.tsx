@@ -145,13 +145,6 @@ export function ExtensionsSelector({ selectedExtensions, onChange }: ExtensionsS
           </AlertDescription>
         </Alert>
 
-        <Alert>
-          <Info className="h-4 w-4" />
-          <AlertDescription>
-            ℹ️ <strong>CPI Guard</strong> is an account-level extension. Enable it on individual token accounts after deployment via the Token Operations panel.
-          </AlertDescription>
-        </Alert>
-
         <div className="space-y-3">
           {(Object.keys(extensionInfo) as Token2022Extension[]).map((extension) => {
             const info = extensionInfo[extension];

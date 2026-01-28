@@ -1316,7 +1316,7 @@ export type MetadataInput =
 // ============================================================================
 
 // Base input interface
-interface BaseInput {
+export interface BaseInput {
   type: string;
   name: string;
   symbol: string;
@@ -1332,32 +1332,154 @@ interface BaseInput {
 }
 
 // Structured Products Inputs
+
+// Multi-Underlying Asset for basket products
+export interface UnderlyingAsset {
+  ticker: string;
+  name: string;
+  initialPrice: number;
+  weight: number;  // % of basket
+  oracleAddress: string;
+}
+
+// Step-Down Barrier Schedule
+export interface BarrierSchedule {
+  date: string;  // ISO date
+  level: number;  // % of initial
+}
+
+// Call Schedule for Bermudan
+export interface CallSchedule {
+  date: string;  // ISO date
+  level: number;  // Call price/level
+}
+
 export interface AutocallableInput extends BaseInput {
   type: 'autocallable';
-  productSubtype: 'barrier' | 'phoenix' | 'worst-of';
+  productSubtype: 
+    // Core Types
+    | 'barrier' 
+    | 'phoenix' 
+    | 'worst-of'
+    // Yield Enhancement
+    | 'express'
+    | 'snowball'
+    // Enhanced Protection  
+    | 'airbag'
+    // Yield-Focused
+    | 'reverse'
+    // Bi-Directional
+    | 'twin-win'
+    // Target-Based
+    | 'target-return'
+    // Leveraged
+    | 'booster';
+  
+  // ===== UNDERLYING(S) =====
+  // Single underlying (for barrier, phoenix, express, snowball, etc.)
   underlying: string;
   underlyingName: string;
   initialPrice: number;
-  barrierLevel: number;
+  
+  // Multi-underlying (for worst-of, best-of, rainbow)
+  underlyings?: UnderlyingAsset[];
+  basketType?: 'worst_of' | 'best_of' | 'average' | 'rainbow';
+  correlationAssumption?: number;  // Expected correlation %
+  
+  // ===== BARRIERS =====
+  barrierLevel: number;  // Autocall barrier
   knockInBarrier: number;
   protectionBarrier?: number;
+  
+  // Step-down barriers (for snowball, some express)
+  stepDownSchedule?: BarrierSchedule[];
+  
+  // Separate coupon barrier (common in many structures)
+  couponBarrier?: number;  // Separate from autocall barrier
+  
+  // ===== COUPON STRUCTURE =====
   couponRate: number;
-  couponType: 'fixed' | 'conditional' | 'memory';
+  couponType: 'fixed' | 'conditional' | 'memory' | 'digital' | 'snowballing' | 'range-accrual';
   memoryFeature: boolean;
+  
+  // Snowball-specific
+  couponEscalationRate?: number;  // % increase per period if not paid
+  maxCouponRate?: number;  // Cap on snowballing
+  
+  // Digital coupon
+  digitalPayoutAmount?: number;  // Fixed amount if condition met
+  
+  // Range accrual
+  accrualRangeLower?: number;
+  accrualRangeUpper?: number;
+  accrualRatePerDay?: number;
+  
+  // ===== OBSERVATION & CALL =====
   observationFreq: 'monthly' | 'quarterly' | 'semi-annual' | 'annual';
   callType: 'american' | 'european' | 'bermudan';
   firstObsDate: string;
   finalObsDate: string;
+  
+  // Bermudan call schedule
+  callSchedule?: CallSchedule[];
+  
+  // ===== EXPRESS-SPECIFIC =====
+  expressRedemptionType?: 'fixed' | 'accumulated';
+  expressRedemptionAmount?: number;  // Fixed payout on autocall
+  
+  // ===== AIRBAG-SPECIFIC =====
+  airbagLevel?: number;  // Buffer threshold (e.g., 50% - no loss above)
+  airbagParticipation?: number;  // % protection in buffer zone
+  belowAirbagParticipation?: number;  // Participation below airbag
+  
+  // ===== REVERSE CONVERTIBLE-SPECIFIC =====
+  conversionRatio?: number;  // Shares delivered per note
+  conversionTrigger?: number;  // Level triggering conversion
+  physicalSettlement?: boolean;
+  deliveryInstructions?: string;
+  
+  // ===== TWIN-WIN-SPECIFIC =====
+  twinWinRangeLower?: number;  // Lower bound for positive return
+  twinWinRangeUpper?: number;  // Upper bound
+  fullLossThreshold?: number;  // Level for complete capital loss
+  
+  // ===== TARN-SPECIFIC =====
+  targetCumulativeReturn?: number;  // Total return target %
+  targetAchieved?: boolean;
+  accumulatedReturn?: number;  // Current cumulative
+  variableRateFormula?: string;  // Rate formula after threshold
+  maxMaturityDate?: string;  // Override if target not hit
+  
+  // ===== BOOSTER-SPECIFIC =====
+  leverageRatio?: number;  // Participation multiplier (e.g., 1.5x, 2x)
+  boostThreshold?: number;  // Level triggering leveraged autocall
+  downsideBuffer?: number;  // % of losses absorbed
+  
+  // ===== ORACLE & PRICING =====
   oracleProvider: 'pyth' | 'chainlink' | 'switchboard';
   oracleAddress: string;
-  valuationMethod: 'end-of-day' | 'intraday';
+  valuationMethod: 'end-of-day' | 'intraday' | 'vwap' | 'twap';
   fixingTime: string;
+  
+  // ===== REDEMPTION =====
   redemptionVault: string;
   redemptionMethod: 'automatic' | 'manual';
   settlementDays: number;
+  settlementType?: 'cash' | 'physical' | 'hybrid';
+  
+  // ===== PARTICIPATION =====
   upsideParticipation: number;
   downsideParticipation: number;
   cap?: number;
+  
+  // Asymmetric participation
+  aboveStrikeParticipation?: number;
+  belowStrikeParticipation?: number;
+  
+  // ===== REGULATORY (optional) =====
+  isin?: string;
+  cusip?: string;
+  targetMarket?: string;  // PRIIPs/MiFID classification
 }
 
 export interface PrincipalProtectedNoteInput extends BaseInput {

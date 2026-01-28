@@ -1,15 +1,18 @@
 /**
- * Asset Metadata Components
- * Export all metadata wizard components and forms
+ * Solana Metadata Components - Index
+ * 
+ * ENHANCED: Now supports all 32 asset class forms
  */
 
-// Wizard Components
 export { AssetClassSelector } from './AssetClassSelector';
+export { InstrumentTypeSelector } from './InstrumentTypeSelector';
 export { AssetMetadataWizard } from './AssetMetadataWizard';
+export { MetadataTypeSelector } from './MetadataTypeSelector';
 export { MetadataPreview } from './MetadataPreview';
 
-// All Asset-Specific Forms (Enumeration Approach)
-export * from './forms';
+// Form mapping utilities
+export * from './FormMapping';
 
-// Universal Structured Product Framework Components
+// Re-export all forms
+export * from './forms';
 export * from './universal';

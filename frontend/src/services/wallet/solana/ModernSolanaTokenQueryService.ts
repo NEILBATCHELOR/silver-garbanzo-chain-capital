@@ -25,6 +25,7 @@ import {
   findAssociatedTokenPda
 } from '@solana-program/token';
 
+import bs58 from 'bs58';
 import type { SolanaNetwork } from '@/infrastructure/web3/solana/ModernSolanaTypes';
 
 // ============================================================================
@@ -200,15 +201,134 @@ export class ModernSolanaTokenQueryService {
    * 
    * NOTE: This requires getProgramAccounts which is resource-intensive
    * Consider using a dedicated indexer for production
+   * 
+   * WARNING: This can return thousands of accounts and may timeout or be rate-limited
+   * Use with caution and only on devnet/testnet or with dedicated RPC providers
    */
   async getAllHolders(
     mintAddress: string,
     network: SolanaNetwork
   ): Promise<TokenAccountData[]> {
-    // TODO: Implement using getProgramAccounts
-    // For now, return empty array
-    console.warn('getAllHolders not yet implemented - requires getProgramAccounts');
-    return [];
+    try {
+      const rpc = this.createRpc(network);
+      const mintAddr = address(mintAddress);
+
+      console.warn('getAllHolders: This is an expensive operation. Consider using an indexer for production.');
+
+      // Use getProgramAccounts with filters to get all token accounts for this mint
+      const accountsResponse = await rpc.getProgramAccounts(
+        TOKEN_PROGRAM_ADDRESS,
+        {
+          encoding: 'base64',
+          filters: [
+            {
+              // Token account data is 165 bytes
+              dataSize: 165n
+            },
+            {
+              // Filter by mint address (bytes 0-32)
+              // Convert Address to string for memcmp filter
+              memcmp: {
+                offset: 0n,
+                bytes: String(mintAddr) as any,
+                encoding: 'base58' as const
+              }
+            }
+          ]
+        }
+      ).send();
+
+      // Process accounts and filter out zero balances
+      const holders: TokenAccountData[] = [];
+
+      for (const { pubkey, account } of accountsResponse) {
+        try {
+          // Get the raw account data
+          // In base64 encoding, data is a tuple [encodedString, 'base64']
+          const dataString = Array.isArray(account.data) ? account.data[0] : account.data;
+          
+          // Decode token account data:
+          // Bytes 0-32: mint
+          // Bytes 32-64: owner  
+          // Bytes 64-72: amount (little-endian u64)
+          // Bytes 72-73: delegate option
+          // Bytes 73-105: delegate (if present)
+          // Bytes 105-113: state (initialized/frozen)
+          // Bytes 113-121: isNative option + isNative amount
+          // Bytes 121-153: delegated amount
+          // Bytes 153-185: close authority option + close authority
+          
+          let buffer: Buffer;
+          
+          if (typeof dataString === 'string') {
+            // Base64 encoded data
+            buffer = Buffer.from(dataString, 'base64');
+          } else if (Array.isArray(dataString)) {
+            // Already a byte array
+            buffer = Buffer.from(dataString);
+          } else {
+            console.warn(`Unexpected data format for account ${pubkey}`);
+            continue;
+          }
+          
+          if (buffer.length < 165) {
+            console.warn(`Account ${pubkey} has incorrect size: ${buffer.length}`);
+            continue;
+          }
+          
+          // Extract owner (bytes 32-64)
+          const ownerBytes = buffer.slice(32, 64);
+          const owner = bs58.encode(ownerBytes);
+          
+          // Extract amount (bytes 64-72, little-endian)
+          let amount = 0n;
+          for (let i = 0; i < 8; i++) {
+            amount += BigInt(buffer[64 + i]) << BigInt(i * 8);
+          }
+          
+          // Skip zero balances
+          if (amount === 0n) {
+            continue;
+          }
+          
+          // Extract state (byte 108)
+          const stateValue = buffer[108];
+          const state = stateValue === 0 ? 'Uninitialized' : 
+                       stateValue === 1 ? 'Initialized' : 
+                       'Frozen';
+          
+          holders.push({
+            address: pubkey,
+            owner,
+            mint: mintAddress,
+            balance: amount.toString(),
+            balanceFormatted: '', // Will be formatted by caller if needed
+            delegateAddress: null, // Could be extracted if needed
+            delegatedAmount: '0',
+            state
+          });
+        } catch (error) {
+          console.error(`Error processing account ${pubkey}:`, error);
+          // Continue processing other accounts
+        }
+      }
+
+      console.log(`Found ${holders.length} token holders (excluding zero balances)`);
+      return holders;
+
+    } catch (error) {
+      console.error('Error fetching all holders:', error);
+      
+      // If getProgramAccounts is not supported or fails, throw informative error
+      if (error instanceof Error && error.message.includes('not supported')) {
+        throw new Error(
+          'getProgramAccounts is not supported by this RPC provider. ' +
+          'Please use a dedicated RPC provider or indexer service for this operation.'
+        );
+      }
+      
+      throw new Error(`Failed to fetch token holders: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   // ============================================================================

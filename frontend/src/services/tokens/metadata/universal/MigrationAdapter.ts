@@ -18,6 +18,37 @@ import type {
   ReverseConvertibleInput,
   OnChainMetadataResult
 } from '../OnChainMetadataTypes';
+import type { CouponType } from './UniversalStructuredProductTypes';
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Map OnChain coupon types to Universal Framework types
+ * Handles kebab-case to snake_case conversion and special mappings
+ */
+function mapCouponType(onchainType: string): CouponType {
+  // Special mappings
+  if (onchainType === 'snowballing') return 'memory';
+  
+  // Convert kebab-case to snake_case
+  const snakeCaseType = onchainType.replace(/-/g, '_');
+  
+  // Validate it's a valid CouponType
+  const validTypes: CouponType[] = [
+    'fixed', 'conditional', 'memory', 'floating', 
+    'range_accrual', 'digital', 'step_up', 'step_down'
+  ];
+  
+  if (validTypes.includes(snakeCaseType as CouponType)) {
+    return snakeCaseType as CouponType;
+  }
+  
+  // Default to 'fixed' if unknown
+  console.warn(`Unknown coupon type: ${onchainType}, defaulting to 'fixed'`);
+  return 'fixed';
+}
 
 // ============================================================================
 // MIGRATION ADAPTERS
@@ -91,7 +122,9 @@ export function convertAutocallableToUniversal(
     coupons: {
       memoryFeature: input.memoryFeature ? 'true' : 'false',
       coupons: [{
-        couponType: input.couponType,
+        // Map OnChain coupon types to Universal types
+        // Handle kebab-case to snake_case conversion and special mappings
+        couponType: mapCouponType(input.couponType),
         rate: input.couponRate.toString(),
         frequency: input.observationFreq,
         conditional: input.couponType === 'conditional' ? 'true' : 'false',

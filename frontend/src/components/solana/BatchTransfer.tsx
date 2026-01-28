@@ -29,6 +29,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { modernSolanaTokenTransferService } from '@/services/wallet/solana/ModernSolanaTokenTransferService';
+import type { Address } from '@solana/kit';
 
 // ============================================================================
 // TYPES
@@ -47,6 +49,7 @@ interface BatchTransferProps {
   decimals: number;
   availableBalance: string;
   network: 'mainnet-beta' | 'devnet' | 'testnet';
+  signerPrivateKey: string; // Private key for signing transactions
   onTransferComplete?: (results: BatchRecipient[]) => void;
 }
 
@@ -60,6 +63,7 @@ export function BatchTransfer({
   decimals,
   availableBalance,
   network,
+  signerPrivateKey,
   onTransferComplete
 }: BatchTransferProps) {
   const { toast } = useToast();
@@ -203,34 +207,73 @@ export function BatchTransfer({
       setIsProcessing(true);
       setProgress(0);
 
-      // TODO: Implement actual batch transfer using ModernSolanaTokenTransferService
-      // For now, simulate processing
+      // Get signer address for the from field
+      const fromAddress = await modernSolanaTokenTransferService.getAddressFromPrivateKey(
+        signerPrivateKey
+      );
+
+      // Process each transfer sequentially
+      const updated = [...recipients];
+      
       for (let i = 0; i < recipients.length; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        const recipient = recipients[i];
         
-        const updated = [...recipients];
-        updated[i].status = Math.random() > 0.1 ? 'success' : 'failed';
-        if (updated[i].status === 'failed') {
-          updated[i].error = 'Simulated failure';
+        try {
+          // Convert amount to smallest units
+          const amount = BigInt(
+            Math.floor(parseFloat(recipient.amount) * Math.pow(10, decimals))
+          );
+
+          // Execute transfer
+          const result = await modernSolanaTokenTransferService.transferTokens(
+            {
+              mint: tokenAddress as Address,
+              from: fromAddress,
+              to: recipient.address as Address,
+              amount,
+              decimals
+            },
+            {
+              network,
+              signerPrivateKey,
+              createDestinationATA: true
+            }
+          );
+
+          // Update recipient status
+          if (result.success) {
+            updated[i].status = 'success';
+          } else {
+            updated[i].status = 'failed';
+            updated[i].error = result.errors?.join(', ') || 'Transfer failed';
+          }
+
+        } catch (error) {
+          // Handle transfer error
+          updated[i].status = 'failed';
+          updated[i].error = error instanceof Error ? error.message : 'Unknown error';
+          console.error(`Transfer ${i + 1} failed:`, error);
         }
-        setRecipients(updated);
+
+        // Update UI
+        setRecipients([...updated]);
         setProgress(((i + 1) / recipients.length) * 100);
       }
 
-      const successful = recipients.filter(r => r.status === 'success').length;
-      const failed = recipients.filter(r => r.status === 'failed').length;
+      const successful = updated.filter(r => r.status === 'success').length;
+      const failed = updated.filter(r => r.status === 'failed').length;
 
       toast({
         title: 'Batch Transfer Complete',
         description: `${successful} successful, ${failed} failed`
       });
 
-      onTransferComplete?.(recipients);
+      onTransferComplete?.(updated);
     } catch (error) {
       console.error('Batch transfer error:', error);
       toast({
         title: 'Transfer Failed',
-        description: 'Batch transfer failed to complete',
+        description: error instanceof Error ? error.message : 'Batch transfer failed to complete',
         variant: 'destructive'
       });
     } finally {

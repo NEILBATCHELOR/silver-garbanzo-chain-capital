@@ -413,8 +413,19 @@ CREATE TYPE public.token_standard_enum AS ENUM (
     'ERC-1155',
     'ERC-1400',
     'ERC-3525',
-    'ERC-4626'
+    'ERC-4626',
+    'SPL',
+    'TRC-20',
+    'BEP-20',
+    'Token2022'
 );
+
+
+--
+-- Name: TYPE token_standard_enum; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TYPE public.token_standard_enum IS 'Supported token standards across multiple blockchains';
 
 
 --
@@ -6277,6 +6288,22 @@ $$;
 
 
 --
+-- Name: set_injective_tx_confirmed_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.set_injective_tx_confirmed_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.status = 'confirmed' AND OLD.status != 'confirmed' THEN
+    NEW.confirmed_at = NOW();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: set_redemption_product_type_on_insert(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -6812,6 +6839,20 @@ COMMENT ON FUNCTION public.universal_update_timestamp() IS 'Universal function f
 
 
 --
+-- Name: update_arweave_uploads_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_arweave_uploads_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_blackout_periods_updated_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -7108,6 +7149,20 @@ CREATE FUNCTION public.update_individual_documents_updated_at() RETURNS trigger
 BEGIN
     NEW.updated_at = NOW();
     RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: update_injective_tx_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_injective_tx_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$;
 
@@ -9483,6 +9538,51 @@ CREATE TABLE public.approval_workflows (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
+
+
+--
+-- Name: arweave_metadata_uploads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.arweave_metadata_uploads (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid,
+    project_id uuid,
+    transaction_id text NOT NULL,
+    uri text NOT NULL,
+    gateway_url text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    confirmed boolean DEFAULT false,
+    confirmation_attempts integer DEFAULT 0,
+    metadata_type text NOT NULL,
+    asset_class text,
+    instrument_type text,
+    metadata_json jsonb NOT NULL,
+    metadata_size integer,
+    cost_ar numeric(20,10),
+    cost_usd numeric(20,2),
+    paid_from_wallet text,
+    block_height bigint,
+    block_hash text,
+    confirmations integer DEFAULT 0,
+    uploaded_at timestamp with time zone DEFAULT now() NOT NULL,
+    confirmed_at timestamp with time zone,
+    last_check_at timestamp with time zone,
+    uploaded_by uuid,
+    uploaded_by_email text,
+    tags jsonb,
+    error_message text,
+    error_details jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: TABLE arweave_metadata_uploads; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.arweave_metadata_uploads IS 'Tracks token metadata uploads to Arweave permanent storage';
 
 
 --
@@ -16275,6 +16375,49 @@ CREATE TABLE public.injective_markets (
 --
 
 COMMENT ON TABLE public.injective_markets IS 'Tracks Injective DEX spot and derivative markets';
+
+
+--
+-- Name: injective_native_token_transactions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.injective_native_token_transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    project_id uuid,
+    denom text NOT NULL,
+    token_id uuid,
+    transaction_type text NOT NULL,
+    from_address text,
+    to_address text,
+    amount numeric NOT NULL,
+    batch_id uuid,
+    batch_index integer,
+    batch_total integer,
+    tx_hash text NOT NULL,
+    block_height bigint,
+    network text NOT NULL,
+    chain_id text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_message text,
+    error_code text,
+    gas_used numeric,
+    gas_price numeric,
+    transaction_fee numeric,
+    memo text,
+    tags jsonb DEFAULT '[]'::jsonb,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    wallet_id uuid,
+    signer_address text,
+    transaction_timestamp timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    confirmed_at timestamp with time zone,
+    CONSTRAINT injective_native_token_transactions_network_check CHECK ((network = ANY (ARRAY['mainnet'::text, 'testnet'::text]))),
+    CONSTRAINT injective_native_token_transactions_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'confirmed'::text, 'failed'::text, 'cancelled'::text]))),
+    CONSTRAINT injective_native_token_transactions_transaction_type_check CHECK ((transaction_type = ANY (ARRAY['mint'::text, 'burn'::text, 'transfer'::text, 'batch_mint'::text, 'batch_burn'::text, 'batch_transfer'::text]))),
+    CONSTRAINT valid_amount CHECK ((amount > (0)::numeric)),
+    CONSTRAINT valid_batch_index CHECK ((((batch_id IS NULL) AND (batch_index IS NULL) AND (batch_total IS NULL)) OR ((batch_id IS NOT NULL) AND (batch_index >= 0) AND (batch_total > 0) AND (batch_index < batch_total))))
+);
 
 
 --
@@ -27280,6 +27423,27 @@ CREATE VIEW public.token_geographic_restrictions_view AS
 
 
 --
+-- Name: token_metadata; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.token_metadata (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    token_id uuid,
+    metadata_uri text NOT NULL,
+    prospectus_uri text,
+    termsheet_uri text,
+    asset_class text NOT NULL,
+    instrument_type text NOT NULL,
+    name text NOT NULL,
+    symbol text NOT NULL,
+    description text,
+    metadata_json jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
+
+--
 -- Name: token_modules; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -31239,6 +31403,30 @@ ALTER TABLE ONLY public.approval_workflows
 
 
 --
+-- Name: arweave_metadata_uploads arweave_metadata_uploads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.arweave_metadata_uploads
+    ADD CONSTRAINT arweave_metadata_uploads_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: arweave_metadata_uploads arweave_metadata_uploads_transaction_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.arweave_metadata_uploads
+    ADD CONSTRAINT arweave_metadata_uploads_transaction_id_key UNIQUE (transaction_id);
+
+
+--
+-- Name: arweave_metadata_uploads arweave_metadata_uploads_uri_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.arweave_metadata_uploads
+    ADD CONSTRAINT arweave_metadata_uploads_uri_key UNIQUE (uri);
+
+
+--
 -- Name: asset_backed_products asset_backed_products_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -33693,6 +33881,14 @@ ALTER TABLE ONLY public.injective_markets
 
 ALTER TABLE ONLY public.injective_markets
     ADD CONSTRAINT injective_markets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: injective_native_token_transactions injective_native_token_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_native_token_transactions
+    ADD CONSTRAINT injective_native_token_transactions_pkey PRIMARY KEY (id);
 
 
 --
@@ -36858,6 +37054,14 @@ ALTER TABLE ONLY public.token_geographic_restrictions
 
 
 --
+-- Name: token_metadata token_metadata_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_metadata
+    ADD CONSTRAINT token_metadata_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: token_modules token_modules_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -37615,6 +37819,14 @@ ALTER TABLE ONLY public.deployment_rate_limits
 
 ALTER TABLE ONLY public.xrpl_trust_line_holders
     ADD CONSTRAINT unique_token_holder UNIQUE (token_id, holder_address);
+
+
+--
+-- Name: token_metadata unique_token_metadata; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_metadata
+    ADD CONSTRAINT unique_token_metadata UNIQUE (token_id);
 
 
 --
@@ -39166,6 +39378,69 @@ CREATE INDEX idx_approval_processes_workflow ON public.approval_processes USING 
 --
 
 CREATE INDEX idx_approval_workflows_token ON public.approval_workflows USING btree (token_id, status);
+
+
+--
+-- Name: idx_arweave_uploads_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_asset_class ON public.arweave_metadata_uploads USING btree (asset_class);
+
+
+--
+-- Name: idx_arweave_uploads_metadata_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_metadata_gin ON public.arweave_metadata_uploads USING gin (metadata_json);
+
+
+--
+-- Name: idx_arweave_uploads_metadata_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_metadata_type ON public.arweave_metadata_uploads USING btree (metadata_type);
+
+
+--
+-- Name: idx_arweave_uploads_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_project_id ON public.arweave_metadata_uploads USING btree (project_id);
+
+
+--
+-- Name: idx_arweave_uploads_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_status ON public.arweave_metadata_uploads USING btree (status);
+
+
+--
+-- Name: idx_arweave_uploads_tags_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_tags_gin ON public.arweave_metadata_uploads USING gin (tags);
+
+
+--
+-- Name: idx_arweave_uploads_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_token_id ON public.arweave_metadata_uploads USING btree (token_id);
+
+
+--
+-- Name: idx_arweave_uploads_transaction_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_transaction_id ON public.arweave_metadata_uploads USING btree (transaction_id);
+
+
+--
+-- Name: idx_arweave_uploads_uploaded_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_arweave_uploads_uploaded_at ON public.arweave_metadata_uploads USING btree (uploaded_at DESC);
 
 
 --
@@ -43684,6 +43959,111 @@ CREATE INDEX idx_injective_trades_trader ON public.injective_trades USING btree 
 
 
 --
+-- Name: idx_injective_tx_batch_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_batch_id ON public.injective_native_token_transactions USING btree (batch_id) WHERE (batch_id IS NOT NULL);
+
+
+--
+-- Name: idx_injective_tx_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_created_at ON public.injective_native_token_transactions USING btree (created_at DESC);
+
+
+--
+-- Name: idx_injective_tx_denom; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_denom ON public.injective_native_token_transactions USING btree (denom);
+
+
+--
+-- Name: idx_injective_tx_denom_type_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_denom_type_status ON public.injective_native_token_transactions USING btree (denom, transaction_type, status);
+
+
+--
+-- Name: idx_injective_tx_from_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_from_address ON public.injective_native_token_transactions USING btree (from_address) WHERE (from_address IS NOT NULL);
+
+
+--
+-- Name: idx_injective_tx_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_hash ON public.injective_native_token_transactions USING btree (tx_hash);
+
+
+--
+-- Name: idx_injective_tx_network; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_network ON public.injective_native_token_transactions USING btree (network);
+
+
+--
+-- Name: idx_injective_tx_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_project_id ON public.injective_native_token_transactions USING btree (project_id);
+
+
+--
+-- Name: idx_injective_tx_project_network_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_project_network_type ON public.injective_native_token_transactions USING btree (project_id, network, transaction_type);
+
+
+--
+-- Name: idx_injective_tx_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_status ON public.injective_native_token_transactions USING btree (status);
+
+
+--
+-- Name: idx_injective_tx_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_timestamp ON public.injective_native_token_transactions USING btree (transaction_timestamp DESC);
+
+
+--
+-- Name: idx_injective_tx_to_address; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_to_address ON public.injective_native_token_transactions USING btree (to_address) WHERE (to_address IS NOT NULL);
+
+
+--
+-- Name: idx_injective_tx_token_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_token_id ON public.injective_native_token_transactions USING btree (token_id);
+
+
+--
+-- Name: idx_injective_tx_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_type ON public.injective_native_token_transactions USING btree (transaction_type);
+
+
+--
+-- Name: idx_injective_tx_wallet_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_injective_tx_wallet_id ON public.injective_native_token_transactions USING btree (wallet_id);
+
+
+--
 -- Name: idx_insurance_claims_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -44248,6 +44628,27 @@ CREATE INDEX idx_market_rent_data_location ON public.market_rent_data USING btre
 --
 
 CREATE INDEX idx_market_rent_data_type ON public.market_rent_data USING btree (property_type);
+
+
+--
+-- Name: idx_metadata_asset_class; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_metadata_asset_class ON public.token_metadata USING btree (asset_class);
+
+
+--
+-- Name: idx_metadata_instrument_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_metadata_instrument_type ON public.token_metadata USING btree (instrument_type);
+
+
+--
+-- Name: idx_metadata_json; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_metadata_json ON public.token_metadata USING gin (metadata_json);
 
 
 --
@@ -51443,6 +51844,13 @@ CREATE TRIGGER set_climate_incentives_updated_at BEFORE UPDATE ON public.climate
 
 
 --
+-- Name: injective_native_token_transactions set_confirmed_timestamp; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER set_confirmed_timestamp BEFORE UPDATE ON public.injective_native_token_transactions FOR EACH ROW WHEN ((new.status = 'confirmed'::text)) EXECUTE FUNCTION public.set_injective_tx_confirmed_at();
+
+
+--
 -- Name: investor_documents set_investor_documents_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -52220,6 +52628,13 @@ CREATE TRIGGER trigger_trust_line_tokens_updated_at BEFORE UPDATE ON public.xrpl
 
 
 --
+-- Name: arweave_metadata_uploads trigger_update_arweave_uploads_updated_at; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trigger_update_arweave_uploads_updated_at BEFORE UPDATE ON public.arweave_metadata_uploads FOR EACH ROW EXECUTE FUNCTION public.update_arweave_uploads_updated_at();
+
+
+--
 -- Name: climate_market_data_cache trigger_update_cache_access; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -52609,6 +53024,13 @@ CREATE TRIGGER update_injective_oracles_updated_at BEFORE UPDATE ON public.injec
 --
 
 CREATE TRIGGER update_injective_permissions_updated_at BEFORE UPDATE ON public.injective_permissions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- Name: injective_native_token_transactions update_injective_tx_timestamp; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER update_injective_tx_timestamp BEFORE UPDATE ON public.injective_native_token_transactions FOR EACH ROW EXECUTE FUNCTION public.update_injective_tx_updated_at();
 
 
 --
@@ -53282,6 +53704,30 @@ ALTER TABLE ONLY public.approval_requests
 
 ALTER TABLE ONLY public.approval_workflows
     ADD CONSTRAINT approval_workflows_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
+
+
+--
+-- Name: arweave_metadata_uploads arweave_metadata_uploads_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.arweave_metadata_uploads
+    ADD CONSTRAINT arweave_metadata_uploads_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: arweave_metadata_uploads arweave_metadata_uploads_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.arweave_metadata_uploads
+    ADD CONSTRAINT arweave_metadata_uploads_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: arweave_metadata_uploads arweave_metadata_uploads_uploaded_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.arweave_metadata_uploads
+    ADD CONSTRAINT arweave_metadata_uploads_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.users(id);
 
 
 --
@@ -54914,6 +55360,30 @@ ALTER TABLE ONLY public.infra_revenue_streams
 
 ALTER TABLE ONLY public.infra_usage_metrics
     ADD CONSTRAINT infra_usage_metrics_infrastructure_product_id_fkey FOREIGN KEY (infrastructure_product_id) REFERENCES public.infrastructure_products(id) ON DELETE CASCADE;
+
+
+--
+-- Name: injective_native_token_transactions injective_native_token_transactions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_native_token_transactions
+    ADD CONSTRAINT injective_native_token_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE SET NULL;
+
+
+--
+-- Name: injective_native_token_transactions injective_native_token_transactions_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_native_token_transactions
+    ADD CONSTRAINT injective_native_token_transactions_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.injective_native_tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: injective_native_token_transactions injective_native_token_transactions_wallet_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.injective_native_token_transactions
+    ADD CONSTRAINT injective_native_token_transactions_wallet_id_fkey FOREIGN KEY (wallet_id) REFERENCES public.wallets(id) ON DELETE SET NULL;
 
 
 --
@@ -56988,6 +57458,14 @@ ALTER TABLE ONLY public.token_geographic_restrictions
 
 
 --
+-- Name: token_metadata token_metadata_token_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.token_metadata
+    ADD CONSTRAINT token_metadata_token_id_fkey FOREIGN KEY (token_id) REFERENCES public.tokens(id);
+
+
+--
 -- Name: token_modules token_modules_deployed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -57825,6 +58303,33 @@ ALTER TABLE ONLY public.xrpl_trust_line_tokens
 ALTER TABLE ONLY public.xrpl_trust_line_transactions
     ADD CONSTRAINT xrpl_trust_line_transactions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id) ON DELETE CASCADE;
 
+
+--
+-- Name: arweave_metadata_uploads Users can create Arweave uploads; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can create Arweave uploads" ON public.arweave_metadata_uploads FOR INSERT WITH CHECK ((uploaded_by = auth.uid()));
+
+
+--
+-- Name: arweave_metadata_uploads Users can update their own uploads; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can update their own uploads" ON public.arweave_metadata_uploads FOR UPDATE USING ((uploaded_by = auth.uid()));
+
+
+--
+-- Name: arweave_metadata_uploads Users can view their own Arweave uploads; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view their own Arweave uploads" ON public.arweave_metadata_uploads FOR SELECT USING ((uploaded_by = auth.uid()));
+
+
+--
+-- Name: arweave_metadata_uploads; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.arweave_metadata_uploads ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
@@ -59304,6 +59809,16 @@ GRANT ALL ON FUNCTION public.set_distribution_standard() TO prisma;
 
 
 --
+-- Name: FUNCTION set_injective_tx_confirmed_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.set_injective_tx_confirmed_at() TO anon;
+GRANT ALL ON FUNCTION public.set_injective_tx_confirmed_at() TO authenticated;
+GRANT ALL ON FUNCTION public.set_injective_tx_confirmed_at() TO service_role;
+GRANT ALL ON FUNCTION public.set_injective_tx_confirmed_at() TO prisma;
+
+
+--
 -- Name: FUNCTION set_redemption_product_type_on_insert(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -59464,6 +59979,16 @@ GRANT ALL ON FUNCTION public.universal_update_timestamp() TO prisma;
 
 
 --
+-- Name: FUNCTION update_arweave_uploads_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_arweave_uploads_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_arweave_uploads_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_arweave_uploads_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_arweave_uploads_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_blackout_periods_updated_at(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -59591,6 +60116,16 @@ GRANT ALL ON FUNCTION public.update_individual_documents_updated_at() TO anon;
 GRANT ALL ON FUNCTION public.update_individual_documents_updated_at() TO authenticated;
 GRANT ALL ON FUNCTION public.update_individual_documents_updated_at() TO service_role;
 GRANT ALL ON FUNCTION public.update_individual_documents_updated_at() TO prisma;
+
+
+--
+-- Name: FUNCTION update_injective_tx_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_injective_tx_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_injective_tx_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_injective_tx_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_injective_tx_updated_at() TO prisma;
 
 
 --
@@ -60541,6 +61076,16 @@ GRANT ALL ON TABLE public.approval_workflows TO anon;
 GRANT ALL ON TABLE public.approval_workflows TO authenticated;
 GRANT ALL ON TABLE public.approval_workflows TO service_role;
 GRANT ALL ON TABLE public.approval_workflows TO prisma;
+
+
+--
+-- Name: TABLE arweave_metadata_uploads; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.arweave_metadata_uploads TO anon;
+GRANT ALL ON TABLE public.arweave_metadata_uploads TO authenticated;
+GRANT ALL ON TABLE public.arweave_metadata_uploads TO service_role;
+GRANT ALL ON TABLE public.arweave_metadata_uploads TO prisma;
 
 
 --
@@ -62621,6 +63166,16 @@ GRANT ALL ON TABLE public.injective_markets TO anon;
 GRANT ALL ON TABLE public.injective_markets TO authenticated;
 GRANT ALL ON TABLE public.injective_markets TO service_role;
 GRANT ALL ON TABLE public.injective_markets TO prisma;
+
+
+--
+-- Name: TABLE injective_native_token_transactions; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.injective_native_token_transactions TO anon;
+GRANT ALL ON TABLE public.injective_native_token_transactions TO authenticated;
+GRANT ALL ON TABLE public.injective_native_token_transactions TO service_role;
+GRANT ALL ON TABLE public.injective_native_token_transactions TO prisma;
 
 
 --
@@ -65641,6 +66196,16 @@ GRANT ALL ON TABLE public.token_geographic_restrictions_view TO anon;
 GRANT ALL ON TABLE public.token_geographic_restrictions_view TO authenticated;
 GRANT ALL ON TABLE public.token_geographic_restrictions_view TO service_role;
 GRANT ALL ON TABLE public.token_geographic_restrictions_view TO prisma;
+
+
+--
+-- Name: TABLE token_metadata; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.token_metadata TO anon;
+GRANT ALL ON TABLE public.token_metadata TO authenticated;
+GRANT ALL ON TABLE public.token_metadata TO service_role;
+GRANT ALL ON TABLE public.token_metadata TO prisma;
 
 
 --

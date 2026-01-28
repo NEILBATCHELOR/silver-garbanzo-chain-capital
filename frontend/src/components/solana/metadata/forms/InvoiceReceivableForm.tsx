@@ -79,6 +79,7 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
           </div>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader><CardTitle className="text-base">Pool Details</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -86,22 +87,27 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
             <div className="space-y-2">
               <Label htmlFor="receivableType">Receivable Type *</Label>
               <Input id="receivableType" placeholder="medicaid" value={value.receivableType || ''} onChange={(e) => updateField('receivableType', e.target.value)} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="invoiceCount">Invoice Count *</Label>
               <Input id="invoiceCount" type="number" step="0.01" placeholder="247" value={value.invoiceCount || ''} onChange={(e) => updateField('invoiceCount', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="totalFaceValue">Total Face Value *</Label>
               <Input id="totalFaceValue" type="number" step="0.01" placeholder="5000000" value={value.totalFaceValue || ''} onChange={(e) => updateField('totalFaceValue', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="discountRate">Discount Rate (%) *</Label>
               <Input id="discountRate" type="number" step="0.01" placeholder="13.00" value={value.discountRate || ''} onChange={(e) => updateField('discountRate', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="purchasePrice">Purchase Price *</Label>
               <Input id="purchasePrice" type="number" step="0.01" placeholder="4350000" value={value.purchasePrice || ''} onChange={(e) => updateField('purchasePrice', parseFloat(e.target.value))} />
             </div>
           </div>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader><CardTitle className="text-base">Payer Details</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -109,19 +115,23 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
             <div className="space-y-2">
               <Label htmlFor="primaryPayer">Primary Payer *</Label>
               <Input id="primaryPayer" placeholder="State Medicaid" value={value.primaryPayer || ''} onChange={(e) => updateField('primaryPayer', e.target.value)} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="payerState">Payer State</Label>
               <Input id="payerState" placeholder="California" value={value.payerState || ''} onChange={(e) => updateField('payerState', e.target.value)} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="payerCreditRating">Payer Credit Rating</Label>
               <Input id="payerCreditRating" placeholder="AA+" value={value.payerCreditRating || ''} onChange={(e) => updateField('payerCreditRating', e.target.value)} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="defaultHistory">Default History (%)</Label>
               <Input id="defaultHistory" type="number" step="0.01" placeholder="0.00" value={value.defaultHistory || ''} onChange={(e) => updateField('defaultHistory', parseFloat(e.target.value))} />
             </div>
           </div>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader><CardTitle className="text-base">Receivables Stats</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -129,19 +139,23 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
             <div className="space-y-2">
               <Label htmlFor="weightedAvgMaturity">Weighted Avg Maturity (days) *</Label>
               <Input id="weightedAvgMaturity" type="number" step="0.01" placeholder="45" value={value.weightedAvgMaturity || ''} onChange={(e) => updateField('weightedAvgMaturity', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="oldestInvoice">Oldest Invoice (days)</Label>
               <Input id="oldestInvoice" type="number" step="0.01" placeholder="90" value={value.oldestInvoice || ''} onChange={(e) => updateField('oldestInvoice', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="newestInvoice">Newest Invoice (days)</Label>
               <Input id="newestInvoice" type="number" step="0.01" placeholder="15" value={value.newestInvoice || ''} onChange={(e) => updateField('newestInvoice', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="avgInvoiceSize">Avg Invoice Size</Label>
               <Input id="avgInvoiceSize" type="number" step="0.01" placeholder="20243" value={value.avgInvoiceSize || ''} onChange={(e) => updateField('avgInvoiceSize', parseFloat(e.target.value))} />
             </div>
           </div>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader><CardTitle className="text-base">Performance</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -149,19 +163,23 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
             <div className="space-y-2">
               <Label htmlFor="expectedRecovery">Expected Recovery (%) *</Label>
               <Input id="expectedRecovery" type="number" step="0.01" placeholder="98.5" value={value.expectedRecovery || ''} onChange={(e) => updateField('expectedRecovery', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="expectedLoss">Expected Loss (%) *</Label>
               <Input id="expectedLoss" type="number" step="0.01" placeholder="1.5" value={value.expectedLoss || ''} onChange={(e) => updateField('expectedLoss', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="historicRecovery">Historic Recovery (%)</Label>
               <Input id="historicRecovery" type="number" step="0.01" placeholder="99.2" value={value.historicRecovery || ''} onChange={(e) => updateField('historicRecovery', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="avgCollectionDays">Avg Collection (days)</Label>
               <Input id="avgCollectionDays" type="number" step="0.01" placeholder="42" value={value.avgCollectionDays || ''} onChange={(e) => updateField('avgCollectionDays', parseFloat(e.target.value))} />
             </div>
           </div>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader><CardTitle className="text-base">Returns</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -169,16 +187,19 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
             <div className="space-y-2">
               <Label htmlFor="annualizedYield">Annualized Yield (%) *</Label>
               <Input id="annualizedYield" type="number" step="0.01" placeholder="13.0" value={value.annualizedYield || ''} onChange={(e) => updateField('annualizedYield', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="irr">IRR (%)</Label>
               <Input id="irr" type="number" step="0.01" placeholder="13.8" value={value.irr || ''} onChange={(e) => updateField('irr', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="paybackPeriod">Payback Period (years)</Label>
               <Input id="paybackPeriod" type="number" step="0.01" placeholder="0.35" value={value.paybackPeriod || ''} onChange={(e) => updateField('paybackPeriod', parseFloat(e.target.value))} />
             </div>
           </div>
         </CardContent>
       </Card>
+      
       <Card>
         <CardHeader><CardTitle className="text-base">Servicing</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -186,10 +207,12 @@ export function InvoiceReceivableForm({ value, onChange }: InvoiceReceivableForm
             <div className="space-y-2">
               <Label htmlFor="servicer">Servicer *</Label>
               <Input id="servicer" placeholder="Healthcare Finance Servicing" value={value.servicer || ''} onChange={(e) => updateField('servicer', e.target.value)} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="servicingFee">Servicing Fee (%)</Label>
               <Input id="servicingFee" type="number" step="0.01" placeholder="2.00" value={value.servicingFee || ''} onChange={(e) => updateField('servicingFee', parseFloat(e.target.value))} />
-            </div>\n            <div className="space-y-2">
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="collectionMethod">Collection Method</Label>
               <Input id="collectionMethod" placeholder="electronic_remittance" value={value.collectionMethod || ''} onChange={(e) => updateField('collectionMethod', e.target.value)} />
             </div>

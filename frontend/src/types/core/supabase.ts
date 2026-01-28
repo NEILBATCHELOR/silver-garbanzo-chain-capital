@@ -1411,6 +1411,176 @@ export type Database = {
           },
         ]
       }
+      arweave_metadata_uploads: {
+        Row: {
+          asset_class: string | null
+          block_hash: string | null
+          block_height: number | null
+          confirmation_attempts: number | null
+          confirmations: number | null
+          confirmed: boolean | null
+          confirmed_at: string | null
+          cost_ar: number | null
+          cost_usd: number | null
+          created_at: string
+          error_details: Json | null
+          error_message: string | null
+          gateway_url: string
+          id: string
+          instrument_type: string | null
+          last_check_at: string | null
+          metadata_json: Json
+          metadata_size: number | null
+          metadata_type: string
+          paid_from_wallet: string | null
+          project_id: string | null
+          status: string
+          tags: Json | null
+          token_id: string | null
+          transaction_id: string
+          updated_at: string
+          uploaded_at: string
+          uploaded_by: string | null
+          uploaded_by_email: string | null
+          uri: string
+        }
+        Insert: {
+          asset_class?: string | null
+          block_hash?: string | null
+          block_height?: number | null
+          confirmation_attempts?: number | null
+          confirmations?: number | null
+          confirmed?: boolean | null
+          confirmed_at?: string | null
+          cost_ar?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          error_details?: Json | null
+          error_message?: string | null
+          gateway_url: string
+          id?: string
+          instrument_type?: string | null
+          last_check_at?: string | null
+          metadata_json: Json
+          metadata_size?: number | null
+          metadata_type: string
+          paid_from_wallet?: string | null
+          project_id?: string | null
+          status?: string
+          tags?: Json | null
+          token_id?: string | null
+          transaction_id: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploaded_by_email?: string | null
+          uri: string
+        }
+        Update: {
+          asset_class?: string | null
+          block_hash?: string | null
+          block_height?: number | null
+          confirmation_attempts?: number | null
+          confirmations?: number | null
+          confirmed?: boolean | null
+          confirmed_at?: string | null
+          cost_ar?: number | null
+          cost_usd?: number | null
+          created_at?: string
+          error_details?: Json | null
+          error_message?: string | null
+          gateway_url?: string
+          id?: string
+          instrument_type?: string | null
+          last_check_at?: string | null
+          metadata_json?: Json
+          metadata_size?: number | null
+          metadata_type?: string
+          paid_from_wallet?: string | null
+          project_id?: string | null
+          status?: string
+          tags?: Json | null
+          token_id?: string | null
+          transaction_id?: string
+          updated_at?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+          uploaded_by_email?: string | null
+          uri?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "arweave_metadata_uploads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "arweave_metadata_uploads_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_backed_products: {
         Row: {
           accrual_type: string | null
@@ -14689,6 +14859,134 @@ export type Database = {
           volume_total?: number | null
         }
         Relationships: []
+      }
+      injective_native_token_transactions: {
+        Row: {
+          amount: number
+          batch_id: string | null
+          batch_index: number | null
+          batch_total: number | null
+          block_height: number | null
+          chain_id: string
+          confirmed_at: string | null
+          created_at: string | null
+          denom: string
+          error_code: string | null
+          error_message: string | null
+          from_address: string | null
+          gas_price: number | null
+          gas_used: number | null
+          id: string
+          memo: string | null
+          metadata: Json | null
+          network: string
+          project_id: string | null
+          signer_address: string | null
+          status: string
+          tags: Json | null
+          to_address: string | null
+          token_id: string | null
+          transaction_fee: number | null
+          transaction_timestamp: string | null
+          transaction_type: string
+          tx_hash: string
+          updated_at: string | null
+          wallet_id: string | null
+        }
+        Insert: {
+          amount: number
+          batch_id?: string | null
+          batch_index?: number | null
+          batch_total?: number | null
+          block_height?: number | null
+          chain_id: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          denom: string
+          error_code?: string | null
+          error_message?: string | null
+          from_address?: string | null
+          gas_price?: number | null
+          gas_used?: number | null
+          id?: string
+          memo?: string | null
+          metadata?: Json | null
+          network: string
+          project_id?: string | null
+          signer_address?: string | null
+          status?: string
+          tags?: Json | null
+          to_address?: string | null
+          token_id?: string | null
+          transaction_fee?: number | null
+          transaction_timestamp?: string | null
+          transaction_type: string
+          tx_hash: string
+          updated_at?: string | null
+          wallet_id?: string | null
+        }
+        Update: {
+          amount?: number
+          batch_id?: string | null
+          batch_index?: number | null
+          batch_total?: number | null
+          block_height?: number | null
+          chain_id?: string
+          confirmed_at?: string | null
+          created_at?: string | null
+          denom?: string
+          error_code?: string | null
+          error_message?: string | null
+          from_address?: string | null
+          gas_price?: number | null
+          gas_used?: number | null
+          id?: string
+          memo?: string | null
+          metadata?: Json | null
+          network?: string
+          project_id?: string | null
+          signer_address?: string | null
+          status?: string
+          tags?: Json | null
+          to_address?: string | null
+          token_id?: string | null
+          transaction_fee?: number | null
+          transaction_timestamp?: string | null
+          transaction_type?: string
+          tx_hash?: string
+          updated_at?: string | null
+          wallet_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "injective_native_token_transactions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "injective_native_token_transactions_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "injective_native_tokens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "injective_native_token_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallet_with_keys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "injective_native_token_transactions_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       injective_native_tokens: {
         Row: {
@@ -35062,6 +35360,111 @@ export type Database = {
           },
         ]
       }
+      token_metadata: {
+        Row: {
+          asset_class: string
+          created_at: string | null
+          description: string | null
+          id: string
+          instrument_type: string
+          metadata_json: Json
+          metadata_uri: string
+          name: string
+          prospectus_uri: string | null
+          symbol: string
+          termsheet_uri: string | null
+          token_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          asset_class: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          instrument_type: string
+          metadata_json: Json
+          metadata_uri: string
+          name: string
+          prospectus_uri?: string | null
+          symbol: string
+          termsheet_uri?: string | null
+          token_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          asset_class?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          instrument_type?: string
+          metadata_json?: Json
+          metadata_uri?: string
+          name?: string
+          prospectus_uri?: string | null
+          symbol?: string
+          termsheet_uri?: string | null
+          token_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "climate_token_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "problematic_token_deployments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "token_erc1155_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "token_erc20_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "token_erc3525_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "token_erc721_view"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "token_whitelist_summary"
+            referencedColumns: ["token_id"]
+          },
+          {
+            foreignKeyName: "token_metadata_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: true
+            referencedRelation: "tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       token_modules: {
         Row: {
           attached_at: string | null
@@ -44807,6 +45210,10 @@ export type Database = {
         | "ERC-1400"
         | "ERC-3525"
         | "ERC-4626"
+        | "SPL"
+        | "TRC-20"
+        | "BEP-20"
+        | "Token2022"
       token_status_enum:
         | "DRAFT"
         | "UNDER REVIEW"
@@ -45121,6 +45528,10 @@ export const Constants = {
         "ERC-1400",
         "ERC-3525",
         "ERC-4626",
+        "SPL",
+        "TRC-20",
+        "BEP-20",
+        "Token2022",
       ],
       token_status_enum: [
         "DRAFT",

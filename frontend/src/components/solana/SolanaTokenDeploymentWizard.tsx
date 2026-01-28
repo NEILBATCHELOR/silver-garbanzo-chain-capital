@@ -1,7 +1,12 @@
 /**
- * Solana Token Deployment Wizard - Part 1/2
+ * Solana Token Deployment Wizard - Enhanced with Metadata Integration
  * Main component that orchestrates the token deployment flow
- * Integrates: TokenTypeSelector, BasicTokenConfigForm, ExtensionsSelector, TransferFeeConfig, DeploymentPreview
+ * Integrates: TokenTypeSelector, BasicTokenConfigForm, ExtensionsSelector, MetadataWizards, DeploymentPreview
+ * 
+ * NEW: Universal Structured Product Framework Integration
+ * - Step 6: Metadata Type Selection (none/enumeration/universal)
+ * - Step 7: Metadata Configuration (conditional)
+ * - Enhanced deployment with on-chain metadata
  */
 
 import { useState, useEffect } from 'react';
@@ -16,10 +21,15 @@ import { ExtensionsSelector, type Token2022Extension } from './ExtensionsSelecto
 import { TransferFeeConfig, type TransferFeeConfiguration } from './TransferFeeConfig';
 import { InterestBearingConfig, type InterestBearingConfiguration } from './InterestBearingConfig';
 import { DeploymentPreview } from './DeploymentPreview';
+import { MetadataTypeSelector, type MetadataApproach } from './metadata/MetadataTypeSelector';
+import { AssetMetadataWizard } from './metadata/AssetMetadataWizard';
+import { UniversalProductWizard } from './metadata/universal/UniversalProductWizard';
 import { unifiedSolanaTokenDeploymentService } from '@/components/tokens/services/unifiedSolanaTokenDeploymentService';
 import { supabase } from '@/infrastructure/database/client';
 import { SolanaWalletSelector, type SelectedSolanaWallet } from './SolanaWalletSelector';
 import { useToast } from '@/components/ui/use-toast';
+import type { OnChainMetadataResult } from '@/services/tokens/metadata/OnChainMetadataTypes';
+import type { UniversalStructuredProductMetadata } from '@/services/tokens/metadata/universal/UniversalStructuredProductTypes';
 
 type WizardStep = 
   | 'tokenType'
@@ -27,6 +37,8 @@ type WizardStep =
   | 'walletSelection'
   | 'extensions'
   | 'extensionConfig'
+  | 'metadataType'      // NEW
+  | 'metadataConfig'    // NEW
   | 'preview'
   | 'deploying'
   | 'complete';
@@ -38,6 +50,10 @@ interface WizardState {
   extensions: Token2022Extension[];
   transferFeeConfig: TransferFeeConfiguration | null;
   interestBearingConfig: InterestBearingConfiguration | null;
+  // NEW: Metadata fields
+  metadataApproach?: MetadataApproach;
+  enumerationMetadata?: OnChainMetadataResult;
+  universalMetadata?: UniversalStructuredProductMetadata;
 }
 
 const steps: { id: WizardStep; label: string; description: string }[] = [
@@ -46,6 +62,8 @@ const steps: { id: WizardStep; label: string; description: string }[] = [
   { id: 'walletSelection', label: 'Funding Wallet', description: 'Select wallet' },
   { id: 'extensions', label: 'Extensions', description: 'Advanced features' },
   { id: 'extensionConfig', label: 'Configure', description: 'Extension settings' },
+  { id: 'metadataType', label: 'Metadata Type', description: 'Choose approach' },
+  { id: 'metadataConfig', label: 'Metadata', description: 'Configure metadata' },
   { id: 'preview', label: 'Review', description: 'Confirm deployment' }
 ];
 
@@ -72,9 +90,12 @@ export function SolanaTokenDeploymentWizard({
     tokenType: 'SPL',
     basicConfig: null,
     selectedWallet: null,
-    extensions: [], // Will be auto-populated when Token2022 is selected
+    extensions: [],
     transferFeeConfig: null,
-    interestBearingConfig: null
+    interestBearingConfig: null,
+    metadataApproach: undefined,
+    enumerationMetadata: undefined,
+    universalMetadata: undefined
   });
   const [deploymentResult, setDeploymentResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,10 +106,17 @@ export function SolanaTokenDeploymentWizard({
     ? 100 
     : ((currentStepIndex + 1) / steps.length) * 100;
 
-  // Determine which steps to show based on token type and extensions
+  // =========================================================================
+  // STEP SEQUENCE LOGIC
+  // =========================================================================
+
+  /**
+   * Determine which steps to show based on token type, extensions, and metadata choice
+   */
   const getStepSequence = (): WizardStep[] => {
     const sequence: WizardStep[] = ['tokenType', 'basicConfig', 'walletSelection'];
     
+    // Token-2022 specific steps
     if (state.tokenType === 'Token2022') {
       sequence.push('extensions');
       
@@ -96,18 +124,31 @@ export function SolanaTokenDeploymentWizard({
       if (state.extensions.includes('TransferFee') || state.extensions.includes('InterestBearing')) {
         sequence.push('extensionConfig');
       }
+
+      // Show metadata steps if Metadata extension is enabled
+      if (state.extensions.includes('Metadata')) {
+        sequence.push('metadataType');
+        
+        // Only show metadata config if user chose enumeration or universal
+        if (state.metadataApproach && state.metadataApproach !== 'none') {
+          sequence.push('metadataConfig');
+        }
+      }
     }
     
     sequence.push('preview');
     return sequence;
   };
 
+  // =========================================================================
+  // VALIDATION LOGIC
+  // =========================================================================
+
   const canProceed = (): boolean => {
     switch (currentStep) {
       case 'tokenType':
         return true;
       case 'basicConfig':
-        // Just check if basic fields exist, don't enforce strict validation
         return state.basicConfig !== null && 
                !!state.basicConfig.name && 
                !!state.basicConfig.symbol;
@@ -117,12 +158,22 @@ export function SolanaTokenDeploymentWizard({
         return true; // Can proceed with 0 extensions
       case 'extensionConfig':
         return !state.extensions.includes('TransferFee') || state.transferFeeConfig !== null;
+      case 'metadataType':
+        return !!state.metadataApproach;
+      case 'metadataConfig':
+        // Can proceed if metadata has been configured
+        return (state.metadataApproach === 'enumeration' && !!state.enumerationMetadata) ||
+               (state.metadataApproach === 'universal' && !!state.universalMetadata);
       case 'preview':
         return true;
       default:
         return false;
     }
   };
+
+  // =========================================================================
+  // NAVIGATION
+  // =========================================================================
 
   const handleNext = () => {
     if (!canProceed()) return;
@@ -143,6 +194,142 @@ export function SolanaTokenDeploymentWizard({
       setCurrentStep(stepSequence[currentIndex - 1]);
     }
   };
+
+  // =========================================================================
+  // METADATA HANDLERS
+  // =========================================================================
+
+  const handleMetadataTypeChange = (approach: MetadataApproach) => {
+    setState(prev => ({
+      ...prev,
+      metadataApproach: approach,
+      enumerationMetadata: undefined,
+      universalMetadata: undefined
+    }));
+
+    // Auto-advance if "none" is selected
+    if (approach === 'none') {
+      handleNext();
+    }
+  };
+
+  const handleEnumerationComplete = (metadata: OnChainMetadataResult) => {
+    setState(prev => ({ ...prev, enumerationMetadata: metadata }));
+    handleNext();
+  };
+
+  const handleUniversalComplete = (metadata: UniversalStructuredProductMetadata) => {
+    setState(prev => ({ ...prev, universalMetadata: metadata }));
+    handleNext();
+  };
+
+  // =========================================================================
+  // HELPER FUNCTIONS
+  // =========================================================================
+
+  /**
+   * Convert enumeration metadata (OnChainMetadataResult) to Map<string, string>
+   * for Token-2022 deployment
+   */
+  const convertEnumerationToMap = (metadata: OnChainMetadataResult): Map<string, string> => {
+    return metadata.additionalMetadata;
+  };
+
+  /**
+   * Convert universal metadata to Map<string, string> for Token-2022 deployment
+   * Uses the universal metadata builder's output format
+   */
+  const convertUniversalToMap = (metadata: UniversalStructuredProductMetadata): Map<string, string> => {
+    // Import the builder (this will be done at top of file in production)
+    // For now, we'll construct the map manually based on the metadata structure
+    const map = new Map<string, string>();
+    
+    // Add core fields
+    map.set('assetClass', metadata.assetClass);
+    map.set('productCategory', metadata.productCategory);
+    map.set('productSubtype', metadata.productSubtype);
+    
+    // Add underlyings (simplified - store as JSON string)
+    if (metadata.underlyings && metadata.underlyings.length > 0) {
+      map.set('underlyings', JSON.stringify(metadata.underlyings));
+    }
+    
+    // Add components if present
+    if (metadata.barriers) {
+      map.set('barriers', JSON.stringify(metadata.barriers));
+    }
+    
+    if (metadata.coupons) {
+      map.set('coupons', JSON.stringify(metadata.coupons));
+    }
+    
+    // Add observation and settlement
+    map.set('observation', JSON.stringify(metadata.observation));
+    map.set('settlement', JSON.stringify(metadata.settlement));
+    
+    // Add base metadata
+    map.set('decimals', metadata.decimals);
+    map.set('currency', metadata.currency);
+    map.set('issuer', metadata.issuer);
+    map.set('jurisdiction', metadata.jurisdiction);
+    map.set('issueDate', metadata.issueDate);
+    
+    // Note: uri is not part of UniversalStructuredProductMetadata
+    // It will be provided separately when deploying
+    
+    return map;
+  };
+
+  /**
+   * Validate metadata size (must be < 1KB)
+   */
+  const validateMetadataSize = (metadata: Map<string, string>): { valid: boolean; size: number; maxSize: number } => {
+    let totalSize = 0;
+    
+    metadata.forEach((value, key) => {
+      totalSize += key.length + value.length;
+    });
+    
+    return {
+      valid: totalSize <= 1024,
+      size: totalSize,
+      maxSize: 1024
+    };
+  };
+
+  /**
+   * Display metadata summary in preview
+   */
+  const getMetadataSummary = (): { approach: string; itemCount: number; size: number } | null => {
+    if (!state.metadataApproach || state.metadataApproach === 'none') {
+      return null;
+    }
+    
+    if (state.metadataApproach === 'enumeration' && state.enumerationMetadata) {
+      const size = state.enumerationMetadata.validation.estimatedSize;
+      return {
+        approach: 'Quick Setup (Enumeration)',
+        itemCount: state.enumerationMetadata.additionalMetadata.size,
+        size
+      };
+    }
+    
+    if (state.metadataApproach === 'universal' && state.universalMetadata) {
+      const map = convertUniversalToMap(state.universalMetadata);
+      const validation = validateMetadataSize(map);
+      return {
+        approach: 'Custom Build (Universal)',
+        itemCount: map.size,
+        size: validation.size
+      };
+    }
+    
+    return null;
+  };
+
+  // =========================================================================
+  // DEPLOYMENT
+  // =========================================================================
 
   const handleDeploy = async () => {
     if (!state.basicConfig) return;
@@ -170,7 +357,59 @@ export function SolanaTokenDeploymentWizard({
       
       const currentUserId = userId || authUser.id;
 
-      // Step 1: Create token record in database first
+      // ========================================================================
+      // BUILD METADATA CONFIGURATION (NEW)
+      // ========================================================================
+      
+      let metadataForToken: {
+        name: string;
+        symbol: string;
+        uri: string;
+        additionalMetadata?: Map<string, string>;
+      } | undefined;
+
+      if (state.metadataApproach === 'enumeration' && state.enumerationMetadata) {
+        // Use enumeration metadata
+        const additionalMetadata = convertEnumerationToMap(state.enumerationMetadata);
+        
+        // Validate size
+        const validation = validateMetadataSize(additionalMetadata);
+        if (!validation.valid) {
+          throw new Error(
+            `Metadata too large: ${validation.size} bytes (max ${validation.maxSize} bytes)`
+          );
+        }
+        
+        metadataForToken = {
+          name: state.basicConfig.name,
+          symbol: state.basicConfig.symbol,
+          uri: state.basicConfig.metadataUri || '',
+          additionalMetadata
+        };
+      } else if (state.metadataApproach === 'universal' && state.universalMetadata) {
+        // Use universal metadata
+        const additionalMetadata = convertUniversalToMap(state.universalMetadata);
+        
+        // Validate size
+        const validation = validateMetadataSize(additionalMetadata);
+        if (!validation.valid) {
+          throw new Error(
+            `Metadata too large: ${validation.size} bytes (max ${validation.maxSize} bytes)`
+          );
+        }
+        
+        metadataForToken = {
+          name: state.basicConfig.name,
+          symbol: state.basicConfig.symbol,
+          uri: state.universalMetadata.prospectusUri || state.basicConfig.metadataUri || '',
+          additionalMetadata
+        };
+      }
+
+      // ========================================================================
+      // CREATE TOKEN RECORD WITH METADATA
+      // ========================================================================
+
       const { data: tokenRecord, error: dbError } = await supabase
         .from('tokens')
         .insert({
@@ -182,9 +421,9 @@ export function SolanaTokenDeploymentWizard({
           total_supply: state.basicConfig.initialSupply.toString(),
           blockchain: 'solana',
           deployment_environment: network,
-          deployment_status: 'pending', // Mark as pending initially
-          status: 'DRAFT', // Initial status is DRAFT
-          blocks: {}, // Required field - empty for Solana tokens
+          deployment_status: 'pending',
+          status: 'DRAFT',
+          blocks: {},
           metadata: {
             uri: state.basicConfig.metadataUri || null,
             on_chain_metadata: state.tokenType === 'Token2022' && state.extensions.includes('Metadata'),
@@ -196,7 +435,14 @@ export function SolanaTokenDeploymentWizard({
             interest_bearing: state.interestBearingConfig ? {
               rate: state.interestBearingConfig.rate
             } : null,
-            non_transferable: state.extensions.includes('NonTransferable') || false
+            non_transferable: state.extensions.includes('NonTransferable') || false,
+            // NEW: Store metadata approach and summary
+            metadata_approach: state.metadataApproach,
+            metadata_summary: getMetadataSummary(),
+            // Store actual metadata for Token-2022
+            additional_metadata: metadataForToken?.additionalMetadata 
+              ? Object.fromEntries(metadataForToken.additionalMetadata)
+              : null
           }
         })
         .select()
@@ -209,10 +455,16 @@ export function SolanaTokenDeploymentWizard({
 
       tokenRecordId = tokenRecord.id;
 
-      // Step 2: Deploy token using unified service
+      // ========================================================================
+      // DEPLOY TOKEN USING UNIFIED SERVICE
+      // ========================================================================
+      
       console.log('[Wizard] Calling deploySolanaToken with:');
       console.log('[Wizard] tokenRecord.id:', tokenRecord.id);
-      console.log('[Wizard] tokenRecord:', tokenRecord);
+      console.log('[Wizard] Metadata enabled:', !!metadataForToken);
+      if (metadataForToken) {
+        console.log('[Wizard] Metadata fields:', metadataForToken.additionalMetadata?.size || 0);
+      }
       
       const result = await unifiedSolanaTokenDeploymentService.deploySolanaToken(
         tokenRecord.id,
@@ -238,7 +490,7 @@ export function SolanaTokenDeploymentWizard({
           .eq('id', tokenRecord.id);
         
         setError(result.errors?.join(', ') || 'Deployment failed');
-        setCurrentStep('preview'); // Go back to preview on error
+        setCurrentStep('preview');
       }
     } catch (err) {
       console.error('Deployment error:', err);
@@ -257,11 +509,15 @@ export function SolanaTokenDeploymentWizard({
       }
       
       setError(errorMessage);
-      setCurrentStep('preview'); // Go back to preview on error
+      setCurrentStep('preview');
     } finally {
       setIsDeploying(false);
     }
   };
+
+  // =========================================================================
+  // RENDER
+  // =========================================================================
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -273,7 +529,7 @@ export function SolanaTokenDeploymentWizard({
         </CardHeader>
         <CardContent>
           <div className="flex justify-between">
-            {steps.map((step, index) => (
+            {steps.slice(0, 8).map((step, index) => (
               <div key={step.id} className="flex items-center">
                 <div className="flex flex-col items-center">
                   {index <= currentStepIndex || currentStep === 'deploying' || currentStep === 'complete' ? (
@@ -283,7 +539,7 @@ export function SolanaTokenDeploymentWizard({
                   )}
                   <span className="text-xs mt-1">{step.label}</span>
                 </div>
-                {index < steps.length - 1 && (
+                {index < 7 && (
                   <div className="w-12 h-0.5 bg-muted mx-2" />
                 )}
               </div>
@@ -304,7 +560,7 @@ export function SolanaTokenDeploymentWizard({
         <TokenTypeSelector
           value={state.tokenType}
           onChange={(tokenType) => {
-            // Auto-enable metadata extension for Token-2022 (it's the whole point!)
+            // Auto-enable metadata extension for Token-2022
             const defaultExtensions: Token2022Extension[] = tokenType === 'Token2022' 
               ? ['Metadata' as Token2022Extension, 'MetadataPointer' as Token2022Extension] 
               : [];
@@ -373,15 +629,68 @@ export function SolanaTokenDeploymentWizard({
         </div>
       )}
 
-      {currentStep === 'preview' && state.basicConfig && (
-        <DeploymentPreview
-          tokenType={state.tokenType}
-          basicConfig={state.basicConfig}
-          extensions={state.extensions}
-          transferFeeConfig={state.transferFeeConfig}
-          interestBearingConfig={state.interestBearingConfig}
-          network={network}
+      {/* NEW: Metadata Type Selection */}
+      {currentStep === 'metadataType' && (
+        <MetadataTypeSelector
+          value={state.metadataApproach}
+          onChange={handleMetadataTypeChange}
+          onNext={handleNext}
         />
+      )}
+
+      {/* NEW: Metadata Configuration (Conditional) */}
+      {currentStep === 'metadataConfig' && state.metadataApproach === 'enumeration' && (
+        <AssetMetadataWizard
+          onComplete={handleEnumerationComplete}
+          onCancel={handleBack}
+        />
+      )}
+
+      {currentStep === 'metadataConfig' && state.metadataApproach === 'universal' && (
+        <UniversalProductWizard
+          onComplete={handleUniversalComplete}
+          onCancel={handleBack}
+        />
+      )}
+
+      {currentStep === 'preview' && state.basicConfig && (
+        <div className="space-y-6">
+          <DeploymentPreview
+            tokenType={state.tokenType}
+            basicConfig={state.basicConfig}
+            extensions={state.extensions}
+            transferFeeConfig={state.transferFeeConfig}
+            interestBearingConfig={state.interestBearingConfig}
+            network={network}
+          />
+          
+          {/* NEW: Metadata Summary in Preview */}
+          {getMetadataSummary() && (
+            <Card>
+              <CardHeader>
+                <CardTitle>On-Chain Metadata</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <div>
+                    <span className="text-sm text-muted-foreground">Approach: </span>
+                    <span className="text-sm font-medium">{getMetadataSummary()!.approach}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Fields: </span>
+                    <span className="text-sm font-medium">{getMetadataSummary()!.itemCount}</span>
+                  </div>
+                  <div>
+                    <span className="text-sm text-muted-foreground">Size: </span>
+                    <span className="text-sm font-medium">
+                      {getMetadataSummary()!.size} bytes / 1024 bytes
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       {currentStep === 'deploying' && (
