@@ -12,6 +12,8 @@ import {
   RefreshCw 
 } from 'lucide-react'
 import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
+import { XRPLMPTBlockchainQuery } from '@/services/wallet/ripple/mpt/XRPLMPTBlockchainQuery'
+import { formatMPTAmount } from '@/services/wallet/ripple/mpt/utils'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
 import {
   Table,
@@ -26,6 +28,8 @@ interface Holder {
   address: string
   balance: string
   percentage: number
+  authorized: boolean
+  locked: boolean
 }
 
 interface MPTHoldersProps {
@@ -47,16 +51,23 @@ export const MPTHolders: React.FC<MPTHoldersProps> = ({
     assetScale: number
   } | null>(null)
 
+  // Only re-load when issuance ID or network changes
   useEffect(() => {
-    loadHolders()
-  }, [mptIssuanceId])
+    if (mptIssuanceId) {
+      loadHolders()
+    }
+  }, [mptIssuanceId, network])
 
   const loadHolders = async () => {
     setLoading(true)
     try {
       const mptService = new XRPLMPTService(network)
+      const blockchainQuery = new XRPLMPTBlockchainQuery(network)
 
-      // Get token details
+      console.log('🔍 Loading MPT holder information...')
+      console.log('Issuance ID:', mptIssuanceId)
+
+      // Get token details from blockchain (includes issuer address)
       const details = await mptService.getMPTIssuanceDetails(mptIssuanceId)
       setTokenInfo({
         ticker: details.metadata.ticker,
@@ -65,26 +76,51 @@ export const MPTHolders: React.FC<MPTHoldersProps> = ({
       })
       setTotalSupply(details.outstandingAmount)
 
-      // Get holders
-      const holdersList = await mptService.getMPTHolders(mptIssuanceId)
+      console.log('✅ Token details loaded:', {
+        ticker: details.metadata.ticker,
+        name: details.metadata.name,
+        issuer: details.issuer,
+        outstandingAmount: details.outstandingAmount
+      })
+
+      // Get holders using automatic method selection (mpt_holders API or transaction analysis)
+      console.log('🔍 Fetching holders (auto-selecting best method)...')
+      const holdersList = await blockchainQuery.getAllHolders(
+        mptIssuanceId,
+        details.issuer
+      )
+
+      console.log(`✅ Found ${holdersList.length} holders`)
 
       // Calculate percentages
-      const totalSupplyNum = parseFloat(details.outstandingAmount)
-      const holdersWithPercentage = holdersList.map(holder => ({
-        address: holder.address,
-        balance: holder.balance,
-        percentage: (parseFloat(holder.balance) / totalSupplyNum) * 100
-      }))
+      const totalSupplyNum = BigInt(details.outstandingAmount)
+      const holdersWithPercentage = holdersList.map(holder => {
+        const balance = BigInt(holder.balance)
+        const percentage = totalSupplyNum > 0n 
+          ? Number((balance * 10000n) / totalSupplyNum) / 100
+          : 0
+        
+        return {
+          address: holder.address,
+          balance: holder.balance,
+          percentage,
+          authorized: holder.authorized,
+          locked: holder.locked
+        }
+      })
 
-      // Sort by balance descending
-      holdersWithPercentage.sort((a, b) => parseFloat(b.balance) - parseFloat(a.balance))
-
+      // Already sorted by balance in the query method
       setHolders(holdersWithPercentage)
+
+      toast({
+        title: 'Holders Loaded',
+        description: `Found ${holdersList.length} holders for ${details.metadata.ticker}`
+      })
     } catch (error) {
-      console.error('Failed to load holders:', error)
+      console.error('❌ Failed to load holders:', error)
       toast({
         title: 'Error',
-        description: 'Failed to load token holders',
+        description: error instanceof Error ? error.message : 'Failed to load token holders',
         variant: 'destructive'
       })
     } finally {
@@ -93,11 +129,7 @@ export const MPTHolders: React.FC<MPTHoldersProps> = ({
   }
 
   const formatBalance = (balance: string, assetScale: number): string => {
-    const num = parseFloat(balance) / Math.pow(10, assetScale)
-    return num.toLocaleString(undefined, { 
-      minimumFractionDigits: 0,
-      maximumFractionDigits: assetScale
-    })
+    return formatMPTAmount(balance, assetScale, 2)
   }
 
   const copyAddress = (address: string) => {
@@ -202,6 +234,7 @@ export const MPTHolders: React.FC<MPTHoldersProps> = ({
                     <TableHead>Address</TableHead>
                     <TableHead className="text-right">Balance</TableHead>
                     <TableHead className="text-right">Percentage</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                     <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -232,6 +265,25 @@ export const MPTHolders: React.FC<MPTHoldersProps> = ({
                         <Badge variant="secondary">
                           {holder.percentage.toFixed(2)}%
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex gap-1 justify-center">
+                          {holder.authorized && (
+                            <Badge variant="outline" className="text-xs">
+                              ✓ Auth
+                            </Badge>
+                          )}
+                          {holder.locked && (
+                            <Badge variant="destructive" className="text-xs">
+                              🔒 Locked
+                            </Badge>
+                          )}
+                          {!holder.authorized && !holder.locked && (
+                            <Badge variant="secondary" className="text-xs">
+                              Active
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Button

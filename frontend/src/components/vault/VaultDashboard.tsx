@@ -22,7 +22,7 @@ import { supabase } from '@/infrastructure/database/client';
 // Import sub-components
 import { VaultCard } from './VaultCard';
 import { VaultStatsChart } from './VaultStatsChart';
-import { VaultNavigation, VaultStats } from './shared/vault-navigation';
+import { VaultStats } from './shared/vault-navigation';
 
 interface VaultInfo {
   id: string;
@@ -129,22 +129,18 @@ export const VaultDashboard: React.FC<VaultDashboardProps> = ({ projectId }) => 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <VaultNavigation projectId={projectId} />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* HORIZONTAL NAVIGATION */}
-      <VaultNavigation projectId={projectId} />
-
+    <div className="space-y-6 p-6">{/* Removed min-h-screen and bg-background - wrapper handles this */}
+      {/* REMOVED NAVIGATION - Now rendered by VaultProjectWrapper */}
+      
       {/* MAIN CONTENT */}
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="space-y-6">{/* Removed container mx-auto - wrapper handles spacing */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold tracking-tight">Dashboard Overview</h2>

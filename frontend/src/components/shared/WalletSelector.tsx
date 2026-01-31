@@ -38,6 +38,7 @@ interface WalletSelectorProps {
   className?: string;
   showBalance?: boolean;
   autoDecrypt?: boolean; // Automatically decrypt private key in background
+  evmOnly?: boolean; // Only show EVM wallets (0x... addresses)
 }
 
 export function WalletSelector({
@@ -49,7 +50,8 @@ export function WalletSelector({
   placeholder = 'Select wallet',
   className,
   showBalance = true,
-  autoDecrypt = false
+  autoDecrypt = false,
+  evmOnly = false
 }: WalletSelectorProps) {
   const [wallets, setWallets] = useState<ProjectWalletData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +61,7 @@ export function WalletSelector({
 
   useEffect(() => {
     loadWallets();
-  }, [projectId, blockchain, network]);
+  }, [projectId, blockchain, network, evmOnly]);
 
   // Helper to determine blockchain from wallet data
   const getWalletBlockchain = (wallet: ProjectWalletData): string => {
@@ -119,6 +121,14 @@ export function WalletSelector({
           } else {
             return walletNetwork.includes('test') || walletNetwork.includes('dev');
           }
+        });
+      }
+
+      // Filter to EVM-only wallets if specified
+      if (evmOnly) {
+        filteredWallets = filteredWallets.filter(w => {
+          // Check if wallet address is EVM format (0x... with 42 characters)
+          return w.wallet_address.startsWith('0x') && w.wallet_address.length === 42;
         });
       }
 
@@ -239,7 +249,7 @@ export function WalletSelector({
   }
 
   return (
-    <Select value={value} onValueChange={handleWalletChange}>
+    <Select value={value || ''} onValueChange={handleWalletChange}>
       <SelectTrigger className={cn("w-[250px]", className)}>
         <SelectValue placeholder={placeholder}>
           {decryptingWallet ? (

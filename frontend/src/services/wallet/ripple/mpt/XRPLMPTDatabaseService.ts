@@ -23,13 +23,18 @@ export interface MPTIssuanceRecord {
   asset_subclass?: string
   issuer_name?: string
   metadata_json?: Record<string, unknown>
+  uris?: Array<{u: string; c: string; t: string}>
+  additional_info?: Record<string, any>
   can_transfer?: boolean
   can_trade?: boolean
+  can_escrow?: boolean
   can_lock?: boolean
   can_clawback?: boolean
   require_auth?: boolean
   flags?: number
   status?: string
+  destroyed_at?: string
+  destruction_transaction_hash?: string
   creation_transaction_hash: string
   created_at?: string
   updated_at?: string
@@ -136,6 +141,32 @@ export class XRPLMPTDatabaseService {
 
     if (error) {
       throw new Error(`Failed to update MPT outstanding amount: ${error.message}`)
+    }
+
+    return data
+  }
+
+  /**
+   * Update MPT issuance properties
+   */
+  static async updateIssuance(
+    projectId: string,
+    issuanceId: string,
+    updates: Partial<MPTIssuanceRecord>
+  ) {
+    const { data, error } = await supabase
+      .from('mpt_issuances')
+      .update({ 
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('project_id', projectId)
+      .eq('issuance_id', issuanceId)
+      .select()
+      .single()
+
+    if (error) {
+      throw new Error(`Failed to update MPT issuance: ${error.message}`)
     }
 
     return data
@@ -279,6 +310,58 @@ export class XRPLMPTDatabaseService {
 
     if (error && error.code !== 'PGRST116') {
       throw new Error(`Failed to get transaction: ${error.message}`)
+    }
+
+    return data
+  }
+
+  /**
+   * Check if a holder is authorized for an MPT issuance
+   */
+  static async isHolderAuthorized(
+    projectId: string,
+    issuanceId: string,
+    holderAddress: string
+  ): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('mpt_holders')
+      .select('authorized')
+      .eq('project_id', projectId)
+      .eq('issuance_id', issuanceId)
+      .eq('holder_address', holderAddress)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      // Error occurred (not just "not found")
+      throw new Error(`Failed to check holder authorization: ${error.message}`)
+    }
+
+    // If no record exists, holder is not authorized
+    if (!data) {
+      return false
+    }
+
+    return data.authorized === true
+  }
+
+  /**
+   * Get holder record
+   */
+  static async getHolder(
+    projectId: string,
+    issuanceId: string,
+    holderAddress: string
+  ) {
+    const { data, error } = await supabase
+      .from('mpt_holders')
+      .select('*')
+      .eq('project_id', projectId)
+      .eq('issuance_id', issuanceId)
+      .eq('holder_address', holderAddress)
+      .single()
+
+    if (error && error.code !== 'PGRST116') {
+      throw new Error(`Failed to get holder record: ${error.message}`)
     }
 
     return data

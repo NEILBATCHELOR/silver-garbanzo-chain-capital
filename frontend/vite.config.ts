@@ -6,7 +6,7 @@ import topLevelAwait from "vite-plugin-top-level-await";
 
 export default defineConfig({
   optimizeDeps: {
-    force: true,
+    // Removed force: true for faster incremental builds
     include: [
       "react",
       "react-dom", 

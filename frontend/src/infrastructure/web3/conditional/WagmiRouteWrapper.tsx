@@ -22,6 +22,7 @@ const WEB3_ROUTES = [
   '/captable/minting',
   '/factoring/tokenization',
   '/factoring/distribution',
+  '/trade-finance',
 ] as const;
 
 /**
@@ -33,6 +34,7 @@ const WEB3_ROUTE_PATTERNS = [
   'minting',
   'tokenization',
   'deploy',
+  'trade-finance',
 ] as const;
 
 /**

@@ -1,69 +1,212 @@
 /**
  * XRPL Backend Types
  * Type definitions for XRPL backend operations
+ * 
+ * Updated to support XLS-89 MPT Metadata Standard and XLS-94 Dynamic MPT
  */
 
 // ============================================================================
-// MPT (Multi-Purpose Token) Types
+// XLS-89 MPT METADATA TYPES
 // ============================================================================
 
+/**
+ * URI Category per XLS-89
+ */
+export type URICategory = 'website' | 'social' | 'docs' | 'other';
+
+/**
+ * Single URI entry with compressed keys (XLS-89 format)
+ */
+export interface MPTURI {
+  u: string;       // uri
+  c: URICategory;  // category
+  t: string;       // title
+}
+
+/**
+ * MPT Metadata in XLS-89 compliant compressed format
+ * This gets hex-encoded and stored on-chain
+ */
+export interface MPTMetadata {
+  t: string;                          // ticker (required)
+  n: string;                          // name (required)
+  d?: string;                         // desc (optional)
+  i: string;                          // icon (required)
+  ac: string;                         // asset_class (required)
+  as?: string;                        // asset_subclass (optional, required if ac='rwa')
+  in: string;                         // issuer_name (required)
+  us?: MPTURI[];                      // uris (optional)
+  ai?: Record<string, any> | string;  // additional_info (optional)
+}
+
+/**
+ * Expanded metadata format for API requests
+ * This format is accepted by API but converted to compressed format
+ */
+export interface MPTMetadataExpanded {
+  ticker: string;
+  name: string;
+  desc?: string;
+  icon: string;
+  asset_class: string;
+  asset_subclass?: string;
+  issuer_name: string;
+  uris?: Array<{
+    uri: string;
+    category: URICategory;
+    title: string;
+  }>;
+  additional_info?: Record<string, any> | string;
+}
+
+// ============================================================================
+// MPT (Multi-Purpose Token) TYPES
+// ============================================================================
+
+/**
+ * MPT Issuance Creation Request
+ * Supports both compressed and expanded metadata formats
+ */
 export interface MPTIssuanceRequest {
   projectId: string
   issuerAddress: string
   assetScale: number
   maximumAmount?: string
   transferFee?: number
-  metadata: {
-    ticker: string
-    name: string
-    desc: string
-    icon?: string
-    assetClass?: string
-    assetSubclass?: string
-    issuerName?: string
-    uris?: Array<{
-      uri: string
-      category: string
-      title: string
-    }>
-    additionalInfo?: Record<string, any>
-  }
+  // Accept both formats - will be converted to compressed internally
+  metadata: MPTMetadata | MPTMetadataExpanded
   flags: {
     canTransfer?: boolean
     canTrade?: boolean
     canLock?: boolean
     canClawback?: boolean
+    canEscrow?: boolean
     requireAuth?: boolean
+  }
+  // XLS-94 Dynamic MPT Support (future)
+  mutableFields?: {
+    metadata?: boolean      // Allow metadata updates
+    transferFee?: boolean   // Allow transfer fee updates
+    flags?: boolean         // Allow flag updates
   }
 }
 
+/**
+ * MPT Issuance Database Record
+ * Reflects data stored in mpt_issuances table
+ */
 export interface MPTIssuanceRecord {
   id: string
   projectId: string
-  mptIssuanceId: string
+  issuanceId: string              // MPT Issuance ID (192-bit hex)
   issuerAddress: string
   assetScale: number
   maximumAmount: string | null
   outstandingAmount: string
+  lockedAmount: string | null
   transferFee: number | null
-  metadata: any
-  flags: number
+  sequence: number
+  
+  // Metadata fields (extracted for quick access)
+  ticker: string
+  name: string
+  description: string | null
+  iconUrl: string | null
+  assetClass: string | null
+  assetSubclass: string | null
+  issuerName: string | null
+  
+  // Full metadata storage
+  metadataJson: any               // Parsed metadata (compressed format)
+  mptMetadataHex: string | null   // Hex-encoded metadata (on-chain format)
+  
+  // Flags (extracted for indexing)
+  canTransfer: boolean | null
+  canTrade: boolean | null
+  canLock: boolean | null
+  canClawback: boolean | null
+  canEscrow: boolean | null
+  requireAuth: boolean | null
+  flags: number | null            // Raw flags value
+  
+  // Status
   status: string
-  transactionHash: string
+  destroyedAt: Date | null
+  
+  // Transaction tracking
+  creationTransactionHash: string
+  previousTxnId: string | null
+  previousTxnLgrSeq: number | null
+  ownerNode: string | null
+  
+  // Sync tracking
+  lastSyncedLedger: number | null
+  lastSyncedTx: string | null
+  lastSyncedAt: Date | null
+  
+  // Timestamps
   createdAt: Date
   updatedAt: Date
+  
+  // XLS-94 Dynamic MPT fields (future)
+  mutableMetadata?: boolean
+  mutableTransferFee?: boolean
+  mutableFlags?: boolean
 }
 
+/**
+ * MPT Authorization Request
+ */
 export interface MPTAuthorizationRequest {
   holderAddress: string
   mptIssuanceId: string
+  unauthorize?: boolean  // Set to true to revoke authorization
 }
 
+/**
+ * MPT Transfer Request
+ */
 export interface MPTTransferRequest {
   senderAddress: string
   destinationAddress: string
   mptIssuanceId: string
   amount: string
+}
+
+/**
+ * MPT Holder Record
+ */
+export interface MPTHolderRecord {
+  id: string
+  projectId: string
+  issuanceId: string
+  holderAddress: string
+  balance: string
+  lockedAmount: string | null
+  holderFlags: number
+  authorized: boolean
+  previousTxnId: string | null
+  previousTxnLgrSeq: number | null
+  lastSyncedLedger: number | null
+  lastSyncedTx: string | null
+  lastSyncedAt: Date | null
+  createdAt: Date
+  updatedAt: Date
+}
+
+/**
+ * MPT Update Request (for XLS-94 Dynamic MPT)
+ * Only mutable fields can be updated
+ */
+export interface MPTUpdateRequest {
+  issuanceId: string
+  updates: {
+    metadata?: MPTMetadata | MPTMetadataExpanded
+    transferFee?: number
+    flags?: {
+      locked?: boolean
+    }
+  }
 }
 
 // ============================================================================
@@ -262,83 +405,6 @@ export interface TransactionRecord {
   result: string
   validated: boolean
   timestamp: Date
-}
-
-// ============================================================================
-// Webhook Types
-// ============================================================================
-
-export interface WebhookPayload {
-  type: string
-  transactionHash: string
-  ledgerIndex: number
-  timestamp: Date
-  data: any
-}
-
-export interface WebhookSubscription {
-  id: string
-  projectId: string
-  webhookUrl: string
-  events: string[]
-  active: boolean
-  secret?: string
-}
-
-// ============================================================================
-// Indexer Types
-// ============================================================================
-
-export interface IndexerBlock {
-  ledgerIndex: number
-  ledgerHash: string
-  closeTime: Date
-  transactionCount: number
-  processed: boolean
-}
-
-export interface IndexerStatus {
-  lastProcessedLedger: number
-  currentLedger: number
-  isRunning: boolean
-  processingSpeed: number // ledgers per second
-}
-
-// ============================================================================
-// Cache Types
-// ============================================================================
-
-export interface CacheEntry<T = any> {
-  key: string
-  value: T
-  expiresAt: Date
-  createdAt: Date
-}
-
-export interface CacheStats {
-  totalKeys: number
-  hitRate: number
-  missRate: number
-  memoryUsage: number
-}
-
-// ============================================================================
-// Monitoring Types
-// ============================================================================
-
-export interface HealthCheck {
-  service: string
-  status: 'healthy' | 'degraded' | 'unhealthy'
-  lastCheck: Date
-  responseTime?: number
-  errorMessage?: string
-}
-
-export interface MetricData {
-  name: string
-  value: number
-  timestamp: Date
-  tags?: Record<string, string>
 }
 
 // ============================================================================

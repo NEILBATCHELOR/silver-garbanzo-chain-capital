@@ -52,9 +52,8 @@ import TokenSelectionPage from "@/components/tokens/pages/TokenSelectionPage";
 import { TokenTestingPage } from "@/components/tokens/testing";
 import TokenDashboardComparison from "@/components/tokens/testing/TokenDashboardComparison";
 
-// XRPL Pages
-import { XRPLMasterPage } from "@/components/xrpl/pages/xrpl-master-page";
-import { XRPLProjectWrapper } from "@/components/xrpl/pages/xrpl-project-wrapper";
+// XRPL Pages - Consolidated Architecture (matches Solana pattern)
+import { XRPLProjectWrapper } from "@/components/xrpl";
 
 // Solana Pages
 import { SolanaProjectWrapper } from "@/components/solana/shared/SolanaProjectWrapper";

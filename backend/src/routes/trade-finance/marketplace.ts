@@ -218,13 +218,7 @@ export async function marketplaceRoutes(fastify: FastifyInstance) {
         // Get pool configurations
         let query = fastify.supabase
           .from('commodity_pool_config')
-          .select(`
-            *,
-            prices:commodity_prices!left(
-              current_price,
-              price_usd
-            )
-          `)
+          .select('*')
           .eq('project_id', project_id)
 
         // Apply filters
@@ -269,8 +263,17 @@ export async function marketplaceRoutes(fastify: FastifyInstance) {
             const baseSupplyAPY = 3.5 + (utilizationRate / 100) * 2.5 // Simple model
             const baseBorrowAPY = 5.0 + (utilizationRate / 100) * 3.5 // Simple model
 
-            // Get latest price
-            const currentPrice = config.prices?.[0]?.price_usd || 0
+            // Get latest price for this commodity
+            const { data: priceData } = await fastify.supabase
+              .from('commodity_prices')
+              .select('price_usd')
+              .eq('project_id', project_id)
+              .eq('commodity_type', config.commodity_type)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+
+            const currentPrice = priceData?.price_usd || 0
 
             return {
               commodityType: config.commodity_type,

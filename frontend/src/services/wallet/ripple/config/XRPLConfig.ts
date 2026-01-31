@@ -8,6 +8,7 @@ export type XRPLNetwork = 'MAINNET' | 'TESTNET' | 'DEVNET'
 
 export interface XRPLNetworkConfig {
   url: string
+  clioUrl?: string // Optional Clio server for advanced queries (mpt_holders, nft_history, etc.)
   name: string
   explorerUrl: string
   isTestNetwork: boolean
@@ -16,22 +17,31 @@ export interface XRPLNetworkConfig {
 /**
  * XRPL Network Configurations
  * WebSocket connections to XRP Ledger nodes
+ * 
+ * Note: Clio servers support advanced methods like:
+ * - mpt_holders: Get all holders of an MPT issuance
+ * - nft_history: NFT transaction history
+ * - nft_info: NFT metadata
+ * - nfts_by_issuer: List NFTs by issuer
  */
 export const XRPL_NETWORKS: Record<XRPLNetwork, XRPLNetworkConfig> = {
   MAINNET: {
     url: 'wss://xrplcluster.com',
+    clioUrl: 'wss://s2-clio.ripple.com', // Mainnet Clio server
     name: 'Mainnet',
     explorerUrl: 'https://livenet.xrpl.org',
     isTestNetwork: false
   },
   TESTNET: {
     url: 'wss://s.altnet.rippletest.net:51233',
+    clioUrl: 'wss://clio.altnet.rippletest.net:51233', // Testnet Clio server
     name: 'Testnet',
     explorerUrl: 'https://testnet.xrpl.org',
     isTestNetwork: true
   },
   DEVNET: {
     url: 'wss://s.devnet.rippletest.net:51233',
+    clioUrl: 'wss://clio.devnet.rippletest.net:51233', // Devnet Clio server
     name: 'Devnet',
     explorerUrl: 'https://devnet.xrpl.org',
     isTestNetwork: true

@@ -7210,6 +7210,20 @@ $$;
 
 
 --
+-- Name: update_mpt_updated_at(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.update_mpt_updated_at() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: update_next_rotation_due(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -18308,8 +18322,44 @@ CREATE TABLE public.mpt_holders (
     authorized_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    project_id uuid
+    project_id uuid,
+    locked_amount character varying DEFAULT '0'::character varying,
+    holder_flags integer DEFAULT 0,
+    previous_txn_id character varying,
+    previous_txn_lgr_seq integer,
+    owner_node character varying,
+    last_synced_ledger bigint,
+    last_synced_tx character varying,
+    last_synced_at timestamp with time zone
 );
+
+
+--
+-- Name: TABLE mpt_holders; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mpt_holders IS 'MPT holder balances synced from XRPL blockchain. Blockchain is the source of truth.';
+
+
+--
+-- Name: COLUMN mpt_holders.locked_amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_holders.locked_amount IS 'Amount of tokens currently locked for this holder - synced from blockchain';
+
+
+--
+-- Name: COLUMN mpt_holders.holder_flags; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_holders.holder_flags IS 'XRPL flags: lsfMPTLocked (0x01), lsfMPTAuthorized (0x02)';
+
+
+--
+-- Name: COLUMN mpt_holders.last_synced_ledger; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_holders.last_synced_ledger IS 'Last ledger index where this holder balance was synced from blockchain';
 
 
 --
@@ -18343,8 +18393,195 @@ CREATE TABLE public.mpt_issuances (
     destroyed_at timestamp with time zone,
     creation_transaction_hash character varying(64) NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    can_escrow boolean DEFAULT false,
+    locked_amount character varying DEFAULT '0'::character varying,
+    sequence integer,
+    mpt_metadata_hex text,
+    previous_txn_id character varying,
+    previous_txn_lgr_seq integer,
+    owner_node character varying,
+    last_synced_ledger bigint,
+    last_synced_tx character varying,
+    last_synced_at timestamp with time zone,
+    uris jsonb DEFAULT '[]'::jsonb,
+    additional_info jsonb DEFAULT '{}'::jsonb,
+    mutable_metadata boolean DEFAULT false,
+    mutable_transfer_fee boolean DEFAULT false,
+    mutable_flags boolean DEFAULT false,
+    destruction_transaction_hash character varying(64)
 );
+
+
+--
+-- Name: TABLE mpt_issuances; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mpt_issuances IS 'Multi-Purpose Token issuances synced from XRPL blockchain. Blockchain is the source of truth.';
+
+
+--
+-- Name: COLUMN mpt_issuances.can_escrow; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.can_escrow IS 'If true, indicates that individual holders can place their balances into an escrow';
+
+
+--
+-- Name: COLUMN mpt_issuances.locked_amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.locked_amount IS 'Amount of tokens currently locked (included in outstanding_amount) - synced from blockchain';
+
+
+--
+-- Name: COLUMN mpt_issuances.sequence; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.sequence IS 'Sequence number from the MPTokenIssuanceCreate transaction';
+
+
+--
+-- Name: COLUMN mpt_issuances.mpt_metadata_hex; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.mpt_metadata_hex IS 'Raw hex metadata from blockchain (MPTokenMetadata field)';
+
+
+--
+-- Name: COLUMN mpt_issuances.last_synced_ledger; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.last_synced_ledger IS 'Last ledger index where this issuance was synced from blockchain';
+
+
+--
+-- Name: COLUMN mpt_issuances.last_synced_tx; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.last_synced_tx IS 'Last transaction hash that updated this record';
+
+
+--
+-- Name: COLUMN mpt_issuances.uris; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.uris IS 'Array of URI objects following XLS-89 format: [{u: string, c: string, t: string}]';
+
+
+--
+-- Name: COLUMN mpt_issuances.additional_info; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.additional_info IS 'Freeform field for key token details per XLS-89';
+
+
+--
+-- Name: COLUMN mpt_issuances.mutable_metadata; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.mutable_metadata IS 'XLS-94: If true, metadata can be updated';
+
+
+--
+-- Name: COLUMN mpt_issuances.mutable_transfer_fee; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.mutable_transfer_fee IS 'XLS-94: If true, transfer_fee can be updated';
+
+
+--
+-- Name: COLUMN mpt_issuances.mutable_flags; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.mutable_flags IS 'XLS-94: If true, certain flags can be updated';
+
+
+--
+-- Name: COLUMN mpt_issuances.destruction_transaction_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_issuances.destruction_transaction_hash IS 'Transaction hash of the MPTokenIssuanceDestroy transaction. Stored for audit trail even though the issuance is deleted from blockchain.';
+
+
+--
+-- Name: mpt_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.mpt_operations (
+    id bigint NOT NULL,
+    tx_hash text NOT NULL,
+    mpt_issuance_id text NOT NULL,
+    operation_type text NOT NULL,
+    from_address text,
+    to_address text,
+    amount numeric NOT NULL,
+    ledger_index bigint NOT NULL,
+    "timestamp" bigint NOT NULL,
+    validated boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+--
+-- Name: TABLE mpt_operations; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mpt_operations IS 'Simplified MPT operations (MINT/BURN/TRANSFER) synced from blockchain. Complements mpt_transactions with focus on token movement.';
+
+
+--
+-- Name: COLUMN mpt_operations.tx_hash; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_operations.tx_hash IS 'Unique transaction hash from XRPL';
+
+
+--
+-- Name: COLUMN mpt_operations.mpt_issuance_id; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_operations.mpt_issuance_id IS 'MPT issuance identifier';
+
+
+--
+-- Name: COLUMN mpt_operations.operation_type; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_operations.operation_type IS 'Operation type: MINT (issuer→holder), BURN (holder→issuer), TRANSFER (holder→holder)';
+
+
+--
+-- Name: COLUMN mpt_operations.amount; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_operations.amount IS 'Amount of tokens in the operation';
+
+
+--
+-- Name: COLUMN mpt_operations."timestamp"; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_operations."timestamp" IS 'Ripple epoch timestamp from blockchain';
+
+
+--
+-- Name: mpt_operations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.mpt_operations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: mpt_operations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.mpt_operations_id_seq OWNED BY public.mpt_operations.id;
 
 
 --
@@ -18362,8 +18599,45 @@ CREATE TABLE public.mpt_transactions (
     ledger_index integer,
     status character varying(20) DEFAULT 'confirmed'::character varying,
     created_at timestamp with time zone DEFAULT now(),
-    project_id uuid
+    project_id uuid,
+    blockchain_timestamp bigint,
+    validated boolean DEFAULT true,
+    transaction_metadata jsonb,
+    delivered_amount character varying,
+    fee character varying,
+    sequence_number integer,
+    signing_pub_key character varying,
+    txn_signature character varying,
+    affected_nodes jsonb
 );
+
+
+--
+-- Name: TABLE mpt_transactions; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.mpt_transactions IS 'MPT transaction history from XRPL blockchain. Blockchain is the source of truth.';
+
+
+--
+-- Name: COLUMN mpt_transactions.blockchain_timestamp; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_transactions.blockchain_timestamp IS 'Ripple epoch timestamp from blockchain';
+
+
+--
+-- Name: COLUMN mpt_transactions.transaction_metadata; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_transactions.transaction_metadata IS 'Full transaction metadata from XRPL';
+
+
+--
+-- Name: COLUMN mpt_transactions.affected_nodes; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.mpt_transactions.affected_nodes IS 'AffectedNodes array from transaction metadata for tracking state changes';
 
 
 --
@@ -31229,6 +31503,13 @@ CREATE TABLE public.xrpl_trust_line_transactions (
 
 
 --
+-- Name: mpt_operations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_operations ALTER COLUMN id SET DEFAULT nextval('public.mpt_operations_id_seq'::regclass);
+
+
+--
 -- Name: nav_calculation_history id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -34525,6 +34806,22 @@ ALTER TABLE ONLY public.mpt_issuances
 
 
 --
+-- Name: mpt_operations mpt_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_operations
+    ADD CONSTRAINT mpt_operations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: mpt_operations mpt_operations_tx_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_operations
+    ADD CONSTRAINT mpt_operations_tx_hash_key UNIQUE (tx_hash);
+
+
+--
 -- Name: mpt_transactions mpt_transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -37700,6 +37997,22 @@ ALTER TABLE ONLY public.mpt_holders
 
 ALTER TABLE ONLY public.sidebar_items
     ADD CONSTRAINT unique_item_per_section UNIQUE (item_id, section_id);
+
+
+--
+-- Name: mpt_holders unique_mpt_holder_issuance; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_holders
+    ADD CONSTRAINT unique_mpt_holder_issuance UNIQUE (issuance_id, holder_address);
+
+
+--
+-- Name: mpt_transactions unique_mpt_transaction_hash; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.mpt_transactions
+    ADD CONSTRAINT unique_mpt_transaction_hash UNIQUE (transaction_hash);
 
 
 --
@@ -45311,10 +45624,24 @@ CREATE INDEX idx_mpt_holders_authorized ON public.mpt_holders USING btree (autho
 
 
 --
+-- Name: idx_mpt_holders_composite; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_holders_composite ON public.mpt_holders USING btree (issuance_id, holder_address);
+
+
+--
 -- Name: idx_mpt_holders_issuance; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_mpt_holders_issuance ON public.mpt_holders USING btree (issuance_id);
+
+
+--
+-- Name: idx_mpt_holders_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_holders_project ON public.mpt_holders USING btree (project_id);
 
 
 --
@@ -45325,6 +45652,13 @@ CREATE INDEX idx_mpt_holders_project_id ON public.mpt_holders USING btree (proje
 
 
 --
+-- Name: idx_mpt_issuances_additional_info; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_additional_info ON public.mpt_issuances USING gin (additional_info);
+
+
+--
 -- Name: idx_mpt_issuances_created; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -45332,10 +45666,38 @@ CREATE INDEX idx_mpt_issuances_created ON public.mpt_issuances USING btree (crea
 
 
 --
+-- Name: idx_mpt_issuances_destroyed; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_destroyed ON public.mpt_issuances USING btree (status, destroyed_at) WHERE ((status)::text = 'destroyed'::text);
+
+
+--
+-- Name: idx_mpt_issuances_issuance_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_issuance_id ON public.mpt_issuances USING btree (issuance_id);
+
+
+--
 -- Name: idx_mpt_issuances_issuer; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_mpt_issuances_issuer ON public.mpt_issuances USING btree (issuer_address);
+
+
+--
+-- Name: idx_mpt_issuances_last_synced; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_last_synced ON public.mpt_issuances USING btree (last_synced_ledger);
+
+
+--
+-- Name: idx_mpt_issuances_metadata_json; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_metadata_json ON public.mpt_issuances USING gin (metadata_json);
 
 
 --
@@ -45360,6 +45722,55 @@ CREATE INDEX idx_mpt_issuances_ticker ON public.mpt_issuances USING btree (ticke
 
 
 --
+-- Name: idx_mpt_issuances_uris_category; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_issuances_uris_category ON public.mpt_issuances USING gin (uris);
+
+
+--
+-- Name: idx_mpt_ops_from; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_ops_from ON public.mpt_operations USING btree (from_address);
+
+
+--
+-- Name: idx_mpt_ops_issuance; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_ops_issuance ON public.mpt_operations USING btree (mpt_issuance_id);
+
+
+--
+-- Name: idx_mpt_ops_ledger; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_ops_ledger ON public.mpt_operations USING btree (ledger_index);
+
+
+--
+-- Name: idx_mpt_ops_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_ops_timestamp ON public.mpt_operations USING btree ("timestamp");
+
+
+--
+-- Name: idx_mpt_ops_to; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_ops_to ON public.mpt_operations USING btree (to_address);
+
+
+--
+-- Name: idx_mpt_ops_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_ops_type ON public.mpt_operations USING btree (operation_type);
+
+
+--
 -- Name: idx_mpt_transactions_created; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -45374,6 +45785,13 @@ CREATE INDEX idx_mpt_transactions_from ON public.mpt_transactions USING btree (f
 
 
 --
+-- Name: idx_mpt_transactions_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_hash ON public.mpt_transactions USING btree (transaction_hash);
+
+
+--
 -- Name: idx_mpt_transactions_issuance; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -45381,10 +45799,31 @@ CREATE INDEX idx_mpt_transactions_issuance ON public.mpt_transactions USING btre
 
 
 --
+-- Name: idx_mpt_transactions_ledger; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_ledger ON public.mpt_transactions USING btree (ledger_index);
+
+
+--
+-- Name: idx_mpt_transactions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_project ON public.mpt_transactions USING btree (project_id);
+
+
+--
 -- Name: idx_mpt_transactions_project_id; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_mpt_transactions_project_id ON public.mpt_transactions USING btree (project_id);
+
+
+--
+-- Name: idx_mpt_transactions_timestamp; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_mpt_transactions_timestamp ON public.mpt_transactions USING btree (blockchain_timestamp);
 
 
 --
@@ -52366,14 +52805,14 @@ CREATE TRIGGER trigger_facet_registry_updated_at BEFORE UPDATE ON public.facet_r
 -- Name: mpt_holders trigger_mpt_holders_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_mpt_holders_updated_at BEFORE UPDATE ON public.mpt_holders FOR EACH ROW EXECUTE FUNCTION public.update_mpt_holders_updated_at();
+CREATE TRIGGER trigger_mpt_holders_updated_at BEFORE UPDATE ON public.mpt_holders FOR EACH ROW EXECUTE FUNCTION public.update_mpt_updated_at();
 
 
 --
 -- Name: mpt_issuances trigger_mpt_issuances_updated_at; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER trigger_mpt_issuances_updated_at BEFORE UPDATE ON public.mpt_issuances FOR EACH ROW EXECUTE FUNCTION public.update_mpt_issuances_updated_at();
+CREATE TRIGGER trigger_mpt_issuances_updated_at BEFORE UPDATE ON public.mpt_issuances FOR EACH ROW EXECUTE FUNCTION public.update_mpt_updated_at();
 
 
 --
@@ -60160,6 +60599,16 @@ GRANT ALL ON FUNCTION public.update_mpt_issuances_updated_at() TO prisma;
 
 
 --
+-- Name: FUNCTION update_mpt_updated_at(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.update_mpt_updated_at() TO anon;
+GRANT ALL ON FUNCTION public.update_mpt_updated_at() TO authenticated;
+GRANT ALL ON FUNCTION public.update_mpt_updated_at() TO service_role;
+GRANT ALL ON FUNCTION public.update_mpt_updated_at() TO prisma;
+
+
+--
 -- Name: FUNCTION update_next_rotation_due(); Type: ACL; Schema: public; Owner: -
 --
 
@@ -63757,6 +64206,26 @@ GRANT ALL ON TABLE public.mpt_issuances TO anon;
 GRANT ALL ON TABLE public.mpt_issuances TO authenticated;
 GRANT ALL ON TABLE public.mpt_issuances TO service_role;
 GRANT ALL ON TABLE public.mpt_issuances TO prisma;
+
+
+--
+-- Name: TABLE mpt_operations; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.mpt_operations TO anon;
+GRANT ALL ON TABLE public.mpt_operations TO authenticated;
+GRANT ALL ON TABLE public.mpt_operations TO service_role;
+GRANT ALL ON TABLE public.mpt_operations TO prisma;
+
+
+--
+-- Name: SEQUENCE mpt_operations_id_seq; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON SEQUENCE public.mpt_operations_id_seq TO anon;
+GRANT ALL ON SEQUENCE public.mpt_operations_id_seq TO authenticated;
+GRANT ALL ON SEQUENCE public.mpt_operations_id_seq TO service_role;
+GRANT ALL ON SEQUENCE public.mpt_operations_id_seq TO prisma;
 
 
 --

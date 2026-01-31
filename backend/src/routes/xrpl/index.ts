@@ -26,3 +26,7 @@ export { tokenRoutes } from './tokens'
 export { nftRoutes as nftRoutesNew } from './nfts'
 export { advancedRoutes } from './advanced'
 export { monitoringRoutes } from './monitoring'
+
+// MPT Database Synchronization routes
+export { default as mptSyncRoutes } from './mpt-sync.routes'
+export { default as mptMonitorRoutes } from './mpt-monitor.routes'

@@ -10,7 +10,6 @@ import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/utils/utils";
 import { Badge } from '@/components/ui/badge';
 import { 
-  LayoutDashboard,
   Wallet,
   Coins,
   Image,
@@ -50,16 +49,10 @@ export const XRPLNavigation: React.FC<XRPLNavigationProps> = ({ projectId }) => 
   // Define navigation links - comprehensive XRPL features
   const navLinks = [
     {
-      icon: <LayoutDashboard className="h-4 w-4" />,
-      label: "Dashboard",
-      href: getPath(""),
-      active: currentPath === getPath("") || currentPath === `/xrpl`,
-    },
-    {
       icon: <Wallet className="h-4 w-4" />,
       label: "Wallet",
       href: getPath("/wallet"),
-      active: isActive("/wallet"),
+      active: isActive("/wallet") || currentPath === getPath("") || currentPath === `/xrpl`,
     },
     {
       icon: <Coins className="h-4 w-4" />,

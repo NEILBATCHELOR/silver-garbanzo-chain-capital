@@ -7,7 +7,6 @@ import { useToast } from '@/components/ui/use-toast'
 import { Loader2, Send, CheckCircle2 } from 'lucide-react'
 import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
-import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
 import type { Wallet } from 'xrpl'
 import {
   Select,
@@ -32,17 +31,19 @@ interface MPTBalance {
 interface MPTTransferProps {
   wallet: Wallet
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
+  projectId?: string
 }
 
 export const MPTTransfer: React.FC<MPTTransferProps> = ({
   wallet,
-  network = 'TESTNET'
+  network = 'TESTNET',
+  projectId
 }) => {
   const { toast } = useToast()
-  const { primaryProject } = usePrimaryProject()
   const [balances, setBalances] = useState<MPTBalance[]>([])
   const [loading, setLoading] = useState(false)
   const [sending, setSending] = useState(false)
+  const [issuerAddress, setIssuerAddress] = useState<string>('')
   
   const [transferData, setTransferData] = useState({
     issuanceId: '',
@@ -50,9 +51,32 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
     amount: ''
   })
 
+  // Check if destination is the issuer (burning tokens)
+  const isBurning = transferData.destination && issuerAddress && 
+    transferData.destination === issuerAddress
+
+  // Only re-load when wallet address changes, not on every wallet object change
   useEffect(() => {
-    loadBalances()
-  }, [wallet])
+    if (wallet?.address) {
+      loadBalances()
+    }
+  }, [wallet?.address, network])
+
+  // Load issuer address when token is selected
+  useEffect(() => {
+    if (transferData.issuanceId) {
+      const loadIssuer = async () => {
+        try {
+          const mptService = new XRPLMPTService(network)
+          const details = await mptService.getMPTIssuanceDetails(transferData.issuanceId)
+          setIssuerAddress(details.issuer)
+        } catch (error) {
+          console.error('Failed to load issuer:', error)
+        }
+      }
+      loadIssuer()
+    }
+  }, [transferData.issuanceId, network])
 
   const loadBalances = async () => {
     setLoading(true)
@@ -107,7 +131,7 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
 
     setSending(true)
     try {
-      if (!primaryProject?.id) {
+      if (!projectId) {
         toast({
           title: 'Error',
           description: 'No active project selected',
@@ -119,7 +143,7 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
       const mptService = new XRPLMPTService(network)
 
       const result = await mptService.transferMPT({
-        projectId: primaryProject.id,
+        projectId: projectId,
         senderWallet: wallet,
         destination: transferData.destination,
         mptIssuanceId: transferData.issuanceId,
@@ -127,10 +151,19 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
       })
 
       toast({
-        title: 'Transfer Successful',
+        title: result.isBurn ? 'Tokens Burned Successfully' : 'Transfer Successful',
         description: (
           <div className="space-y-2">
-            <p>Sent {transferData.amount} tokens</p>
+            {result.isBurn ? (
+              <>
+                <p>Burned {transferData.amount} tokens (sent to issuer)</p>
+                <p className="text-xs text-muted-foreground">
+                  Tokens are automatically destroyed when sent to the issuer
+                </p>
+              </>
+            ) : (
+              <p>Sent {transferData.amount} tokens to {transferData.destination.slice(0, 8)}...</p>
+            )}
             <p className="text-xs">Hash: {result.transactionHash.slice(0, 8)}...</p>
           </div>
         )
@@ -240,6 +273,16 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
               />
             </div>
 
+            {/* Burn Warning */}
+            {isBurning && (
+              <Alert className="bg-orange-50 dark:bg-orange-950/30 border-orange-200 dark:border-orange-800">
+                <AlertDescription className="text-orange-900 dark:text-orange-100">
+                  ⚠️ <strong>Burning Tokens:</strong> You are sending tokens to the issuer. 
+                  These tokens will be automatically destroyed and removed from circulation.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Amount */}
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
@@ -286,16 +329,17 @@ export const MPTTransfer: React.FC<MPTTransferProps> = ({
               type="submit" 
               disabled={sending || !transferData.issuanceId}
               className="w-full"
+              variant={isBurning ? 'destructive' : 'default'}
             >
               {sending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
+                  {isBurning ? 'Burning...' : 'Sending...'}
                 </>
               ) : (
                 <>
                   <Send className="mr-2 h-4 w-4" />
-                  Send Tokens
+                  {isBurning ? 'Burn Tokens' : 'Send Tokens'}
                 </>
               )}
             </Button>

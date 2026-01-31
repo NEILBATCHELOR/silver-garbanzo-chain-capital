@@ -39,15 +39,18 @@ export interface VaultDashboardHeaderProps {
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
   walletAddress?: string
   walletBalance?: string
+  walletId?: string // Track selected wallet
   title?: string
   subtitle?: string
   projectId?: string
+  projectName?: string // Display project name from parent
   onRefresh?: () => void
   onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
   onProjectChange?: (projectId: string) => void
   onWalletSelect?: (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => void
   actions?: React.ReactNode
   isLoading?: boolean
+  isLoadingBalance?: boolean // Loading state for balance
   showDeposit?: boolean
   showWithdraw?: boolean
   showAnalytics?: boolean
@@ -60,15 +63,18 @@ export function VaultDashboardHeader({
   network = 'TESTNET',
   walletAddress,
   walletBalance,
+  walletId,
   title = 'Yield Vaults',
   subtitle = 'CCeTracker vault management and analytics',
   projectId,
+  projectName,
   onRefresh,
   onNetworkChange,
   onProjectChange,
   onWalletSelect,
   actions,
   isLoading = false,
+  isLoadingBalance = false,
   showDeposit = true,
   showWithdraw = true,
   showAnalytics = true,
@@ -108,21 +114,25 @@ export function VaultDashboardHeader({
                 {title}
               </h1>
               <Badge variant="secondary" className="text-xs">
-                CCeTracker
-              </Badge>
-              <Badge variant="secondary" className="text-xs">
                 Real-time
               </Badge>
               {getNetworkBadge(network)}
               {walletAddress && walletBalance && (
                 <Badge variant="outline" className="text-xs font-mono">
-                  {walletBalance} USD
+                  {isLoadingBalance ? (
+                    <div className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Loading...</span>
+                    </div>
+                  ) : (
+                    walletBalance  // ✅ FIXED: Don't append USD, balance already includes currency
+                  )}
                 </Badge>
               )}
-              {primaryProject && (
+              {(projectId || projectName) && (
                 <Badge variant="outline" className="text-xs">
                   <Briefcase className="h-3 w-3 mr-1" />
-                  {primaryProject.name}
+                  {projectName || primaryProject?.name || 'Project'}
                 </Badge>
               )}
             </div>
@@ -135,7 +145,7 @@ export function VaultDashboardHeader({
             {/* Project Selector */}
             {primaryProject && (
               <Select 
-                value={(projectId || primaryProject.id) ?? ''} 
+                value={projectId || primaryProject.id} 
                 onValueChange={onProjectChange}
               >
                 <SelectTrigger className="w-[200px]">
@@ -150,7 +160,7 @@ export function VaultDashboardHeader({
             )}
 
             {/* Network Selector */}
-            <Select value={network ?? 'TESTNET'} onValueChange={onNetworkChange}>
+            <Select value={network} onValueChange={onNetworkChange}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue placeholder="Select network" />
               </SelectTrigger>
@@ -161,15 +171,17 @@ export function VaultDashboardHeader({
               </SelectContent>
             </Select>
 
-            {/* Wallet Selector */}
+            {/* Wallet Selector - EVM wallets only for Vault */}
             {projectId && (
               <WalletSelector
                 projectId={projectId}
-                network={network.toLowerCase() as 'mainnet' | 'testnet' | 'all'}
+                network="all"
+                value={walletId}
                 onWalletSelect={onWalletSelect}
-                placeholder="Select wallet"
+                placeholder="Select EVM wallet"
                 showBalance={true}
                 autoDecrypt={true}
+                evmOnly={true}
               />
             )}
 

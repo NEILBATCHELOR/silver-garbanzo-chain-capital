@@ -18703,8 +18703,16 @@ export type Database = {
           balance: string | null
           created_at: string | null
           holder_address: string
+          holder_flags: number | null
           id: string
           issuance_id: string
+          last_synced_at: string | null
+          last_synced_ledger: number | null
+          last_synced_tx: string | null
+          locked_amount: string | null
+          owner_node: string | null
+          previous_txn_id: string | null
+          previous_txn_lgr_seq: number | null
           project_id: string | null
           updated_at: string | null
         }
@@ -18715,8 +18723,16 @@ export type Database = {
           balance?: string | null
           created_at?: string | null
           holder_address: string
+          holder_flags?: number | null
           id?: string
           issuance_id: string
+          last_synced_at?: string | null
+          last_synced_ledger?: number | null
+          last_synced_tx?: string | null
+          locked_amount?: string | null
+          owner_node?: string | null
+          previous_txn_id?: string | null
+          previous_txn_lgr_seq?: number | null
           project_id?: string | null
           updated_at?: string | null
         }
@@ -18727,8 +18743,16 @@ export type Database = {
           balance?: string | null
           created_at?: string | null
           holder_address?: string
+          holder_flags?: number | null
           id?: string
           issuance_id?: string
+          last_synced_at?: string | null
+          last_synced_ledger?: number | null
+          last_synced_tx?: string | null
+          locked_amount?: string | null
+          owner_node?: string | null
+          previous_txn_id?: string | null
+          previous_txn_lgr_seq?: number | null
           project_id?: string | null
           updated_at?: string | null
         }
@@ -18751,10 +18775,12 @@ export type Database = {
       }
       mpt_issuances: {
         Row: {
+          additional_info: Json | null
           asset_class: string | null
           asset_scale: number
           asset_subclass: string | null
           can_clawback: boolean | null
+          can_escrow: boolean | null
           can_lock: boolean | null
           can_trade: boolean | null
           can_transfer: boolean | null
@@ -18762,28 +18788,44 @@ export type Database = {
           creation_transaction_hash: string
           description: string | null
           destroyed_at: string | null
+          destruction_transaction_hash: string | null
           flags: number | null
           icon_url: string | null
           id: string
           issuance_id: string
           issuer_address: string
           issuer_name: string | null
+          last_synced_at: string | null
+          last_synced_ledger: number | null
+          last_synced_tx: string | null
+          locked_amount: string | null
           maximum_amount: string | null
           metadata_json: Json | null
+          mpt_metadata_hex: string | null
+          mutable_flags: boolean | null
+          mutable_metadata: boolean | null
+          mutable_transfer_fee: boolean | null
           name: string
           outstanding_amount: string | null
+          owner_node: string | null
+          previous_txn_id: string | null
+          previous_txn_lgr_seq: number | null
           project_id: string | null
           require_auth: boolean | null
+          sequence: number | null
           status: string | null
           ticker: string
           transfer_fee: number | null
           updated_at: string | null
+          uris: Json | null
         }
         Insert: {
+          additional_info?: Json | null
           asset_class?: string | null
           asset_scale: number
           asset_subclass?: string | null
           can_clawback?: boolean | null
+          can_escrow?: boolean | null
           can_lock?: boolean | null
           can_trade?: boolean | null
           can_transfer?: boolean | null
@@ -18791,28 +18833,44 @@ export type Database = {
           creation_transaction_hash: string
           description?: string | null
           destroyed_at?: string | null
+          destruction_transaction_hash?: string | null
           flags?: number | null
           icon_url?: string | null
           id?: string
           issuance_id: string
           issuer_address: string
           issuer_name?: string | null
+          last_synced_at?: string | null
+          last_synced_ledger?: number | null
+          last_synced_tx?: string | null
+          locked_amount?: string | null
           maximum_amount?: string | null
           metadata_json?: Json | null
+          mpt_metadata_hex?: string | null
+          mutable_flags?: boolean | null
+          mutable_metadata?: boolean | null
+          mutable_transfer_fee?: boolean | null
           name: string
           outstanding_amount?: string | null
+          owner_node?: string | null
+          previous_txn_id?: string | null
+          previous_txn_lgr_seq?: number | null
           project_id?: string | null
           require_auth?: boolean | null
+          sequence?: number | null
           status?: string | null
           ticker: string
           transfer_fee?: number | null
           updated_at?: string | null
+          uris?: Json | null
         }
         Update: {
+          additional_info?: Json | null
           asset_class?: string | null
           asset_scale?: number
           asset_subclass?: string | null
           can_clawback?: boolean | null
+          can_escrow?: boolean | null
           can_lock?: boolean | null
           can_trade?: boolean | null
           can_transfer?: boolean | null
@@ -18820,22 +18878,36 @@ export type Database = {
           creation_transaction_hash?: string
           description?: string | null
           destroyed_at?: string | null
+          destruction_transaction_hash?: string | null
           flags?: number | null
           icon_url?: string | null
           id?: string
           issuance_id?: string
           issuer_address?: string
           issuer_name?: string | null
+          last_synced_at?: string | null
+          last_synced_ledger?: number | null
+          last_synced_tx?: string | null
+          locked_amount?: string | null
           maximum_amount?: string | null
           metadata_json?: Json | null
+          mpt_metadata_hex?: string | null
+          mutable_flags?: boolean | null
+          mutable_metadata?: boolean | null
+          mutable_transfer_fee?: boolean | null
           name?: string
           outstanding_amount?: string | null
+          owner_node?: string | null
+          previous_txn_id?: string | null
+          previous_txn_lgr_seq?: number | null
           project_id?: string | null
           require_auth?: boolean | null
+          sequence?: number | null
           status?: string | null
           ticker?: string
           transfer_fee?: number | null
           updated_at?: string | null
+          uris?: Json | null
         }
         Relationships: [
           {
@@ -18847,45 +18919,114 @@ export type Database = {
           },
         ]
       }
+      mpt_operations: {
+        Row: {
+          amount: number
+          created_at: string | null
+          from_address: string | null
+          id: number
+          ledger_index: number
+          mpt_issuance_id: string
+          operation_type: string
+          timestamp: number
+          to_address: string | null
+          tx_hash: string
+          validated: boolean | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          from_address?: string | null
+          id?: number
+          ledger_index: number
+          mpt_issuance_id: string
+          operation_type: string
+          timestamp: number
+          to_address?: string | null
+          tx_hash: string
+          validated?: boolean | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          from_address?: string | null
+          id?: number
+          ledger_index?: number
+          mpt_issuance_id?: string
+          operation_type?: string
+          timestamp?: number
+          to_address?: string | null
+          tx_hash?: string
+          validated?: boolean | null
+        }
+        Relationships: []
+      }
       mpt_transactions: {
         Row: {
+          affected_nodes: Json | null
           amount: string
+          blockchain_timestamp: number | null
           created_at: string | null
+          delivered_amount: string | null
+          fee: string | null
           from_address: string
           id: string
           issuance_id: string
           ledger_index: number | null
           project_id: string | null
+          sequence_number: number | null
+          signing_pub_key: string | null
           status: string | null
           to_address: string
           transaction_hash: string
+          transaction_metadata: Json | null
           transaction_type: string
+          txn_signature: string | null
+          validated: boolean | null
         }
         Insert: {
+          affected_nodes?: Json | null
           amount: string
+          blockchain_timestamp?: number | null
           created_at?: string | null
+          delivered_amount?: string | null
+          fee?: string | null
           from_address: string
           id?: string
           issuance_id: string
           ledger_index?: number | null
           project_id?: string | null
+          sequence_number?: number | null
+          signing_pub_key?: string | null
           status?: string | null
           to_address: string
           transaction_hash: string
+          transaction_metadata?: Json | null
           transaction_type: string
+          txn_signature?: string | null
+          validated?: boolean | null
         }
         Update: {
+          affected_nodes?: Json | null
           amount?: string
+          blockchain_timestamp?: number | null
           created_at?: string | null
+          delivered_amount?: string | null
+          fee?: string | null
           from_address?: string
           id?: string
           issuance_id?: string
           ledger_index?: number | null
           project_id?: string | null
+          sequence_number?: number | null
+          signing_pub_key?: string | null
           status?: string | null
           to_address?: string
           transaction_hash?: string
+          transaction_metadata?: Json | null
           transaction_type?: string
+          txn_signature?: string | null
+          validated?: boolean | null
         }
         Relationships: [
           {

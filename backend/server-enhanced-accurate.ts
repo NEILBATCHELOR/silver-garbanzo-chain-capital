@@ -42,7 +42,9 @@ import {
   nftRoutes, 
   paymentsRoutes, 
   transactionsRoutes,
-  walletsRoutes 
+  walletsRoutes,
+  mptSyncRoutes,
+  mptMonitorRoutes
 } from './src/routes/xrpl'
 
 // Injective Routes (Phase 10 - Injective Native Integration)
@@ -1290,12 +1292,15 @@ Comprehensive platform supporting:
     // - Payment Systems - Channels, Escrow, Checks
     // - Transactions - Query, history, and verification
     // - Wallets - Balance tracking and asset management
+    // - MPT Sync - Blockchain-database synchronization (ensures blockchain is source of truth)
     // ============================================================================
     await app.register(mptRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/mpt` })          // /api/v1/xrpl/mpt/*
     await app.register(nftRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/nft` })          // /api/v1/xrpl/nft/*
     await app.register(paymentsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/payments` }) // /api/v1/xrpl/payments/*
     await app.register(transactionsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/transactions` }) // /api/v1/xrpl/transactions/*
     await app.register(walletsRoutes, { supabase: app.supabase, prefix: `${apiPrefix}/xrpl/wallets` })  // /api/v1/xrpl/wallets/*
+    await app.register(mptSyncRoutes)  // /api/xrpl/mpt/sync/* - Blockchain-database synchronization
+    await app.register(mptMonitorRoutes)  // /api/xrpl/mpt/monitor/* - Automatic blockchain monitoring
 
     // ============================================================================
     // INJECTIVE NATIVE BLOCKCHAIN ROUTES - Phase 10

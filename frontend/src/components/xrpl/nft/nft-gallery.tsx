@@ -56,9 +56,12 @@ export const NFTGallery: React.FC<NFTGalleryProps> = ({
   const [loading, setLoading] = useState(false)
   const [selectedNft, setSelectedNft] = useState<NFT | null>(null)
 
+  // Only re-load when wallet address changes, not on every wallet object change
   useEffect(() => {
-    loadNFTs()
-  }, [wallet])
+    if (wallet?.address) {
+      loadNFTs()
+    }
+  }, [wallet?.address, network])
 
   const loadNFTs = async () => {
     setLoading(true)

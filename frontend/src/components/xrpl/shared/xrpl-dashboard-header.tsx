@@ -20,8 +20,12 @@ import {
   Image,
   Send,
   AlertCircle,
-  Briefcase
+  Briefcase,
+  Copy,
+  Check
 } from 'lucide-react'
+import { useState } from 'react'
+import { useToast } from '@/components/ui/use-toast'
 import {
   Select,
   SelectContent,
@@ -38,15 +42,18 @@ export interface XRPLDashboardHeaderProps {
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
   walletAddress?: string
   walletBalance?: string
+  walletId?: string // Track selected wallet
   title?: string
   subtitle?: string
   projectId?: string
+  projectName?: string // Display project name from parent
   onRefresh?: () => void
   onNetworkChange?: (network: 'MAINNET' | 'TESTNET' | 'DEVNET') => void
   onProjectChange?: (projectId: string) => void
   onWalletSelect?: (wallet: ProjectWalletData & { decryptedPrivateKey?: string }) => void
   actions?: React.ReactNode
   isLoading?: boolean
+  isLoadingBalance?: boolean // Loading state for balance
   showMPT?: boolean
   showNFT?: boolean
   showPayments?: boolean
@@ -59,15 +66,18 @@ export function XRPLDashboardHeader({
   network = 'TESTNET',
   walletAddress,
   walletBalance,
+  walletId,
   title = 'XRPL Integration',
   subtitle = 'XRP Ledger blockchain integration and asset management',
   projectId,
+  projectName,
   onRefresh,
   onNetworkChange,
   onProjectChange,
   onWalletSelect,
   actions,
   isLoading = false,
+  isLoadingBalance = false,
   showMPT = true,
   showNFT = true,
   showPayments = true,
@@ -77,6 +87,8 @@ export function XRPLDashboardHeader({
 }: XRPLDashboardHeaderProps) {
   
   const { primaryProject, loadPrimaryProject } = usePrimaryProject({ loadOnMount: true })
+  const { toast } = useToast()
+  const [copied, setCopied] = useState(false)
   
   // Load primary project on mount and notify parent
   useEffect(() => {
@@ -95,6 +107,28 @@ export function XRPLDashboardHeader({
     }
   }
 
+  const handleCopyWallet = async () => {
+    if (!walletAddress) return
+    
+    try {
+      await navigator.clipboard.writeText(walletAddress)
+      setCopied(true)
+      toast({
+        title: 'Copied',
+        description: 'Wallet address copied to clipboard'
+      })
+      
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy wallet address:', error)
+      toast({
+        title: 'Copy Failed',
+        description: 'Could not copy wallet address',
+        variant: 'destructive'
+      })
+    }
+  }
+
   return (
     <div className="bg-white border-b">
       <div className="px-6 py-4">
@@ -102,6 +136,7 @@ export function XRPLDashboardHeader({
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1">
             <div className="flex items-center gap-3">
+              <Coins className="h-6 w-6 text-primary" />
               <h1 className="text-2xl font-bold text-foreground">
                 {title}
               </h1>
@@ -111,13 +146,38 @@ export function XRPLDashboardHeader({
               {getNetworkBadge(network)}
               {walletAddress && walletBalance && (
                 <Badge variant="outline" className="text-xs font-mono">
-                  {walletBalance} XRP
+                  {isLoadingBalance ? (
+                    <div className="flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" />
+                      <span>Loading...</span>
+                    </div>
+                  ) : (
+                    `${walletBalance} XRP`
+                  )}
                 </Badge>
               )}
-              {primaryProject && (
+              {(projectId || projectName) && (
                 <Badge variant="outline" className="text-xs">
                   <Briefcase className="h-3 w-3 mr-1" />
-                  {primaryProject.name}
+                  {projectName || primaryProject?.name || 'Project'}
+                </Badge>
+              )}
+              {walletAddress && (
+                <Badge variant="outline" className="text-xs font-mono">
+                  <span className="mr-1">Wallet:</span>
+                  <span>{walletAddress.substring(0, 8)}...{walletAddress.substring(walletAddress.length - 6)}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-4 w-4 p-0 ml-1 hover:bg-transparent"
+                    onClick={handleCopyWallet}
+                  >
+                    {copied ? (
+                      <Check className="h-3 w-3 text-green-600" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
                 </Badge>
               )}
             </div>
@@ -161,7 +221,8 @@ export function XRPLDashboardHeader({
               <WalletSelector
                 projectId={projectId}
                 blockchain="xrpl"
-                network={network.toLowerCase() as 'mainnet' | 'testnet' | 'all'}
+                network="all"
+                value={walletId}
                 onWalletSelect={onWalletSelect}
                 placeholder="Select wallet"
                 showBalance={true}

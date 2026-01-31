@@ -5,7 +5,9 @@
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --incremental",
+    "build:fast": "tsc --incremental --skipLibCheck",
+    "build:prod": "tsc --incremental --skipLibCheck --noEmitOnError",
     "start": "node dist/server.js",
     "dev:accurate": "tsx server-enhanced-accurate.ts",
     "start:accurate": "tsx server-enhanced-accurate.ts",

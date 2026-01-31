@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { Loader2, RefreshCw, Eye, EyeOff, Coins, TrendingUp } from 'lucide-react'
 import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
-import type { Wallet } from 'xrpl'
+import type { ProjectWalletData } from '@/services/project/project-wallet-service'
 
 interface WalletBalanceProps {
-  wallet: Wallet
+  wallet: ProjectWalletData & { decryptedPrivateKey?: string }
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
 }
 
@@ -39,7 +39,7 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
 
   useEffect(() => {
     loadBalance()
-  }, [wallet.address, network])
+  }, [wallet.wallet_address, network])
 
   const loadBalance = async () => {
     setLoading(true)
@@ -49,7 +49,7 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
       // Get account info
       const accountInfo = await client.request({
         command: 'account_info',
-        account: wallet.address,
+        account: wallet.wallet_address,
         ledger_index: 'validated'
       })
 
@@ -58,7 +58,7 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
       // Get account objects to calculate reserve
       const objects = await client.request({
         command: 'account_objects',
-        account: wallet.address,
+        account: wallet.wallet_address,
         ledger_index: 'validated'
       })
 
@@ -71,7 +71,7 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
       // Get trust lines (tokens)
       const lines = await client.request({
         command: 'account_lines',
-        account: wallet.address,
+        account: wallet.wallet_address,
         ledger_index: 'validated'
       })
 
@@ -99,7 +99,7 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
   }
 
   const copyAddress = async () => {
-    await navigator.clipboard.writeText(wallet.address)
+    await navigator.clipboard.writeText(wallet.wallet_address)
     toast({
       title: 'Copied',
       description: 'Wallet address copied to clipboard'
@@ -149,7 +149,7 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
             className="p-3 bg-muted rounded-md cursor-pointer hover:bg-accent transition-colors"
           >
             <code className="text-xs break-all">
-              {showFullAddress ? wallet.address : `${wallet.address.substring(0, 20)}...`}
+              {showFullAddress ? wallet.wallet_address : `${wallet.wallet_address.substring(0, 20)}...`}
             </code>
           </div>
         </div>
@@ -226,38 +226,6 @@ export const WalletBalance: React.FC<WalletBalanceProps> = ({
                 </Card>
               ))}
             </div>
-          </div>
-        )}
-
-        {/* Fund Wallet (Testnet Only) */}
-        {network === 'TESTNET' && (
-          <div className="p-4 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-800 mb-2">
-              💰 <strong>Need Testnet XRP?</strong>
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={async () => {
-                try {
-                  const client = await xrplClientManager.getClient(network)
-                  await client.fundWallet(wallet)
-                  toast({
-                    title: 'Success',
-                    description: 'Testnet XRP funded! Refreshing balance...'
-                  })
-                  setTimeout(loadBalance, 2000)
-                } catch (error) {
-                  toast({
-                    title: 'Error',
-                    description: 'Failed to fund wallet',
-                    variant: 'destructive'
-                  })
-                }
-              }}
-            >
-              Get Free Testnet XRP
-            </Button>
           </div>
         )}
       </CardContent>

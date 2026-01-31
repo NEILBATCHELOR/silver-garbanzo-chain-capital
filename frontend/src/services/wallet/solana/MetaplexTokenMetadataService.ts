@@ -207,6 +207,9 @@ class MetaplexTokenMetadataService {
   /**
    * Add Metaplex metadata to an SPL token
    * Creates a metadata PDA (Program Derived Address) linked to the mint
+   * 
+   * CRITICAL: This method now checks if metadata already exists before attempting creation.
+   * If metadata exists, it returns success with the existing metadata PDA.
    */
   async addMetadata(
     config: MetaplexMetadataConfig,
@@ -223,6 +226,30 @@ class MetaplexTokenMetadataService {
           symbol: config.symbol
         }
       });
+
+      // Step 0: PRE-CHECK - Check if metadata already exists to avoid "account already initialized" error
+      const existingMetadata = await this.fetchMetadata(options.mintAddress, options.network);
+      if (existingMetadata.success && existingMetadata.metadata) {
+        console.log('ℹ️ Metadata already exists for this mint, skipping creation');
+        
+        await logActivity({
+          action: 'metaplex_metadata_already_exists',
+          entity_type: 'token',
+          details: {
+            mintAddress: options.mintAddress,
+            existingMetadataPDA: existingMetadata.metadata.metadataPDA,
+            network: options.network,
+            reason: 'Metadata account already initialized on-chain'
+          }
+        });
+
+        return {
+          success: true,
+          signature: 'METADATA_ALREADY_EXISTS', // Special marker to indicate no transaction was needed
+          metadataPDA: existingMetadata.metadata.metadataPDA,
+          error: undefined
+        };
+      }
 
       // Step 1: Initialize Umi with the RPC endpoint
       const endpoint = this.getRpcEndpoint(options.network);
@@ -330,13 +357,52 @@ class MetaplexTokenMetadataService {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       
+      // Special handling for "account already initialized" error (0xc7)
+      const isAlreadyInitializedError = 
+        errorMessage.includes('Expected account to be uninitialized') ||
+        errorMessage.includes('0xc7') ||
+        errorMessage.includes('custom program error: 0xc7');
+      
+      if (isAlreadyInitializedError) {
+        // Metadata account already exists - try to fetch and return it
+        try {
+          const endpoint = this.getRpcEndpoint(options.network);
+          const umi = createUmi(endpoint).use(mplTokenMetadata());
+          const mint = publicKey(options.mintAddress);
+          const metadataPDA = findMetadataPda(umi, { mint });
+          
+          await logActivity({
+            action: 'metaplex_metadata_already_exists_recovered',
+            entity_type: 'token',
+            details: {
+              mintAddress: options.mintAddress,
+              metadataPDA: metadataPDA[0].toString(),
+              network: options.network,
+              originalError: errorMessage,
+              recovery: 'Returned existing metadata PDA instead of failing'
+            }
+          });
+
+          return {
+            success: true,
+            signature: 'METADATA_ALREADY_EXISTS',
+            metadataPDA: metadataPDA[0].toString(),
+            error: undefined
+          };
+        } catch (recoveryError) {
+          // If recovery fails, return the original error
+          console.error('Failed to recover existing metadata:', recoveryError);
+        }
+      }
+      
       await logActivity({
         action: 'metaplex_metadata_creation_failed',
         entity_type: 'token',
         details: {
           mintAddress: options.mintAddress,
           error: errorMessage,
-          network: options.network
+          network: options.network,
+          isAlreadyInitializedError
         }
       });
 
@@ -726,6 +792,28 @@ class MetaplexTokenMetadataService {
     const mint = publicKey(mintAddress);
     const metadataPDA = findMetadataPda(umi, { mint });
     return metadataPDA[0].toString();
+  }
+
+  /**
+   * SAFE METADATA CREATION - Recommended wrapper for production use
+   * 
+   * This method:
+   * 1. Checks if metadata already exists (avoids "account already initialized" errors)
+   * 2. If exists, returns the existing metadata PDA
+   * 3. If not, creates new metadata
+   * 4. Handles all edge cases gracefully
+   * 
+   * Use this instead of addMetadata() directly when you're unsure of the mint's state.
+   * 
+   * @returns AddMetadataResult with success=true and either a transaction signature or 'METADATA_ALREADY_EXISTS'
+   */
+  async addMetadataSafe(
+    config: MetaplexMetadataConfig,
+    options: AddMetadataOptions
+  ): Promise<AddMetadataResult> {
+    // The addMetadata method now includes pre-checking by default,
+    // but this wrapper exists for explicit semantics and backward compatibility
+    return this.addMetadata(config, options);
   }
 }
 

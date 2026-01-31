@@ -1,104 +1,78 @@
-import React, { useState, useEffect } from 'react'
+/**
+ * MPT Management Component
+ * 
+ * Provides UI for managing existing MPT issuances:
+ * - Lock/Unlock tokens (globally or per holder)
+ * - Destroy issuance (if no holders exist)
+ * - View issuance details
+ */
+
+import React, { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/components/ui/use-toast'
-import { 
-  Loader2, 
-  ExternalLink, 
-  Users, 
-  Coins,
-  ArrowUpDown,
-  Ban,
-  Settings
-} from 'lucide-react'
-import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
-import { xrplClientManager } from '@/services/wallet/ripple/core/XRPLClientManager'
-import { usePrimaryProject } from '@/hooks/project/usePrimaryProject'
-import type { Wallet } from 'xrpl'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-interface MPTIssuance {
-  issuanceId: string
-  issuer: string
-  assetScale: number
-  maximumAmount?: string
-  outstandingAmount: string
-  metadata: {
-    ticker: string
-    name: string
-    desc: string
-    icon?: string
-  }
-  flags: number
-}
+import { Switch } from '@/components/ui/switch'
+import { useToast } from '@/components/ui/use-toast'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import { Loader2, Lock, Unlock, Trash2, AlertTriangle } from 'lucide-react'
+import { XRPLMPTService } from '@/services/wallet/ripple/mpt/XRPLMPTService'
+import type { Wallet } from 'xrpl'
 
 interface MPTManagerProps {
   wallet: Wallet
   network?: 'MAINNET' | 'TESTNET' | 'DEVNET'
+  projectId: string
+  mptIssuanceId: string
+  onSuccess?: () => void
 }
 
 export const MPTManager: React.FC<MPTManagerProps> = ({
   wallet,
-  network = 'TESTNET'
+  network = 'TESTNET',
+  projectId,
+  mptIssuanceId,
+  onSuccess
 }) => {
   const { toast } = useToast()
-  const { primaryProject } = usePrimaryProject()
-  const [issuances, setIssuances] = useState<MPTIssuance[]>([])
   const [loading, setLoading] = useState(false)
-  const [selectedIssuance, setSelectedIssuance] = useState<string | null>(null)
+  const [showDestroyDialog, setShowDestroyDialog] = useState(false)
+  const [eligibility, setEligibility] = useState<{
+    canDestroy: boolean
+    outstandingAmount: string
+    holdersCount: number
+    obligations: string[]
+  } | null>(null)
   
-  // Clawback dialog state
-  const [clawbackOpen, setClawbackOpen] = useState(false)
-  const [clawbackData, setClawbackData] = useState({
-    holderAddress: '',
-    amount: ''
-  })
+  // Lock/Unlock state
+  const [lockAction, setLockAction] = useState<'lock' | 'unlock'>('lock')
+  const [holderAddress, setHolderAddress] = useState('')
+  const [applyToAllHolders, setApplyToAllHolders] = useState(true)
 
-  useEffect(() => {
-    loadIssuances()
-  }, [wallet])
-
-  const loadIssuances = async () => {
+  const checkEligibility = async () => {
     setLoading(true)
     try {
       const mptService = new XRPLMPTService(network)
-      const client = await xrplClientManager.getClient(network)
-
-      // Get all MPT objects owned by this wallet
-      const response = await client.request({
-        command: 'account_objects',
-        account: wallet.address,
-        type: 'mpt_issuance',
-        ledger_index: 'validated'
+      const result = await mptService.checkDestructionEligibility({
+        mptIssuanceId
       })
-
-      const issuanceDetails = await Promise.all(
-        response.result.account_objects.map(async (obj: any) => {
-          const details = await mptService.getMPTIssuanceDetails(obj.MPTokenIssuanceID)
-          return {
-            issuanceId: obj.MPTokenIssuanceID,
-            ...details
-          }
-        })
-      )
-
-      setIssuances(issuanceDetails)
+      setEligibility(result)
+      setShowDestroyDialog(true)
     } catch (error) {
-      console.error('Failed to load issuances:', error)
+      console.error('Failed to check eligibility:', error)
       toast({
         title: 'Error',
-        description: 'Failed to load MPT issuances',
+        description: error instanceof Error ? error.message : 'Failed to check destruction eligibility',
         variant: 'destructive'
       })
     } finally {
@@ -106,255 +80,263 @@ export const MPTManager: React.FC<MPTManagerProps> = ({
     }
   }
 
-  const handleClawback = async () => {
-    if (!selectedIssuance) return
-
-    if (!primaryProject?.id) {
+  const handleLockUnlock = async () => {
+    if (!applyToAllHolders && !holderAddress) {
       toast({
-        title: 'Error',
-        description: 'No active project selected',
+        title: 'Validation Error',
+        description: 'Please enter a holder address or select "Apply to all holders"',
         variant: 'destructive'
       })
       return
     }
 
+    setLoading(true)
     try {
       const mptService = new XRPLMPTService(network)
 
-      await mptService.clawbackMPT({
-        projectId: primaryProject.id,
+      await mptService.updateMPTIssuance({
+        projectId,
         issuerWallet: wallet,
-        holderAddress: clawbackData.holderAddress,
-        mptIssuanceId: selectedIssuance,
-        amount: clawbackData.amount
+        mptIssuanceId,
+        lock: lockAction === 'lock',
+        unlock: lockAction === 'unlock',
+        holderAddress: applyToAllHolders ? undefined : holderAddress
       })
 
       toast({
-        title: 'Clawback Successful',
-        description: `Clawed back ${clawbackData.amount} tokens from holder`
+        title: `MPT ${lockAction === 'lock' ? 'Locked' : 'Unlocked'} Successfully`,
+        description: applyToAllHolders 
+          ? `All holders have been ${lockAction === 'lock' ? 'locked' : 'unlocked'}`
+          : `Holder ${holderAddress} has been ${lockAction === 'lock' ? 'locked' : 'unlocked'}`
       })
 
-      setClawbackOpen(false)
-      setClawbackData({ holderAddress: '', amount: '' })
-      loadIssuances()
+      onSuccess?.()
+      setHolderAddress('')
     } catch (error) {
-      console.error('Clawback failed:', error)
+      console.error('Failed to update MPT:', error)
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Clawback failed',
+        description: error instanceof Error ? error.message : 'Failed to update MPT',
         variant: 'destructive'
       })
+    } finally {
+      setLoading(false)
     }
   }
 
-  const formatAmount = (amount: string, assetScale: number): string => {
-    const num = parseFloat(amount) / Math.pow(10, assetScale)
-    return num.toLocaleString()
-  }
+  const handleDestroy = async () => {
+    setLoading(true)
+    try {
+      const mptService = new XRPLMPTService(network)
 
-  if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Manage MPT Tokens</CardTitle>
-          <CardDescription>Loading your issued tokens...</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </CardContent>
-      </Card>
-    )
-  }
+      await mptService.destroyMPTIssuance({
+        projectId,
+        issuerWallet: wallet,
+        mptIssuanceId
+      })
 
-  if (issuances.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Manage MPT Tokens</CardTitle>
-          <CardDescription>
-            You haven't issued any MPT tokens yet
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Create your first Multi-Purpose Token to get started.
-          </p>
-        </CardContent>
-      </Card>
-    )
+      toast({
+        title: 'MPT Issuance Destroyed',
+        description: 'The MPT issuance has been permanently destroyed'
+      })
+
+      setShowDestroyDialog(false)
+      onSuccess?.()
+    } catch (error) {
+      console.error('Failed to destroy MPT:', error)
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to destroy MPT issuance',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Lock/Unlock Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Manage MPT Tokens</CardTitle>
+          <CardTitle>Lock/Unlock Tokens</CardTitle>
           <CardDescription>
-            Your issued MPT tokens
+            Control whether tokens can be used in transactions (except sending back to issuer)
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {issuances.map((issuance) => (
-            <Card key={issuance.issuanceId} className="p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 space-y-3">
-                  {/* Header */}
-                  <div className="flex items-center gap-3">
-                    {issuance.metadata.icon && (
-                      <img 
-                        src={issuance.metadata.icon} 
-                        alt={issuance.metadata.ticker}
-                        className="h-10 w-10 rounded-full"
-                      />
-                    )}
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-lg font-semibold">
-                          {issuance.metadata.name}
-                        </h3>
-                        <Badge variant="secondary">
-                          {issuance.metadata.ticker}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {issuance.metadata.desc}
-                      </p>
-                    </div>
-                  </div>
+          <div className="flex items-center space-x-4">
+            <Label className="flex-1">Action</Label>
+            <div className="flex space-x-2">
+              <Button
+                type="button"
+                variant={lockAction === 'lock' ? 'default' : 'outline'}
+                onClick={() => setLockAction('lock')}
+                disabled={loading}
+              >
+                <Lock className="mr-2 h-4 w-4" />
+                Lock
+              </Button>
+              <Button
+                type="button"
+                variant={lockAction === 'unlock' ? 'default' : 'outline'}
+                onClick={() => setLockAction('unlock')}
+                disabled={loading}
+              >
+                <Unlock className="mr-2 h-4 w-4" />
+                Unlock
+              </Button>
+            </div>
+          </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground">Outstanding</p>
-                      <p className="text-lg font-semibold">
-                        {formatAmount(issuance.outstandingAmount, issuance.assetScale)}
-                      </p>
-                    </div>
-                    {issuance.maximumAmount && (
-                      <div>
-                        <p className="text-sm text-muted-foreground">Max Supply</p>
-                        <p className="text-lg font-semibold">
-                          {formatAmount(issuance.maximumAmount, issuance.assetScale)}
-                        </p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm text-muted-foreground">Decimals</p>
-                      <p className="text-lg font-semibold">
-                        {issuance.assetScale}
-                      </p>
-                    </div>
-                  </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Apply to all holders</Label>
+              <p className="text-sm text-muted-foreground">
+                {lockAction === 'lock' ? 'Lock' : 'Unlock'} tokens for all holders
+              </p>
+            </div>
+            <Switch
+              checked={applyToAllHolders}
+              onCheckedChange={setApplyToAllHolders}
+              disabled={loading}
+            />
+          </div>
 
-                  {/* Issuance ID */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>ID: {issuance.issuanceId.slice(0, 8)}...{issuance.issuanceId.slice(-6)}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(issuance.issuanceId)
-                        toast({
-                          title: 'Copied',
-                          description: 'Issuance ID copied to clipboard'
-                        })
-                      }}
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
+          {!applyToAllHolders && (
+            <div className="space-y-2">
+              <Label htmlFor="holderAddress">Holder Address</Label>
+              <Input
+                id="holderAddress"
+                placeholder="rN7n7otQDd6FczFgLdlqtyMVrn3wgC4j8S"
+                value={holderAddress}
+                onChange={(e) => setHolderAddress(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          )}
 
-                {/* Actions */}
-                <div className="flex flex-col gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Users className="h-4 w-4 mr-2" />
-                        View Holders
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Token Holders</DialogTitle>
-                        <DialogDescription>
-                          Accounts holding {issuance.metadata.ticker}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="text-sm text-muted-foreground">
-                        Holder list will be displayed here...
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+          <Button
+            onClick={handleLockUnlock}
+            disabled={loading || (!applyToAllHolders && !holderAddress)}
+            className="w-full"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing...
+              </>
+            ) : (
+              <>
+                {lockAction === 'lock' ? <Lock className="mr-2 h-4 w-4" /> : <Unlock className="mr-2 h-4 w-4" />}
+                {lockAction === 'lock' ? 'Lock Tokens' : 'Unlock Tokens'}
+              </>
+            )}
+          </Button>
+        </CardContent>
+      </Card>
 
-                  {/* Clawback button (only if enabled) */}
-                  {(issuance.flags & 0x00000004) !== 0 && (
-                    <Dialog open={clawbackOpen} onOpenChange={setClawbackOpen}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedIssuance(issuance.issuanceId)}
-                        >
-                          <Ban className="h-4 w-4 mr-2" />
-                          Clawback
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Clawback Tokens</DialogTitle>
-                          <DialogDescription>
-                            Retrieve tokens from a holder's account
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="holder">Holder Address</Label>
-                            <Input
-                              id="holder"
-                              placeholder="rXXXXXXXXXXXXX"
-                              value={clawbackData.holderAddress}
-                              onChange={(e) => setClawbackData(prev => ({
-                                ...prev,
-                                holderAddress: e.target.value
-                              }))}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="amount">Amount</Label>
-                            <Input
-                              id="amount"
-                              type="number"
-                              placeholder="0.00"
-                              value={clawbackData.amount}
-                              onChange={(e) => setClawbackData(prev => ({
-                                ...prev,
-                                amount: e.target.value
-                              }))}
-                            />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button
-                            variant="outline"
-                            onClick={() => setClawbackOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            onClick={handleClawback}
-                          >
-                            Clawback Tokens
-                          </Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
+      {/* Destroy Section */}
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <CardTitle className="text-destructive">Destroy Issuance</CardTitle>
+          <CardDescription>
+            Permanently destroy this MPT issuance. This action cannot be undone.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            disabled={loading}
+            className="w-full"
+            onClick={checkEligibility}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Checking...
+              </>
+            ) : (
+              <>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Destroy MPT Issuance
+              </>
+            )}
+          </Button>
+
+          <AlertDialog open={showDestroyDialog} onOpenChange={setShowDestroyDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2">
+                  {eligibility?.canDestroy ? (
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                  ) : (
+                    <AlertTriangle className="h-5 w-5 text-orange-500" />
                   )}
-                </div>
-              </div>
-            </Card>
-          ))}
+                  {eligibility?.canDestroy ? 'Destroy MPT Issuance?' : 'Cannot Destroy MPT Issuance'}
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3">
+                    {eligibility?.canDestroy ? (
+                      <>
+                        <div>
+                          This will permanently destroy the MPT issuance. This action cannot be undone.
+                        </div>
+                        <div className="text-sm font-semibold text-foreground">
+                          Issuance ID: {mptIssuanceId}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div>
+                          This MPT issuance cannot be destroyed because it has outstanding obligations:
+                        </div>
+                        <div className="bg-orange-50 dark:bg-orange-950/30 p-3 rounded-md space-y-2">
+                          <div className="font-semibold text-orange-900 dark:text-orange-100">
+                            Outstanding Obligations:
+                          </div>
+                          <ul className="list-disc list-inside space-y-1 text-sm text-orange-800 dark:text-orange-200">
+                            {eligibility?.obligations.map((obligation, index) => (
+                              <li key={index}>{obligation}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="text-sm">
+                          <div className="font-semibold mb-1">To destroy this issuance:</div>
+                          <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                            <li>All holders must send their tokens back to the issuer (burning them)</li>
+                            <li>All holders must delete their MPToken entries using MPTokenAuthorize with tfMPTUnauthorize flag</li>
+                            <li>Outstanding amount must be exactly 0</li>
+                          </ol>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={loading}>
+                  {eligibility?.canDestroy ? 'Cancel' : 'Close'}
+                </AlertDialogCancel>
+                {eligibility?.canDestroy && (
+                  <AlertDialogAction
+                    onClick={handleDestroy}
+                    disabled={loading}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Destroying...
+                      </>
+                    ) : (
+                      'Destroy Permanently'
+                    )}
+                  </AlertDialogAction>
+                )}
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>

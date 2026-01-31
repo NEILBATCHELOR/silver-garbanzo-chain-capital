@@ -22,8 +22,8 @@ export * from './wallet'
 // Shared Components (legacy vertical navigation)
 export * from './shared'
 
-// Pages
-export * from './pages'
+// Main Project Wrapper - Consolidated Architecture (matches Solana pattern)
+export { XRPLProjectWrapper } from './XRPLProjectWrapper'
 
 // Multi-Signature Components
 export * from './multisig'

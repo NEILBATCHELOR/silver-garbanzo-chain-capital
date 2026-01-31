@@ -265,6 +265,15 @@ export class ModernSPLTokenDeploymentService {
           if (metadataResult.success) {
             metadataSignature = metadataResult.signature;
             metadataSuccess = true;
+            
+            // Check if metadata already existed (special marker)
+            const alreadyExisted = metadataResult.signature === 'METADATA_ALREADY_EXISTS';
+            
+            if (alreadyExisted) {
+              console.log('ℹ️ Metadata already exists on-chain - using existing metadata');
+              warnings.push('Metadata already existed on-chain - linked to existing metadata account');
+            }
+            
             await logActivity({
               action: 'spl_metadata_created',
               entity_type: 'token',
@@ -272,18 +281,32 @@ export class ModernSPLTokenDeploymentService {
               details: {
                 signature: metadataResult.signature,
                 metadataPDA: metadataResult.metadataPDA,
-                attempts: metadataAttempts
+                attempts: metadataAttempts,
+                alreadyExisted
               }
             });
           } else {
             const errorMsg = metadataResult.error || 'Unknown error';
+            
+            // Check if this is the "account already initialized" error
+            const isAlreadyInitialized = 
+              errorMsg.includes('Expected account to be uninitialized') ||
+              errorMsg.includes('0xc7');
             
             // Check if this is a retryable error (blockhash expiry)
             const isRetryable = errorMsg.includes('block height exceeded') || 
                               errorMsg.includes('blockhash') ||
                               errorMsg.includes('expired');
             
-            if (isRetryable && metadataAttempts < maxMetadataAttempts) {
+            if (isAlreadyInitialized) {
+              // This shouldn't happen now with our fix, but handle it gracefully
+              warnings.push(
+                'Metadata account state mismatch detected - this may indicate a previous partial deployment. ' +
+                'The token was created successfully. Please verify metadata on-chain.'
+              );
+              console.warn('⚠️ Metadata account already initialized:', errorMsg);
+              break; // Don't retry for this error
+            } else if (isRetryable && metadataAttempts < maxMetadataAttempts) {
               console.warn(`Retryable metadata error (attempt ${metadataAttempts}): ${errorMsg}`);
               continue; // Retry
             } else {

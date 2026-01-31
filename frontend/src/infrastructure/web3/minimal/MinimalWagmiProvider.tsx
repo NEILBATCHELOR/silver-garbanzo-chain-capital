@@ -6,7 +6,7 @@
  * but don't need full wallet connection functionality.
  */
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, Suspense } from 'react';
 import { WagmiProvider, createConfig, http } from 'wagmi';
 import { mainnet, sepolia } from 'wagmi/chains';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -18,6 +18,7 @@ const config = createConfig({
     [mainnet.id]: http(),
     [sepolia.id]: http(),
   },
+  ssr: true, // Enable SSR mode to prevent hydration issues
 });
 
 // Create query client for wagmi
@@ -36,9 +37,11 @@ interface MinimalWagmiProviderProps {
 
 export function MinimalWagmiProvider({ children }: MinimalWagmiProviderProps) {
   return (
-    <WagmiProvider config={config}>
+    <WagmiProvider config={config} reconnectOnMount={false}>
       <QueryClientProvider client={queryClient}>
-        {children}
+        <Suspense fallback={null}>
+          {children}
+        </Suspense>
       </QueryClientProvider>
     </WagmiProvider>
   );
